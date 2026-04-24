@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>MailHaven</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; font-size: 13px; width: 380px; min-height: 500px; }
+    #auth-screen { padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .logo { width: 160px; margin-bottom: 16px; }
+    h2 { font-size: 16px; margin-bottom: 4px; }
+    .subtitle { color: #64748b; font-size: 12px; margin-bottom: 20px; }
+    .form-group { width: 100%; margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+    .form-group input { width: 100%; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; outline: none; }
+    .form-group input:focus { border-color: #2563eb; }
+    .form-group.server-url { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+    .btn { width: 100%; padding: 9px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #1d4ed8; }
+    .btn:disabled { opacity: 0.6; }
+    .error { color: #dc2626; font-size: 11px; margin-top: 6px; text-align: center; }
+
+    #main-screen { display: none; flex-direction: column; }
+    .header { padding: 10px 14px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; }
+    .header img { height: 24px; }
+    .user-info { font-size: 11px; color: #64748b; }
+    .logout-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+    .logout-btn:hover { background: #f1f5f9; }
+
+    .toolbar { padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; gap: 6px; }
+    .toolbar select, .toolbar input { flex: 1; padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; outline: none; background: white; }
+    .toolbar button { padding: 5px 10px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; }
+
+    .current-email-bar { padding: 6px 12px; background: #eff6ff; border-bottom: 1px solid #bfdbfe; display: flex; align-items: center; gap: 8px; }
+    .current-email-bar span { flex: 1; font-size: 11px; color: #1d4ed8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .current-email-bar button { padding: 3px 8px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600; }
+
+    .email-list { max-height: 320px; overflow-y: auto; }
+    .email-item { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+    .email-item:hover { background: #f8fafc; }
+    .email-subject { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .email-meta { font-size: 10px; color: #94a3b8; margin-top: 2px; display: flex; gap: 6px; }
+    .spam-badge { background: #fef2f2; color: #dc2626; font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; }
+
+    .detail-view { display: none; padding: 12px; }
+    .back-link { color: #2563eb; font-size: 11px; cursor: pointer; margin-bottom: 10px; display: block; }
+    .detail-subject { font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+    .detail-info { font-size: 11px; color: #64748b; margin-bottom: 10px; display: grid; gap: 3px; }
+    .restore-section { background: #eff6ff; border-radius: 8px; padding: 10px; margin-top: 10px; }
+    .restore-section label { font-size: 11px; font-weight: 600; color: #1d4ed8; display: block; margin-bottom: 4px; }
+    .restore-section input { width: 100%; padding: 5px 8px; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 11px; margin-bottom: 6px; outline: none; }
+    .restore-btn { width: 100%; padding: 7px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .success { background: #f0fdf4; color: #16a34a; padding: 6px 10px; border-radius: 6px; font-size: 11px; margin-top: 6px; text-align: center; }
+    .err { background: #fef2f2; color: #dc2626; padding: 6px 10px; border-radius: 6px; font-size: 11px; margin-top: 6px; text-align: center; }
+    .loading { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; }
+    .empty { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; }
+    .pagination { padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; background: white; border-top: 1px solid #e2e8f0; }
+    .page-btn { padding: 3px 8px; border: 1px solid #e2e8f0; border-radius: 4px; background: white; cursor: pointer; font-size: 10px; }
+    .page-btn:disabled { opacity: 0.4; }
+    .page-info { font-size: 10px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <img class="logo" id="auth-logo" src="" alt="MailHaven">
+  <h2>MailHaven Archive</h2>
+  <p class="subtitle">Accedi per visualizzare l'archivio</p>
+  <div class="form-group server-url">
+    <label>URL Server MailHaven</label>
+    <input type="url" id="server-url" placeholder="http://192.168.1.100:8080">
+  </div>
+  <div class="form-group">
+    <label>Email</label>
+    <input type="email" id="login-email" placeholder="nome@azienda.it">
+  </div>
+  <div class="form-group">
+    <label>Password</label>
+    <input type="password" id="login-password" placeholder="••••••••">
+  </div>
+  <button class="btn" id="login-btn" onclick="doLogin()">Accedi</button>
+  <div class="error" id="login-error"></div>
+</div>
+
+<div id="main-screen">
+  <div class="header">
+    <img id="main-logo" src="" alt="MailHaven">
+    <div>
+      <div class="user-info" id="user-email"></div>
+      <button class="logout-btn" onclick="doLogout()">Disconnetti</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <select id="mailbox-sel" onchange="loadEmails()">
+      <option value="">— Casella —</option>
+    </select>
+    <input type="text" id="search-q" placeholder="Cerca..." onkeydown="if(event.key==='Enter') loadEmails()">
+    <button onclick="loadEmails()">🔍</button>
+  </div>
+
+  <div class="current-email-bar" id="current-bar" style="display:none">
+    <span id="current-subject"></span>
+    <button onclick="findCurrentInArchive()">Trova</button>
+  </div>
+
+  <div id="list-view">
+    <div class="email-list" id="email-list">
+      <div class="empty">Seleziona una casella per iniziare</div>
+    </div>
+    <div class="pagination" id="pagination" style="display:none">
+      <button class="page-btn" id="prev-btn" onclick="changePage(-1)">← Prec</button>
+      <span class="page-info" id="page-info"></span>
+      <button class="page-btn" id="next-btn" onclick="changePage(1)">Succ →</button>
+    </div>
+  </div>
+
+  <div class="detail-view" id="detail-view">
+    <a class="back-link" onclick="showList()">← Torna alla lista</a>
+    <div class="detail-subject" id="det-subject"></div>
+    <div class="detail-info" id="det-info"></div>
+    <div class="restore-section">
+      <label>Ripristina nella casella:</label>
+      <input type="email" id="rest-mailbox" placeholder="casella@azienda.it">
+      <label>Cartella:</label>
+      <input type="text" id="rest-folder" placeholder="INBOX">
+      <button class="restore-btn" onclick="doRestore()">↩ Ripristina email</button>
+      <div id="rest-msg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let token = null, baseUrl = null, currentEmailId = null, currentPage = 1, totalPages = 1;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  const stored = await browser.storage.local.get(['token','baseUrl','user']);
+  if (stored.token && stored.baseUrl) {
+    token = stored.token; baseUrl = stored.baseUrl;
+    setLogo();
+    initMain(stored.user);
+  }
+  // Leggi email corrente
+  try {
+    const tabs = await browser.mailTabs.query({ active: true, currentWindow: true });
+    if (tabs[0]) {
+      const messages = await browser.messageDisplay.getDisplayedMessages(tabs[0].id);
+      if (messages?.length) {
+        const msg = messages[0];
+        document.getElementById('current-subject').textContent = msg.subject || '';
+        document.getElementById('current-bar').style.display = 'flex';
+        window._currentMsg = msg;
+      }
+    }
+  } catch(e) {}
+});
+
+function setLogo() {
+  const url = `${baseUrl}/logo.svg`;
+  document.getElementById('auth-logo').src = url;
+  document.getElementById('main-logo').src = url;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const url = document.getElementById('server-url').value.replace(/\/$/, '');
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  if (!email || !password || !url) { err.textContent = 'Compila tutti i campi'; return; }
+  btn.disabled = true; btn.textContent = 'Accesso...'; err.textContent = '';
+  try {
+    const r = await fetch(`${url}/api/plugin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, client_type: 'thunderbird' })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Errore login');
+    token = data.token; baseUrl = url;
+    await browser.storage.local.set({ token, baseUrl, user: data.user });
+    setLogo();
+    initMain(data.user);
+  } catch(e) {
+    err.textContent = e.message;
+  } finally { btn.disabled = false; btn.textContent = 'Accedi'; }
+}
+
+function doLogout() {
+  browser.storage.local.clear();
+  token = null; baseUrl = null;
+  document.getElementById('main-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function initMain(user) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'flex';
+  document.getElementById('user-email').textContent = user?.email || '';
+  await loadMailboxes();
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(`${baseUrl}/api/plugin${path}`, {
+    ...opts,
+    headers: { 'x-plugin-token': token, 'Content-Type': 'application/json', ...(opts.headers||{}) }
+  });
+  if (r.status === 401) { doLogout(); throw new Error('Sessione scaduta'); }
+  return r;
+}
+
+async function loadMailboxes() {
+  const r = await api('/mailboxes');
+  const data = await r.json();
+  const sel = document.getElementById('mailbox-sel');
+  sel.innerHTML = '<option value="">— Casella —</option>';
+  data.forEach(m => { const o = document.createElement('option'); o.value=m.id; o.textContent=m.email; sel.appendChild(o); });
+  if (data.length === 1) { sel.value = data[0].id; loadEmails(); }
+}
+
+async function loadEmails(page = 1) {
+  currentPage = page;
+  const mb = document.getElementById('mailbox-sel').value;
+  const q = document.getElementById('search-q').value;
+  if (!mb) return;
+  const list = document.getElementById('email-list');
+  list.innerHTML = '<div class="loading">⏳ Caricamento...</div>';
+  document.getElementById('pagination').style.display = 'none';
+  try {
+    const params = new URLSearchParams({ mailbox_id: mb, page, limit: 15 });
+    if (q) params.set('search', q);
+    const r = await api(`/emails?${params}`);
+    const data = await r.json();
+    if (!data.items?.length) { list.innerHTML = '<div class="empty">Nessuna email trovata</div>'; return; }
+    totalPages = Math.ceil(data.total / 15);
+    list.innerHTML = data.items.map(e => `
+      <div class="email-item" onclick="openEmail('${e.id}','${(e.subject||'').replace(/'/g,"\\'")}','${e.sender_email||''}','${e.sent_at||''}','${e.path||'INBOX'}')">
+        <div class="email-subject">${e.subject||'(Nessun oggetto)'}${e.spam_score>=5?'<span class="spam-badge">SPAM</span>':''}</div>
+        <div class="email-meta"><span>${e.sender_email||'-'}</span><span>${fmt(e.sent_at)}</span></div>
+      </div>`).join('');
+    if (totalPages > 1) {
+      document.getElementById('pagination').style.display = 'flex';
+      document.getElementById('page-info').textContent = `${currentPage}/${totalPages} (${data.total})`;
+      document.getElementById('prev-btn').disabled = currentPage <= 1;
+      document.getElementById('next-btn').disabled = currentPage >= totalPages;
+    }
+  } catch(e) { list.innerHTML = `<div class="err">${e.message}</div>`; }
+}
+
+function changePage(d) { loadEmails(currentPage+d); }
+
+function openEmail(id, subject, from, date, folder) {
+  currentEmailId = id;
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('detail-view').style.display = 'block';
+  document.getElementById('det-subject').textContent = subject || '(Nessun oggetto)';
+  document.getElementById('det-info').innerHTML = `<span>Da: ${from}</span><span>Data: ${fmt(date)}</span><span>Cartella: ${folder}</span>`;
+  document.getElementById('rest-folder').value = folder;
+  document.getElementById('rest-mailbox').value = '';
+  document.getElementById('rest-msg').innerHTML = '';
+}
+
+function showList() {
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+}
+
+async function findCurrentInArchive() {
+  if (!window._currentMsg) return;
+  const mb = document.getElementById('mailbox-sel').value;
+  if (!mb) { alert('Seleziona prima una casella'); return; }
+  document.getElementById('search-q').value = window._currentMsg.subject || window._currentMsg.author || '';
+  loadEmails();
+}
+
+async function doRestore() {
+  const mailbox = document.getElementById('rest-mailbox').value;
+  const folder = document.getElementById('rest-folder').value;
+  const msg = document.getElementById('rest-msg');
+  if (!mailbox) { msg.innerHTML = '<div class="err">Inserisci la casella di destinazione</div>'; return; }
+  msg.innerHTML = '<div class="loading">⏳ Ripristino...</div>';
+  try {
+    const r = await api(`/emails/${currentEmailId}/restore`, {
+      method: 'POST', body: JSON.stringify({ target_mailbox: mailbox, target_folder: folder })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    msg.innerHTML = `<div class="success">✅ ${data.message}</div>`;
+  } catch(e) { msg.innerHTML = `<div class="err">❌ ${e.message}</div>`; }
+}
+
+function fmt(d) {
+  if (!d) return '-';
+  return new Date(d).toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+</script>
+</body>
+</html>

@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS mailboxes (
   id SERIAL PRIMARY KEY,
   client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
   email VARCHAR(255) NOT NULL,
-  openarchiver_source_id VARCHAR(255),
   display_name VARCHAR(255),
   imap_host VARCHAR(255),
   imap_port INTEGER DEFAULT 993,
@@ -141,7 +140,7 @@ CREATE TABLE IF NOT EXISTS spam_cache (
   analyzed_at TIMESTAMP DEFAULT NOW()
 );
 
--- Archived emails (native, no OpenArchiver)
+-- Archived emails
 CREATE TABLE IF NOT EXISTS archived_emails (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mailbox_id INTEGER REFERENCES mailboxes(id) ON DELETE CASCADE,
@@ -214,3 +213,15 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Aggiungi colonna is_restored se non esiste (migration)
 ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_restored BOOLEAN DEFAULT false;
+
+-- Plugin tokens (longevi, per Outlook/Thunderbird add-in)
+CREATE TABLE IF NOT EXISTS plugin_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  name VARCHAR(100) NOT NULL DEFAULT 'Plugin Token',
+  client_type VARCHAR(50) DEFAULT 'generic',
+  last_used_at TIMESTAMP,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);

@@ -29,6 +29,19 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/setup', require('./routes/setup'));
+app.use('/api/plugin', require('./routes/plugin'));
+
+// Headers per Office Add-in
+app.use('/plugin', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://*.office.com https://*.officeapps.live.com https://outlook.office.com");
+  next();
+});
+
+// Serve plugin files statically
+const pluginPath = require('path').resolve(__dirname, '../plugins');
+app.use('/plugin', require('express').static(pluginPath));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/emails', require('./routes/emails'));
 app.use('/api/admin', require('./routes/admin'));

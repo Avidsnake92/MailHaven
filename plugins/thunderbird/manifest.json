@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+  "name": "MailHaven Archive",
+  "version": "1.0.0",
+  "description": "Accedi all'archivio email MailHaven e ripristina messaggi eliminati direttamente da Thunderbird.",
+  "author": "K2Tech",
+  "homepage_url": "https://k2tech.it",
+  "icons": {
+    "48": "icons/icon48.png",
+    "96": "icons/icon96.png"
+  },
+  "browser_action": {
+    "default_icon": "icons/icon48.png",
+    "default_title": "MailHaven Archive",
+    "default_popup": "popup/popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "mailvault@k2tech.it",
+      "strict_min_version": "78.0"
+    }
+  },
+  "permissions": [
+    "storage",
+    "messagesRead",
+    "messagesMove"
+  ]
+}

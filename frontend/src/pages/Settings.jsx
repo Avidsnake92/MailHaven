@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
-import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon } from 'lucide-react'
+import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus } from 'lucide-react'
 
 const TABS = [
   { id: 'sync',  label: 'Sincronizzazione', icon: Database },
   { id: 'av',    label: 'Antivirus',         icon: Shield   },
   { id: 'smtp',  label: 'Notifiche Email',   icon: Mail     },
+  { id: 'plugin', label: 'Plugin Client',    icon: Puzzle   },
 ]
 
 export default function Settings() {
@@ -32,6 +33,45 @@ export default function Settings() {
   const [smtpUser, setSmtpUser]       = useState('')
   const [smtpPass, setSmtpPass]       = useState('')
   const [testingSmtp, setTestingSmtp] = useState(false)
+  const [pluginTokens, setPluginTokens] = useState([])
+  const [loadingTokens, setLoadingTokens] = useState(false)
+  const [serverUrl, setServerUrl] = useState('')
+
+  useEffect(() => {
+    if (activeTab === 'plugin') loadPluginTokens()
+  }, [activeTab])
+
+  const loadPluginTokens = async () => {
+    setLoadingTokens(true)
+    try {
+      const res = await api.get('/plugin/tokens')
+      setPluginTokens(res.data || [])
+    } catch {} finally { setLoadingTokens(false) }
+  }
+
+  const generateToken = async (clientType) => {
+    try {
+      const res = await api.post('/plugin/tokens', {
+        name: clientType === 'outlook' ? 'Outlook Add-in' : 'Thunderbird Extension',
+        client_type: clientType,
+        expires_days: 365
+      })
+      setPluginTokens(prev => [res.data, ...prev])
+    } catch (e) { showMsg('Errore generazione token', 'error') }
+  }
+
+  const revokeToken = async (id) => {
+    try {
+      await api.delete(`/plugin/tokens/${id}`)
+      setPluginTokens(prev => prev.filter(t => t.id !== id))
+      showMsg('Token revocato')
+    } catch { showMsg('Errore revoca', 'error') }
+  }
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+    showMsg('Copiato!')
+  }
 
   useEffect(() => {
     api.get('/admin/settings').then(res => {
@@ -219,6 +259,92 @@ export default function Settings() {
                 {updatingAv ? 'Aggiornamento...' : 'Aggiorna database ora'}
               </button>
               <span className="text-xs text-gray-400">Forza aggiornamento immediato del database ClamAV</span>
+            </div>
+          </div>
+        )}
+
+        {/* PLUGIN */}
+        {activeTab === 'plugin' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-1">Plugin per client email</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Installa il plugin nel tuo client email per accedere all'archivio MailHaven direttamente da Outlook o Thunderbird.
+              </p>
+
+              {/* Download plugin */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <a href={`${window.location.origin.replace(':8080',':3001')}/plugin/outlook/manifest.xml`}
+                  download="mailvault-outlook-manifest.xml"
+                  className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
+                  <span className="text-2xl">📧</span>
+                  <span className="text-sm font-semibold text-gray-800">Outlook Add-in</span>
+                  <span className="text-xs text-gray-500">Scarica manifest XML</span>
+                </a>
+                <a href={`${window.location.origin.replace(':8080',':3001')}/plugin/thunderbird/manifest.json`}
+                  download="mailvault-thunderbird.json"
+                  className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
+                  <span className="text-2xl">⛈️</span>
+                  <span className="text-sm font-semibold text-gray-800">Thunderbird</span>
+                  <span className="text-xs text-gray-500">Scarica estensione</span>
+                </a>
+              </div>
+
+              {/* Istruzioni */}
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 mb-6">
+                <p className="font-semibold mb-1">Come installare:</p>
+                <p><b>Outlook:</b> File → Gestisci componenti aggiuntivi → Carica manifest XML</p>
+                <p className="mt-1"><b>Thunderbird:</b> Strumenti → Componenti aggiuntivi → Installa da file</p>
+              </div>
+
+              {/* Token manager */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800">Token di accesso</h3>
+                  <div className="flex gap-2">
+                    <button onClick={() => generateToken('outlook')}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                      <Plus size={12} /> Outlook
+                    </button>
+                    <button onClick={() => generateToken('thunderbird')}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                      <Plus size={12} /> Thunderbird
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mb-3">I token permettono ai plugin di accedere all'archivio senza reinserire la password ogni volta.</p>
+
+                {loadingTokens ? (
+                  <div className="text-center py-4 text-gray-400 text-sm">Caricamento...</div>
+                ) : pluginTokens.length === 0 ? (
+                  <div className="text-center py-6 text-gray-400 text-sm">Nessun token generato. I token vengono creati automaticamente al primo accesso dal plugin.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {pluginTokens.map(t => (
+                      <div key={t.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                              t.client_type === 'outlook' ? 'bg-blue-100 text-blue-700' :
+                              t.client_type === 'thunderbird' ? 'bg-purple-100 text-purple-700' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>{t.client_type}</span>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            Scade: {new Date(t.expires_at).toLocaleDateString('it-IT')}
+                            {t.last_used_at && ` · Usato: ${new Date(t.last_used_at).toLocaleDateString('it-IT')}`}
+                          </div>
+                        </div>
+                        <button onClick={() => revokeToken(t.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
