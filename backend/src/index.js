@@ -1,0 +1,83 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { Pool } = require('pg');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Database
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+});
+
+// Make pool available globally
+app.locals.db = pool;
+
+// Middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.use('/api/setup', require('./routes/setup'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/emails', require('./routes/emails'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/branding', require('./routes/branding'));
+app.use('/api/restore', require('./routes/restore'));
+app.use('/api/backup', require('./routes/backup'));
+app.use('/api/spam', require('./routes/spam'));
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', version: '2.0.0' });
+});
+
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`MailHaven backend running on port ${PORT}`);
+
+  // Carica le chiavi dal DB se non presenti nelle env vars
+  try {
+    const result = await pool.query(
+      "SELECT key, value FROM settings WHERE key IN ('encryption_key', 'jwt_secret')"
+    );
+    for (const row of result.rows) {
+      if (row.key === 'encryption_key' && row.value) {
+        process.env.ENCRYPTION_KEY = row.value;
+        console.log('ENCRYPTION_KEY caricata dal database');
+      }
+      if (row.key === 'jwt_secret' && row.value) {
+        process.env.JWT_SECRET = row.value;
+        console.log('JWT_SECRET caricato dal database');
+      }
+    }
+  } catch (e) {
+    console.error('Errore caricamento chiavi dal DB:', e.message);
+  }
+
+  // Start IMAP scheduler
+  try {
+    const scheduler = require('./services/scheduler');
+    await scheduler.start(pool);
+    console.log('IMAP scheduler started');
+  } catch (e) {
+    console.error('Scheduler error:', e.message);
+  }
+
+  // Start AV scheduler
+  try {
+    const avScheduler = require('./services/avScheduler');
+    await avScheduler.start(pool);
+  } catch (e) {
+    console.error('AV Scheduler error:', e.message);
+  }
+});
