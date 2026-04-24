@@ -224,10 +224,7 @@ export default function Setup() {
 
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mb-4 shadow-lg">
-            <Archive size={28} className="text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">{APP_NAME}</h1>
+          <img src="/logo.svg" alt="MailHaven" className="h-20 w-auto mb-3" />
           <p className="text-sm text-gray-400 mt-1">Configurazione iniziale</p>
         </div>
 
