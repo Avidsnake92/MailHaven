@@ -248,6 +248,57 @@ router.post('/users/:userId/mailboxes', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
+// GET /admin/users?client_id=X — utenti di un cliente
+router.get('/users', async (req, res) => {
+  const db = req.app.locals.db;
+  const { client_id } = req.query;
+  try {
+    let query, params;
+    if (client_id) {
+      query = `SELECT DISTINCT u.id, u.email, u.full_name, u.role 
+               FROM users u
+               LEFT JOIN user_clients uc ON uc.user_id = u.id
+               WHERE (uc.client_id = $1 OR u.role IN ('admin','superadmin'))
+               AND u.active = true
+               ORDER BY u.full_name`;
+      params = [client_id];
+    } else {
+      query = `SELECT id, email, full_name, role FROM users WHERE active=true ORDER BY full_name`;
+      params = [];
+    }
+    const r = await db.query(query, params);
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
+// GET /admin/mailboxes/:id/users — utenti assegnati a una casella
+router.get('/mailboxes/:id/users', async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query(
+      'SELECT user_id FROM user_mailboxes WHERE mailbox_id=$1',
+      [req.params.id]
+    );
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
+// POST /admin/mailboxes/:id/users — assegna utenti a una casella
+router.post('/mailboxes/:id/users', async (req, res) => {
+  const db = req.app.locals.db;
+  const { user_ids } = req.body;
+  try {
+    await db.query('DELETE FROM user_mailboxes WHERE mailbox_id=$1', [req.params.id]);
+    for (const uid of (user_ids || [])) {
+      await db.query(
+        'INSERT INTO user_mailboxes (user_id, mailbox_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [uid, req.params.id]
+      );
+    }
+    res.json({ message: 'Utenti assegnati' });
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
 module.exports = router;
 
 // ---- ACTIVITY LOG ----

@@ -95,7 +95,7 @@ export default function Layout() {
       <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col shrink-0">
         <div className="px-6 py-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <img src="/logo.svg" alt="MailHaven" className="h-9 w-auto" />
+            <img src="/logo.svg" alt="MailHaven" style={{height:"32px", width:"160px", objectFit:"contain"}} />
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -114,7 +114,7 @@ export default function Layout() {
         className={`fixed top-0 left-0 h-full w-72 bg-white border-r border-gray-200 flex flex-col z-50 transform transition-transform duration-300 md:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.svg" alt="MailHaven" className="h-9 w-auto" />
+            <img src="/logo.svg" alt="MailHaven" style={{height:"32px", width:"160px", objectFit:"contain"}} />
           </div>
           <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
             <X size={20} />
@@ -136,7 +136,7 @@ export default function Layout() {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2 flex-1">
-            <img src="/logo.svg" alt="MailHaven" className="h-7 w-auto" />
+            <img src="/logo.svg" alt="MailHaven" style={{height:"32px", width:"160px", objectFit:"contain"}} />
           </div>
           <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500">
             <LogOut size={18} />

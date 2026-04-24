@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, X, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, X, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search } from 'lucide-react'
 
 const tabs = ['Clienti', 'Utenti', 'Caselle Email']
 
@@ -39,37 +39,90 @@ export default function Admin() {
   )
 }
 
+function UserPicker({ users, selected, onChange }) {
+  const [search, setSearch] = useState('')
+  const filtered = users.filter(u =>
+    (u.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase())
+  )
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
+        <Search size={13} className="text-gray-400 shrink-0" />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Cerca utente..."
+          className="flex-1 text-sm bg-transparent outline-none text-gray-700 placeholder-gray-400"
+        />
+        {selected.length > 0 && (
+          <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-full">
+            {selected.length}
+          </span>
+        )}
+      </div>
+      <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
+        {filtered.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-4">Nessun utente trovato</p>
+        )}
+        {filtered.map(u => (
+          <label key={u.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+            <input type="checkbox"
+              checked={selected.includes(u.id)}
+              onChange={e => onChange(prev =>
+                e.target.checked ? [...prev, u.id] : prev.filter(id => id !== u.id)
+              )}
+              className="rounded text-blue-600 shrink-0"
+            />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
+                {(u.full_name || u.email)[0].toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">{u.full_name || u.email}</p>
+                <p className="text-xs text-gray-400 truncate">{u.email} · <span className="capitalize">{u.role}</span></p>
+              </div>
+            </div>
+            {selected.includes(u.id) && <Check size={14} className="text-blue-500 shrink-0" />}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ActionMenu({ onEdit, onDelete }) {
   const [open, setOpen] = useState(false)
-
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button
         onClick={() => setOpen(o => !o)}
-        style={{ padding: '4px', cursor: 'pointer', background: 'none', border: 'none' }}
+        style={{ padding: '6px', cursor: 'pointer', background: 'none', border: 'none', borderRadius: '6px' }}
+        onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+        onMouseLeave={e => e.currentTarget.style.background = 'none'}
       >
         <MoreVertical size={16} color="#9ca3af" />
       </button>
       {open && (
         <>
-          <div
-            onClick={() => setOpen(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 40 }}
-          />
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
           <div style={{
-            position: 'fixed',
-            zIndex: 9999,
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            marginTop: '4px',
+            zIndex: 999,
             background: 'white',
             border: '1px solid #e5e7eb',
             borderRadius: '12px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
             minWidth: '160px',
-            padding: '4px 0',
-            marginTop: '4px',
+            padding: '4px',
           }}>
             <button
               onClick={() => { onEdit(); setOpen(false) }}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#374151' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#374151', borderRadius: '8px' }}
               onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
@@ -77,7 +130,7 @@ function ActionMenu({ onEdit, onDelete }) {
             </button>
             <button
               onClick={() => { onDelete(); setOpen(false) }}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#dc2626' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#dc2626', borderRadius: '8px' }}
               onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
@@ -90,10 +143,11 @@ function ActionMenu({ onEdit, onDelete }) {
   )
 }
 
+
 function Modal({ title, onClose, children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm fade-in p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col" style={{ maxHeight: 'min(90vh, 700px)' }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col" style={{ maxHeight: 'min(92vh, 800px)' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h3 className="font-semibold text-gray-900">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
@@ -361,7 +415,7 @@ function UsersTab({ branding, user }) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">Cliente</label>
-                <select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}
+                <select value={form.client_id} onChange={e => { setForm({ ...form, client_id: e.target.value }); loadClientUsers(e.target.value); setAssignedUsers([]); }}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none">
                   <option value="">— Nessuno —</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -481,11 +535,29 @@ function MailboxesTab({ branding, user }) {
     imap_host: '', imap_port: 993, imap_tls: true,
     imap_user: '', imap_password: '', allow_insecure_tls: false
   })
+  const [clientUsers, setClientUsers] = useState([])
+  const [assignedUsers, setAssignedUsers] = useState([])
 
   const load = async () => {
     setLoading(true)
     const [m, c] = await Promise.all([api.get('/admin/mailboxes'), api.get('/admin/clients')])
     setMailboxes(m.data); setClients(c.data); setLoading(false)
+  }
+
+  const loadClientUsers = async (clientId) => {
+    if (!clientId) { setClientUsers([]); return }
+    try {
+      const res = await api.get(`/admin/users?client_id=${clientId}`)
+      setClientUsers(res.data || [])
+    } catch { setClientUsers([]) }
+  }
+
+  const loadAssignedUsers = async (mailboxId) => {
+    if (!mailboxId) { setAssignedUsers([]); return }
+    try {
+      const res = await api.get(`/admin/mailboxes/${mailboxId}/users`)
+      setAssignedUsers(res.data.map(u => u.user_id) || [])
+    } catch { setAssignedUsers([]) }
   }
 
   useEffect(() => { load() }, [])
@@ -505,6 +577,8 @@ function MailboxesTab({ branding, user }) {
       imap_password: '', allow_insecure_tls: false
     })
     setEditItem(m); setTestResult(null); setSaveError(''); setShowForm(true)
+    loadClientUsers(m.client_id)
+    loadAssignedUsers(m.id)
   }
 
   const handleTest = async () => {
@@ -520,8 +594,18 @@ function MailboxesTab({ branding, user }) {
   const handleSave = async () => {
     setSaving(true); setSaveError('')
     try {
-      if (editItem) await api.put(`/admin/mailboxes/${editItem.id}`, form)
-      else await api.post('/admin/mailboxes', form)
+      let mailboxId
+      if (editItem) {
+        await api.put(`/admin/mailboxes/${editItem.id}`, form)
+        mailboxId = editItem.id
+      } else {
+        const res = await api.post('/admin/mailboxes', form)
+        mailboxId = res.data.id
+      }
+      // Salva utenti assegnati
+      if (mailboxId && assignedUsers.length >= 0) {
+        await api.post(`/admin/mailboxes/${mailboxId}/users`, { user_ids: assignedUsers })
+      }
       setShowForm(false); load()
     } catch (err) {
       setSaveError(err.response?.data?.error || 'Errore salvataggio')
@@ -556,7 +640,7 @@ function MailboxesTab({ branding, user }) {
 
   return (
     <>
-      <div className="bg-white border border-gray-200 rounded-xl">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-visible">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
           <div>
@@ -658,12 +742,27 @@ function MailboxesTab({ branding, user }) {
             {/* Cliente */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Cliente *</label>
-              <select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })}
+              <select value={form.client_id} onChange={e => { setForm({ ...form, client_id: e.target.value }); loadClientUsers(e.target.value); setAssignedUsers([]); }}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none">
                 <option value="">— Seleziona cliente —</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.company ? `(${c.company})` : ''}</option>)}
               </select>
             </div>
+
+            {/* Assegnazione utenti */}
+            {form.client_id && clientUsers.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2">
+                  Utenti con accesso alla casella
+                </label>
+                <UserPicker
+                  users={clientUsers.filter(u => u.role !== 'superadmin')}
+                  selected={assignedUsers}
+                  onChange={setAssignedUsers}
+                />
+                <p className="text-xs text-gray-400 mt-1">Gli admin vedono automaticamente tutte le caselle del cliente</p>
+              </div>
+            )}
 
             {/* IMAP accordion */}
             <ImapAccordion form={form} setForm={setForm} editItem={editItem} />
