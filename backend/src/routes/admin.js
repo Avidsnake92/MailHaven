@@ -216,7 +216,7 @@ router.post('/mailboxes/:id/sync', async (req, res) => {
     setImmediate(async () => {
       try {
         const n = await syncMailbox(r.rows[0], db);
-        console.log(`Sync ${r.rows[0].email}: +${n} emails`);
+        // console.log(`Sync ${r.rows[0].email}: +${n} emails`);
       } catch (e) { console.error('Sync error:', e.message); }
     });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -430,7 +430,7 @@ router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
   const nodemailer = require('nodemailer');
   const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
   try {
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: smtp_host, port: parseInt(smtp_port) || 465,
       secure: smtp_secure === true || smtp_secure === 'true',
       auth: smtp_user ? { user: smtp_user, pass: smtp_pass } : undefined,

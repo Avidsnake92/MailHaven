@@ -150,7 +150,7 @@ export default function Settings() {
   )
 
   const Field = ({ label, children }) => (
-    <div>
+    <div className="w-full">
       <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
       {children}
     </div>
@@ -369,8 +369,9 @@ export default function Settings() {
                 placeholder="notifiche@tuodominio.it" className={inputClass} />
             </Field>
             <Field label="Password">
-              <input type="password" value={smtpPass} onChange={e => setSmtpPass(e.target.value)}
-                placeholder="••••••••" className={inputClass} />
+              <input type="password" id="smtp-pass-field" defaultValue={smtpPass}
+                onChange={e => setSmtpPass(e.target.value)}
+                placeholder="••••••••" className={inputClass} autoComplete="new-password" />
             </Field>
             <Toggle
               checked={smtpSecure}
