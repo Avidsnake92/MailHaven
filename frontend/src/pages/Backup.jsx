@@ -212,6 +212,8 @@ export default function Backup() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [backupRunning, setBackupRunning] = useState(false)
+  const [backupProgress, setBackupProgress] = useState(0)
+  const [backupProgressMsg, setBackupProgressMsg] = useState('')
   const [backupResult, setBackupResult] = useState(null)
   const [backups, setBackups] = useState([])
   const [logs, setLogs] = useState([])
@@ -272,10 +274,29 @@ export default function Backup() {
   }
 
   const handleRunBackup = async () => {
-    setBackupRunning(true); setBackupResult(null)
+    setBackupRunning(true); setBackupResult(null); setBackupProgress(0); setBackupProgressMsg('Avvio...')
     try {
       const res = await api.post('/backup/run', { provider_type: activeTab })
-      setBackupResult({ success: true, key: res.data.key, size: res.data.size })
+      const jobId = res.data.job_id
+
+      // Polling progress
+      await new Promise((resolve) => {
+        const interval = setInterval(async () => {
+          try {
+            const status = await api.get(`/backup/status/${jobId}`)
+            setBackupProgress(status.data.progress || 0)
+            setBackupProgressMsg(status.data.message || '')
+            if (status.data.status === 'completed') {
+              clearInterval(interval)
+              setBackupResult({ success: true, key: status.data.result?.key, size: status.data.result?.size })
+              resolve()
+            } else if (status.data.status === 'error') {
+              clearInterval(interval)
+              throw new Error(status.data.message)
+            }
+          } catch (e) { clearInterval(interval); resolve(); }
+        }, 1000)
+      })
       loadLogs(); loadBackups()
     } catch (err) {
       setBackupResult({ success: false, error: err.response?.data?.error || 'Backup fallito' })

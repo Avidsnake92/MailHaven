@@ -1,9 +1,30 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
+
+// Store job progress in memory
+const backupJobs = new Map();
+
+const createJob = () => {
+  const id = crypto.randomBytes(8).toString('hex');
+  backupJobs.set(id, { status: 'running', progress: 0, message: 'Avvio backup...', started_at: new Date() });
+  return id;
+};
+
+const updateJob = (id, data) => {
+  if (backupJobs.has(id)) backupJobs.set(id, { ...backupJobs.get(id), ...data });
+};
+
+// GET /backup/status/:jobId
+router.get('/status/:jobId', (req, res) => {
+  const job = backupJobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Job non trovato' });
+  res.json(job);
+});
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { encrypt, decrypt } = require('../services/crypto');
 const { runBackup, listBackups, restoreBackup, testConnection } = require('../services/s3backup');
-const { runSftpBackup, listSftpBackups, restoreSftpBackup, testSftpConnection } = require('../services/sftpbackup');
+const { runSftpBackup, runSftpBackupWithProgress, listSftpBackups, restoreSftpBackup, testSftpConnection } = require('../services/sftpbackup');
 const { log } = require('../services/logger');
 const getIp = (req) => { const fwd = req.headers['x-forwarded-for']; return fwd ? fwd.split(',')[0].trim() : req.socket.remoteAddress; };
 
@@ -119,7 +140,7 @@ router.post('/test', async (req, res) => {
   }
 });
 
-// Run backup
+// Run backup (asincrono con progress)
 router.post('/run', async (req, res) => {
   const { provider_type } = req.body;
   const db = req.app.locals.db;
@@ -127,18 +148,36 @@ router.post('/run', async (req, res) => {
     const config = await getConfig(db, provider_type || 's3');
     if (!config) return res.status(400).json({ error: 'Configura prima le credenziali' });
 
-    let result;
-    if (provider_type === 'sftp') {
-      if (!config.sftp_password) return res.status(400).json({ error: 'Password SFTP non configurata' });
-      result = await runSftpBackup({ ...config, host: config.sftp_host, port: config.sftp_port, username: config.sftp_username, password: config.sftp_password, remote_path: config.sftp_remote_path });
-    } else {
-      if (!config.secret_key) return res.status(400).json({ error: 'Secret key non configurata' });
-      result = await runBackup(db, config);
-    }
+    // Crea job e rispondi subito con job_id
+    const jobId = createJob();
+    res.json({ job_id: jobId, message: 'Backup avviato' });
 
-    await db.query('UPDATE backup_config SET last_backup_at = NOW() WHERE id = $1', [config.id]);
-    await db.query('INSERT INTO backup_log (type, status, details) VALUES ($1,$2,$3)', [provider_type || 's3', 'success', JSON.stringify(result)]);
-    await log(db, req.user.id, 'BACKUP_COMPLETED', result, getIp(req));
+    // Esegui backup in background
+    setImmediate(async () => {
+      try {
+        let result;
+        updateJob(jobId, { progress: 5, message: 'Connessione al server...' });
+
+        if (provider_type === 'sftp') {
+          if (!config.sftp_password) throw new Error('Password SFTP non configurata');
+          updateJob(jobId, { progress: 10, message: 'Lettura email dal database...' });
+          result = await runSftpBackupWithProgress(config, (progress, message) => {
+            updateJob(jobId, { progress, message });
+          });
+        } else {
+          if (!config.secret_key) throw new Error('Secret key non configurata');
+          result = await runBackup(db, config);
+        }
+
+        await db.query('UPDATE backup_config SET last_backup_at = NOW() WHERE id = $1', [config.id]);
+        await db.query('INSERT INTO backup_log (type, status, details) VALUES ($1,$2,$3)', [provider_type || 's3', 'success', JSON.stringify(result)]);
+        await log(db, req.user.id, 'BACKUP_COMPLETED', result, getIp(req));
+        updateJob(jobId, { status: 'completed', progress: 100, message: 'Backup completato!', result });
+      } catch (err) {
+        updateJob(jobId, { status: 'error', progress: 0, message: err.message });
+      }
+    });
+    return;
 
     // Apply retention policy
     try {
