@@ -48,7 +48,7 @@ router.get('/storage', async (req, res) => {
       `SELECT
         COUNT(*) as email_count,
         SUM(ae.size_bytes) as original_bytes,
-        SUM(LENGTH(ae.raw)) as compressed_bytes
+        COALESCE(SUM(ae.compressed_size_bytes), SUM(LENGTH(ae.raw))) as compressed_bytes
        FROM archived_emails ae
        ${filter}`,
       params
@@ -59,12 +59,72 @@ router.get('/storage', async (req, res) => {
     const saved = original - compressed;
     const ratio = original > 0 ? Math.round((saved / original) * 100) : 0;
 
+    // Quota IMAP dal server (se mailbox_id specificato)
+    let imap_quota = null;
+    if (mailbox_id) {
+      try {
+        const mbR = await db.query(
+          'SELECT * FROM mailboxes WHERE id=$1 AND active=true', [mailbox_id]
+        );
+        if (mbR.rows[0]) {
+          const mb = mbR.rows[0];
+          const { decrypt } = require('../services/crypto');
+          const Imap = require('imap');
+          imap_quota = await new Promise((resolve) => {
+            const imap = new Imap({
+              user: mb.imap_user || mb.email,
+              password: decrypt(mb.imap_password_encrypted),
+              host: mb.imap_host,
+              port: mb.imap_port || 993,
+              tls: mb.imap_tls !== false,
+              tlsOptions: { rejectUnauthorized: false },
+              connTimeout: 8000,
+              authTimeout: 5000,
+            });
+            imap.once('ready', () => {
+              // Prima prova GETQUOTA
+              imap.getQuotaRoot('INBOX', (err, quotaRoots, quotas) => {
+                if (!err && quotas) {
+                  const root = Object.values(quotas)[0];
+                  if (root?.storage) {
+                    imap.end();
+                    return resolve({
+                      used_bytes: root.storage.usage * 1024,
+                      limit_bytes: root.storage.limit * 1024,
+                      percent: root.storage.limit > 0
+                        ? Math.round((root.storage.usage / root.storage.limit) * 100)
+                        : null
+                    });
+                  }
+                }
+                // Fallback: usa STATUS per contare messaggi e dimensione
+                imap.status('INBOX', (err2, box) => {
+                  imap.end();
+                  if (err2 || !box) return resolve(null);
+                  resolve({
+                    used_bytes: box.messages?.total ? box.messages.total * 50 * 1024 : null,
+                    limit_bytes: null,
+                    percent: null,
+                    messages_total: box.messages?.total || 0,
+                    messages_unseen: box.messages?.unseen || 0,
+                  });
+                });
+              });
+            });
+            imap.once('error', () => resolve(null));
+            imap.connect();
+          });
+        }
+      } catch (e) { imap_quota = null; }
+    }
+
     res.json({
       email_count: parseInt(row.email_count || 0),
       original_bytes: original,
       compressed_bytes: compressed,
       saved_bytes: saved,
       compression_ratio: ratio,
+      imap_quota,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

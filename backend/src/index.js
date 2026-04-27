@@ -13,6 +13,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
+// Trust proxy (nginx reverse proxy)
+app.set('trust proxy', 1);
+
 // Rate limiting globale
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minuti

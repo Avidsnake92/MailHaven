@@ -8,7 +8,7 @@ import { useBranding } from '../context/BrandingContext'
 import {
   Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight,
   CheckSquare, Square, X, Calendar, Inbox, ChevronDown, ChevronRight as ChevronR,
-  Folder, FolderOpen, Users, Building2, Paperclip
+  Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database
 } from 'lucide-react'
 
 // Folder tree component

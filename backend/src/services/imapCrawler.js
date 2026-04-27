@@ -88,7 +88,9 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
               promises.push((async () => {
                 try {
                   const raw = Buffer.concat(rawChunks);
-                  const rawCompressed = encryptBuffer(await gzip(raw));
+                  const rawGzipped = await gzip(raw);
+                  const compressedSize = rawGzipped.length;
+                  const rawCompressed = encryptBuffer(rawGzipped);
                   const parsed = await simpleParser(raw);
 
                   const attachments = (parsed.attachments || []).map(a => ({
@@ -118,8 +120,8 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                     `INSERT INTO archived_emails 
                      (mailbox_id, uid, message_id, subject, sender_name, sender_email,
                       recipients, cc, bcc, sent_at, path, has_attachments, attachments,
-                      raw, body_html, body_text, headers, spam_score, size_bytes, is_restored)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                      raw, body_html, body_text, headers, spam_score, size_bytes, is_restored, compressed_size_bytes)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
                      ON CONFLICT (mailbox_id, uid, path) DO NOTHING`,
                     [
                       mailbox.id, uid,
@@ -140,6 +142,8 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       JSON.stringify(headers),
                       spamScore,
                       raw.length,
+                      isRestored,
+                      compressedSize,
                     ]
                   );
                   processed++;
