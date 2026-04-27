@@ -60,8 +60,7 @@ export default function Login() {
 
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <img src="/logo.svg" alt="MailHaven" className="h-16 w-auto mb-3" />
-            <h1 className="text-2xl font-bold text-gray-900">{branding.app_name || 'MailVault'}</h1>
+            <img src="/logo.svg" alt="MailHaven" className="w-full max-w-[280px] h-auto mb-2" />
             <p className="text-sm text-gray-500 mt-1">
               {requires2fa ? 'Verifica identità' : 'Accedi al tuo archivio email'}
             </p>

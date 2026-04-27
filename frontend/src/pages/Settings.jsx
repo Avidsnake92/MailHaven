@@ -277,14 +277,14 @@ export default function Settings() {
                 <a href={`${window.location.origin.replace(':8080',':3001')}/plugin/outlook/manifest.xml`}
                   download="mailvault-outlook-manifest.xml"
                   className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
-                  <span className="text-2xl">📧</span>
+                  <img src="/outlook-icon.png" className="w-12 h-12 object-contain" alt="Outlook" />
                   <span className="text-sm font-semibold text-gray-800">Outlook Add-in</span>
                   <span className="text-xs text-gray-500">Scarica manifest XML</span>
                 </a>
                 <a href={`${window.location.origin.replace(':8080',':3001')}/plugin/thunderbird/manifest.json`}
                   download="mailvault-thunderbird.json"
                   className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
-                  <span className="text-2xl">⛈️</span>
+                  <img src="/thunderbird-icon.png" className="w-12 h-12 object-contain" alt="Thunderbird" />
                   <span className="text-sm font-semibold text-gray-800">Thunderbird</span>
                   <span className="text-xs text-gray-500">Scarica estensione</span>
                 </a>
