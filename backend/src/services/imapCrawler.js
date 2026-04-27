@@ -3,7 +3,7 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gzip = promisify(zlib.gzip);
 const { simpleParser } = require('mailparser');
-const { decrypt } = require('./crypto');
+const { decrypt, encryptBuffer } = require('./crypto');
 
 const parseRecipients = (addr) => {
   if (!addr) return [];
@@ -18,24 +18,32 @@ const getSpamScore = (headers) => {
   return isNaN(val) ? null : val;
 };
 
-const syncMailbox = (mailbox, db) => new Promise(async (resolve, reject) => {
-  let password;
-  try {
-    password = decrypt(mailbox.imap_password_encrypted);
-  } catch (e) {
-    return reject(new Error('Impossibile decifrare la password IMAP'));
-  }
-
-  const imap = new Imap({
+const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) => {
+  let imapConfig = {
     user: mailbox.imap_user || mailbox.email,
-    password,
     host: mailbox.imap_host,
     port: mailbox.imap_port || 993,
     tls: mailbox.imap_tls !== false,
     tlsOptions: { rejectUnauthorized: false },
     connTimeout: 30000,
     authTimeout: 15000,
-  });
+  };
+
+  try {
+    if (mailbox.oauth_provider === 'microsoft' && mailbox.oauth_access_token) {
+      const { getValidToken } = require('./oauthHelper');
+      const accessToken = await getValidToken(db, mailbox);
+      imapConfig.xoauth2 = Buffer.from(
+        `user=${mailbox.imap_user || mailbox.email}\x01auth=Bearer ${accessToken}\x01\x01`
+      ).toString('base64');
+    } else {
+      imapConfig.password = decrypt(mailbox.imap_password_encrypted);
+    }
+  } catch (e) {
+    return reject(new Error('Impossibile ottenere credenziali IMAP: ' + e.message));
+  }
+
+  const imap = new Imap(imapConfig);
 
   let totalSynced = 0;
 
@@ -80,7 +88,7 @@ const syncMailbox = (mailbox, db) => new Promise(async (resolve, reject) => {
               promises.push((async () => {
                 try {
                   const raw = Buffer.concat(rawChunks);
-                  const rawCompressed = await gzip(raw);
+                  const rawCompressed = encryptBuffer(await gzip(raw));
                   const parsed = await simpleParser(raw);
 
                   const attachments = (parsed.attachments || []).map(a => ({

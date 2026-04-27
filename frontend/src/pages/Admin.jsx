@@ -729,6 +729,27 @@ function MailboxesTab({ branding, user }) {
         <Modal title={editItem ? `Modifica — ${editItem.email}` : 'Nuova casella email'} onClose={() => setShowForm(false)}>
           <div className="space-y-3">
 
+            {/* OAuth Microsoft - solo per nuove caselle */}
+            {!editItem && (
+              <div className="space-y-2">
+                <a href={`/api/oauth/microsoft?token=${localStorage.getItem('mv_token')}${form.client_id ? `&client_id=${form.client_id}` : ''}`}
+                  className="flex items-center justify-center gap-3 w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-sm font-semibold text-gray-700">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="#f25022" d="M1 1h10v10H1z"/>
+                    <path fill="#00a4ef" d="M13 1h10v10H13z"/>
+                    <path fill="#7fba00" d="M1 13h10v10H1z"/>
+                    <path fill="#ffb900" d="M13 13h10v10H13z"/>
+                  </svg>
+                  Accedi con Microsoft 365
+                </a>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-gray-200"/>
+                  <span className="text-xs text-gray-400">oppure configura manualmente</span>
+                  <div className="flex-1 h-px bg-gray-200"/>
+                </div>
+              </div>
+            )}
+
             {/* Email */}
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Indirizzo email *</label>

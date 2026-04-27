@@ -37,3 +37,39 @@ const decrypt = (encrypted) => {
 };
 
 module.exports = { encrypt, decrypt };
+
+// Cifra un Buffer (per email raw)
+const encryptBuffer = (buffer) => {
+  const key = Buffer.from(process.env.ENCRYPTION_KEY, 'utf8').slice(0, 32);
+  const iv = require('crypto').randomBytes(16);
+  const cipher = require('crypto').createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  // Formato: [4 byte lunghezza IV][IV][dati cifrati]
+  const result = Buffer.alloc(4 + iv.length + encrypted.length);
+  result.writeUInt32BE(iv.length, 0);
+  iv.copy(result, 4);
+  encrypted.copy(result, 4 + iv.length);
+  return result;
+};
+
+// Decifra un Buffer
+const decryptBuffer = (buffer) => {
+  if (!buffer) return null;
+  const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  // Controlla magic number gzip - retrocompatibilità email non cifrate
+  if (buf[0] === 0x1f && buf[1] === 0x8b) return buf; // gzip non cifrato
+  // Controlla se è cifrato (inizia con lunghezza IV)
+  try {
+    const ivLen = buf.readUInt32BE(0);
+    if (ivLen !== 16) return buf; // non cifrato
+    const key = Buffer.from(process.env.ENCRYPTION_KEY, 'utf8').slice(0, 32);
+    const iv = buf.slice(4, 4 + ivLen);
+    const encrypted = buf.slice(4 + ivLen);
+    const decipher = require('crypto').createDecipheriv('aes-256-cbc', key, iv);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  } catch (e) {
+    return buf; // ritorna as-is se non riesce a decifrare
+  }
+};
+
+module.exports = { ...module.exports, encryptBuffer, decryptBuffer };

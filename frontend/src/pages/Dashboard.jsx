@@ -75,6 +75,14 @@ function FolderTree({ folders, selectedFolder, onSelect }) {
   return <div className="space-y-0.5">{renderTree(tree)}</div>
 }
 
+const formatBytes = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const { branding } = useBranding()
@@ -98,6 +106,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState([])
   const [search, setSearch] = useState(savedState.search || '')
   const [showRestored, setShowRestored] = useState(false)
+  const [storageStats, setStorageStats] = useState(null)
   const [fromDate, setFromDate] = useState(savedState.fromDate || '')
   const [toDate, setToDate] = useState(savedState.toDate || '')
   const [showFilters, setShowFilters] = useState(false)
@@ -156,6 +165,9 @@ export default function Dashboard() {
   // Load folders when mailbox selected
   useEffect(() => {
     if (selectedMailbox) {
+      api.get('/emails/storage', { params: { mailbox_id: selectedMailbox.id } }).then(r => {
+        setStorageStats(r.data)
+      }).catch(() => {})
       api.get('/emails/folders', { params: { mailbox_id: selectedMailbox.id } }).then(r => {
         setFolders(r.data)
         setSelectedFolder(null)
@@ -325,6 +337,38 @@ export default function Dashboard() {
               selectedFolder={selectedFolder}
               onSelect={(f) => { setSelectedFolder(f); setPage(1); setSelected([]) }}
             />
+          </div>
+        )}
+
+        {/* Storage stats widget */}
+        {storageStats && selectedMailbox && (
+          <div className="p-3 mt-auto border-t border-gray-100">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">Spazio archivio</p>
+            <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500">Email archiviate</span>
+                <span className="text-xs font-semibold text-gray-800">{storageStats.email_count?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500">Dimensione originale</span>
+                <span className="text-xs font-semibold text-gray-800">{formatBytes(storageStats.original_bytes)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-500">Spazio occupato</span>
+                <span className="text-xs font-semibold text-blue-600">{formatBytes(storageStats.compressed_bytes)}</span>
+              </div>
+              {storageStats.compression_ratio > 0 && (
+                <>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                    <div className="bg-blue-500 h-1.5 rounded-full" style={{width: `${100 - storageStats.compression_ratio}%`}} />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-green-600 font-medium">💾 Risparmiato {storageStats.compression_ratio}%</span>
+                    <span className="text-xs text-gray-400">{formatBytes(storageStats.saved_bytes)}</span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

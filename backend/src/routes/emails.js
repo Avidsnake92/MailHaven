@@ -31,6 +31,46 @@ const getUserMailboxIds = async (db, user) => {
   return r.rows.map(r => r.id);
 };
 
+
+// GET /emails/storage — statistiche spazio per casella
+router.get('/storage', async (req, res) => {
+  const db = req.app.locals.db;
+  const { mailbox_id } = req.query;
+  try {
+    const ids = await getUserMailboxIds(db, req.user);
+    let filter = 'WHERE ae.mailbox_id=ANY($1)';
+    let params = [ids];
+    if (mailbox_id) {
+      filter = 'WHERE ae.mailbox_id=$1';
+      params = [mailbox_id];
+    }
+    const r = await db.query(
+      `SELECT
+        COUNT(*) as email_count,
+        SUM(ae.size_bytes) as original_bytes,
+        SUM(LENGTH(ae.raw)) as compressed_bytes
+       FROM archived_emails ae
+       ${filter}`,
+      params
+    );
+    const row = r.rows[0];
+    const original = parseInt(row.original_bytes || 0);
+    const compressed = parseInt(row.compressed_bytes || 0);
+    const saved = original - compressed;
+    const ratio = original > 0 ? Math.round((saved / original) * 100) : 0;
+
+    res.json({
+      email_count: parseInt(row.email_count || 0),
+      original_bytes: original,
+      compressed_bytes: compressed,
+      saved_bytes: saved,
+      compression_ratio: ratio,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /emails — list emails with filters
 router.get('/', async (req, res) => {
   const db = req.app.locals.db;

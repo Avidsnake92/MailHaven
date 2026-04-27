@@ -225,3 +225,10 @@ CREATE TABLE IF NOT EXISTS plugin_tokens (
   expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Colonne OAuth per mailboxes
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_provider VARCHAR(50);
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_access_token TEXT;
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_refresh_token TEXT;
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_expires_at TIMESTAMP;
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_refresh_expires_at TIMESTAMP;

@@ -1,9 +1,34 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const { Pool } = require('pg');
 
 const app = express();
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Gestiamo CSP manualmente
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Rate limiting globale
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuti
+  max: 200,
+  message: { error: 'Troppe richieste, riprova tra poco' },
+  skip: (req) => req.path.startsWith('/plugin/') || req.path === '/health',
+});
+app.use('/api/', limiter);
+
+// Rate limiting specifico per auth (più restrittivo)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Troppi tentativi di accesso, riprova tra 15 minuti' },
+});
+app.use('/api/auth/login', authLimiter);
 const PORT = process.env.PORT || 3001;
 
 // Database
@@ -30,6 +55,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/setup', require('./routes/setup'));
 app.use('/api/plugin', require('./routes/plugin'));
+app.use('/api/oauth', require('./routes/oauth'));
 
 // Headers per Office Add-in
 app.use('/plugin', (req, res, next) => {
