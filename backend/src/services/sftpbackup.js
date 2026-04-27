@@ -130,10 +130,12 @@ const testSftpConnection = (config) => {
     conn.on('ready', () => { conn.end(); resolve(true); });
     conn.on('error', reject);
     conn.connect({
-      host: config.host,
-      port: parseInt(config.port) || 22,
-      username: config.username,
-      password: config.password,
+      host: config.host || config.sftp_host,
+      port: parseInt(config.port || config.sftp_port) || 22,
+      username: config.username || config.sftp_username,
+      password: config.password || config.sftp_password,
+      readyTimeout: 10000,
+      keepaliveInterval: 0,
     });
   });
 };

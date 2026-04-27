@@ -261,7 +261,10 @@ export default function Backup() {
   const handleTest = async () => {
     setTesting(true); setTestResult(null)
     try {
-      const res = await api.post('/backup/test', { provider_type: activeTab })
+      const payload = activeTab === 'sftp'
+        ? { provider_type: 'sftp', host: sftpConfig.sftp_host, port: sftpConfig.sftp_port, username: sftpConfig.sftp_username, password: sftpConfig.sftp_password, remote_path: sftpConfig.sftp_remote_path }
+        : { provider_type: 's3', endpoint: s3Config.endpoint, region: s3Config.region, bucket: s3Config.bucket, access_key: s3Config.access_key, secret_key: s3Config.secret_key, prefix: s3Config.prefix }
+      const res = await api.post('/backup/test', payload)
       setTestResult({ success: true, message: res.data.message })
     } catch (err) {
       setTestResult({ success: false, message: err.response?.data?.error || 'Connessione fallita' })

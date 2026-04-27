@@ -90,15 +90,27 @@ router.post('/config', async (req, res) => {
 
 // Test connection
 router.post('/test', async (req, res) => {
-  const { provider_type } = req.body;
+  const { provider_type, host, port, username, password, remote_path,
+          endpoint, region, bucket, access_key, secret_key, prefix } = req.body;
   const db = req.app.locals.db;
   try {
-    const config = await getConfig(db, provider_type);
-    if (!config) return res.status(400).json({ error: 'Nessuna configurazione trovata' });
-
+    let config;
     if (provider_type === 'sftp') {
+      // Usa i dati dal body se presenti, altrimenti dal DB
+      if (host && username && password) {
+        config = { sftp_host: host, sftp_port: port || 22, sftp_username: username, sftp_password: password, sftp_remote_path: remote_path || '/backups' };
+      } else {
+        config = await getConfig(db, provider_type);
+        if (!config) return res.status(400).json({ error: 'Nessuna configurazione trovata. Salva prima le credenziali.' });
+      }
       await testSftpConnection(config);
     } else {
+      if (access_key && secret_key) {
+        config = { endpoint, region, bucket, access_key, secret_key, prefix };
+      } else {
+        config = await getConfig(db, provider_type);
+        if (!config) return res.status(400).json({ error: 'Nessuna configurazione trovata. Salva prima le credenziali.' });
+      }
       await testConnection(config);
     }
     res.json({ success: true, message: 'Connessione riuscita!' });
@@ -205,7 +217,7 @@ router.post('/restore', async (req, res) => {
     }
 
     await log(db, req.user.id, 'BACKUP_RESTORED', { key, provider_type }, getIp(req));
-    res.json({ success: true, message: 'Restore completato. Riavvia OpenArchiver per reindicizzare.' });
+    res.json({ success: true, message: 'Restore completato con successo.' });
   } catch (err) {
     res.status(500).json({ error: `Restore fallito: ${err.message}` });
   }
