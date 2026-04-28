@@ -312,12 +312,30 @@ export default function Backup() {
     finally { setLoadingBackups(false) }
   }
 
-  const handleRestore = async (key) => {
-    if (!window.confirm(`⚠️ Ripristinare il backup "${key.split('/').pop()}"?\n\nQuesta operazione sovrascriverà i file esistenti.`)) return
-    setRestoring(key); setRestoreResult(null)
+  const handleRestore = async (backup) => {
+    if (!window.confirm(`⚠️ Ripristinare il backup "${backup.filename}"?\n\nLe email già presenti non verranno duplicate.`)) return
+    setRestoring(backup.key); setRestoreResult(null)
     try {
-      const res = await api.post('/backup/restore', { key, provider_type: activeTab })
-      setRestoreResult({ success: true, message: res.data.message })
+      const res = await api.post('/backup/restore', { remote_file: backup.key, provider_type: activeTab })
+      const jobId = res.data.job_id
+
+      // Polling progress
+      await new Promise((resolve) => {
+        const interval = setInterval(async () => {
+          try {
+            const status = await api.get(`/backup/status/${jobId}`)
+            if (status.data.status === 'completed') {
+              clearInterval(interval)
+              setRestoreResult({ success: true, message: status.data.message })
+              resolve()
+            } else if (status.data.status === 'error') {
+              clearInterval(interval)
+              setRestoreResult({ success: false, error: status.data.message })
+              resolve()
+            }
+          } catch (e) { clearInterval(interval); resolve(); }
+        }, 2000)
+      })
     } catch (err) {
       setRestoreResult({ success: false, error: err.response?.data?.error || 'Restore fallito' })
     } finally { setRestoring(null) }
@@ -553,10 +571,10 @@ export default function Backup() {
                   <p className="text-sm font-medium text-gray-900">{backup.key?.split('/').pop() || backup.filename}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{formatDate(backup.date)} · {formatSize(backup.size)}</p>
                 </div>
-                <button onClick={() => handleRestore(backup.key)} disabled={!!restoring}
+                <button onClick={() => handleRestore(backup)} disabled={!!restoring}
                   className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-50">
-                  {restoring === backup.key ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                  Ripristina
+                  {restoring === backup.key ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                  {restoring === backup.key ? 'Ripristino...' : 'Ripristina'}
                 </button>
               </div>
             ))}

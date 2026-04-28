@@ -3,6 +3,8 @@ const archiver = require('archiver');
 const path = require('path');
 const { Pool } = require('pg');
 const { decompress } = require('./compression');
+const { createHeader, readHeader, encryptBuffer, decryptBuffer } = require('./mhbakformat');
+const { PassThrough } = require('stream');
 
 const getDbPool = () => new Pool({
   host: process.env.DB_HOST || 'db',
@@ -12,69 +14,99 @@ const getDbPool = () => new Pool({
   password: process.env.DB_PASSWORD,
 });
 
-const runSftpBackup = (config) => {
+const runSftpBackupWithProgress = (config, onProgress) => {
   return new Promise(async (resolve, reject) => {
     const conn = new Client();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
     const remotePath = config.sftp_remote_path || config.remote_path || '/backups';
-    const remoteFile = path.join(remotePath, `mailvault-${timestamp}.zip`);
+    const remoteFile = path.join(remotePath, `mailvault-${timestamp}.mhbak`);
     const pool = getDbPool();
+    const encKey = process.env.ENCRYPTION_KEY;
 
     conn.on('ready', async () => {
       conn.sftp(async (err, sftp) => {
         if (err) { conn.end(); pool.end(); return reject(err); }
-
         try {
-          const writeStream = sftp.createWriteStream(remoteFile);
-          const archive = archiver('zip', { zlib: { level: 6 } });
+          onProgress && onProgress(5, 'Connessione stabilita...');
 
-          writeStream.on('close', () => {
-            conn.end(); pool.end();
-            resolve({ key: remoteFile, size: archive.pointer() });
-          });
-          writeStream.on('error', (err) => { conn.end(); pool.end(); reject(err); });
-          archive.on('error', (err) => { conn.end(); pool.end(); reject(err); });
+          // Conta totale email
+          const totalR = await pool.query('SELECT COUNT(*) FROM archived_emails WHERE raw IS NOT NULL');
+          const total = parseInt(totalR.rows[0].count);
+          let processed = 0;
 
-          archive.pipe(writeStream);
+          // Crea ZIP in memoria con tutte le email
+          onProgress && onProgress(10, 'Lettura email dal database...');
+          
+          const zipChunks = [];
+          await new Promise((res, rej) => {
+            const archive = archiver('zip', { zlib: { level: 1 } }); // veloce, già cifreremo
+            archive.on('data', chunk => zipChunks.push(chunk));
+            archive.on('end', res);
+            archive.on('error', rej);
 
-          // Esporta email dal DB come EML files
-          const mailboxes = await pool.query('SELECT id, email FROM mailboxes WHERE active=true');
-          for (const mb of mailboxes.rows) {
-            let offset = 0;
-            while (true) {
-              const emails = await pool.query(
-                'SELECT id, subject, path, raw FROM archived_emails WHERE mailbox_id=$1 AND raw IS NOT NULL ORDER BY id LIMIT 50 OFFSET $2',
-                [mb.id, offset]
-              );
-              if (!emails.rows.length) break;
-              for (const email of emails.rows) {
-                try {
-                  const raw = await decompress(email.raw);
-                  const folder = (email.path || 'INBOX').replace(/\./g, '/');
-                  const subject = (email.subject || 'email').replace(/[^a-zA-Z0-9-_ ]/g, '_').substring(0, 40);
-                  const filename = `${mb.email}/${folder}/${subject}_${email.id.substring(0,8)}.eml`;
-                  archive.append(raw, { name: filename });
-                } catch (e) { console.error(`Backup skip email ${email.id}:`, e.message); }
+            (async () => {
+              const mailboxes = await pool.query('SELECT id, email FROM mailboxes WHERE active=true');
+              for (const mb of mailboxes.rows) {
+                let offset = 0;
+                while (true) {
+                  const emails = await pool.query(
+                    'SELECT id, subject, path, raw FROM archived_emails WHERE mailbox_id=$1 AND raw IS NOT NULL ORDER BY id LIMIT 50 OFFSET $2',
+                    [mb.id, offset]
+                  );
+                  if (!emails.rows.length) break;
+                  for (const email of emails.rows) {
+                    try {
+                      const raw = await decompress(email.raw);
+                      const folder = (email.path || 'INBOX').replace(/\./g, '/');
+                      const subject = (email.subject || 'email').replace(/[^a-zA-Z0-9-_ ]/g, '_').substring(0, 40);
+                      archive.append(raw, { name: `${mb.email}/${folder}/${subject}_${email.id.substring(0,8)}.eml` });
+                      processed++;
+                    } catch (e) {}
+                  }
+                  onProgress && onProgress(10 + Math.round((processed / Math.max(total,1)) * 70), `Email ${processed}/${total}...`);
+                  offset += 50;
+                  if (emails.rows.length < 50) break;
+                }
               }
-              offset += 50;
-              if (emails.rows.length < 50) break;
-            }
-          }
 
-          // Aggiungi anche dump metadata JSON
-          const stats = await pool.query(`
-            SELECT m.email, COUNT(ae.id) as count, SUM(ae.size_bytes) as total_bytes
-            FROM mailboxes m LEFT JOIN archived_emails ae ON ae.mailbox_id=m.id
-            GROUP BY m.email`);
-          archive.append(JSON.stringify({
-            exported_at: new Date().toISOString(),
-            mailboxes: stats.rows
-          }, null, 2), { name: 'backup-info.json' });
+              // Metadata
+              const stats = await pool.query(`SELECT m.email, COUNT(ae.id) as count FROM mailboxes m LEFT JOIN archived_emails ae ON ae.mailbox_id=m.id GROUP BY m.email`);
+              archive.append(JSON.stringify({ exported_at: new Date().toISOString(), mailboxes: stats.rows }, null, 2), { name: 'backup-info.json' });
+              archive.finalize();
+            })().catch(rej);
+          });
 
-          archive.finalize();
-        } catch (err) {
-          conn.end(); pool.end(); reject(err);
-        }
+          onProgress && onProgress(82, 'Cifratura backup...');
+
+          // Crea header .mhbak
+          const zipBuffer = Buffer.concat(zipChunks);
+          const metadata = {
+            version: '1.0',
+            created_at: new Date().toISOString(),
+            email_count: total,
+            hostname: require('os').hostname(),
+          };
+          const { header, key, iv } = createHeader(encKey, metadata);
+
+          // Cifra il ZIP
+          const encryptedZip = encryptBuffer(zipBuffer, key, iv);
+
+          onProgress && onProgress(90, 'Upload sul NAS...');
+
+          // Scrivi header + ZIP cifrato
+          const writeStream = sftp.createWriteStream(remoteFile);
+          await new Promise((res, rej) => {
+            writeStream.on('close', res);
+            writeStream.on('error', rej);
+            writeStream.write(header);
+            writeStream.write(encryptedZip);
+            writeStream.end();
+          });
+
+          conn.end(); pool.end();
+          onProgress && onProgress(100, 'Backup completato!');
+          resolve({ key: remoteFile, size: header.length + encryptedZip.length });
+        } catch (err) { conn.end(); pool.end(); reject(err); }
       });
     });
 
@@ -88,6 +120,8 @@ const runSftpBackup = (config) => {
   });
 };
 
+const runSftpBackup = (config) => runSftpBackupWithProgress(config, null);
+
 const listSftpBackups = (config) => {
   return new Promise((resolve, reject) => {
     const conn = new Client();
@@ -99,13 +133,14 @@ const listSftpBackups = (config) => {
           conn.end();
           if (err) return reject(err);
           const backups = list
-            .filter(f => f.filename.startsWith('mailvault-') && f.filename.endsWith('.zip'))
+            .filter(f => f.filename.startsWith('mailvault-') && (f.filename.endsWith('.mhbak') || f.filename.endsWith('.zip')))
             .sort((a, b) => b.attrs.mtime - a.attrs.mtime)
             .map(f => ({
               key: path.join(remotePath, f.filename),
               filename: f.filename,
               size: f.attrs.size,
               date: new Date(f.attrs.mtime * 1000),
+              encrypted: f.filename.endsWith('.mhbak'),
             }));
           resolve(backups);
         });
@@ -127,10 +162,19 @@ const restoreSftpBackup = (config, remoteFile) => {
     conn.on('ready', () => {
       conn.sftp((err, sftp) => {
         if (err) { conn.end(); return reject(err); }
+        const chunks = [];
         const readStream = sftp.createReadStream(remoteFile);
-        let size = 0;
-        readStream.on('data', chunk => size += chunk.length);
-        readStream.on('end', () => { conn.end(); resolve({ restored: true, size }); });
+        readStream.on('data', chunk => chunks.push(chunk));
+        readStream.on('end', () => {
+          conn.end();
+          const buffer = Buffer.concat(chunks);
+          try {
+            const { metadata, headerEnd } = readHeader(buffer, process.env.ENCRYPTION_KEY);
+            resolve({ restored: true, size: buffer.length, metadata });
+          } catch (e) {
+            resolve({ restored: true, size: buffer.length });
+          }
+        });
         readStream.on('error', (err) => { conn.end(); reject(err); });
       });
     });
@@ -155,75 +199,6 @@ const testSftpConnection = (config) => {
       username: config.username || config.sftp_username,
       password: config.password || config.sftp_password,
       readyTimeout: 10000,
-    });
-  });
-};
-
-const runSftpBackupWithProgress = (config, onProgress) => {
-  return new Promise(async (resolve, reject) => {
-    const conn = new Client();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-    const remotePath = config.sftp_remote_path || config.remote_path || '/backups';
-    const remoteFile = path.join(remotePath, `mailvault-${timestamp}.zip`);
-    const pool = getDbPool();
-
-    conn.on('ready', async () => {
-      conn.sftp(async (err, sftp) => {
-        if (err) { conn.end(); pool.end(); return reject(err); }
-        try {
-          const writeStream = sftp.createWriteStream(remoteFile);
-          const archive = archiver('zip', { zlib: { level: 6 } });
-
-          writeStream.on('close', () => { conn.end(); pool.end(); resolve({ key: remoteFile, size: archive.pointer() }); });
-          writeStream.on('error', (err) => { conn.end(); pool.end(); reject(err); });
-          archive.on('error', (err) => { conn.end(); pool.end(); reject(err); });
-          archive.pipe(writeStream);
-
-          // Conta totale email
-          const totalR = await pool.query('SELECT COUNT(*) FROM archived_emails WHERE raw IS NOT NULL');
-          const total = parseInt(totalR.rows[0].count);
-          let processed = 0;
-
-          const mailboxes = await pool.query('SELECT id, email FROM mailboxes WHERE active=true');
-          for (const mb of mailboxes.rows) {
-            onProgress && onProgress(10 + Math.round((processed / Math.max(total, 1)) * 80), `Backup ${mb.email}...`);
-            let offset = 0;
-            while (true) {
-              const emails = await pool.query(
-                'SELECT id, subject, path, raw FROM archived_emails WHERE mailbox_id=$1 AND raw IS NOT NULL ORDER BY id LIMIT 50 OFFSET $2',
-                [mb.id, offset]
-              );
-              if (!emails.rows.length) break;
-              for (const email of emails.rows) {
-                try {
-                  const raw = await decompress(email.raw);
-                  const folder = (email.path || 'INBOX').replace(/\./g, '/');
-                  const subject = (email.subject || 'email').replace(/[^a-zA-Z0-9-_ ]/g, '_').substring(0, 40);
-                  archive.append(raw, { name: `${mb.email}/${folder}/${subject}_${email.id.substring(0,8)}.eml` });
-                  processed++;
-                } catch (e) {}
-              }
-              onProgress && onProgress(10 + Math.round((processed / Math.max(total, 1)) * 80), `Email ${processed}/${total}...`);
-              offset += 50;
-              if (emails.rows.length < 50) break;
-            }
-          }
-
-          // Metadata
-          const stats = await pool.query(`SELECT m.email, COUNT(ae.id) as count FROM mailboxes m LEFT JOIN archived_emails ae ON ae.mailbox_id=m.id GROUP BY m.email`);
-          archive.append(JSON.stringify({ exported_at: new Date().toISOString(), mailboxes: stats.rows }, null, 2), { name: 'backup-info.json' });
-          onProgress && onProgress(95, 'Finalizzazione ZIP...');
-          archive.finalize();
-        } catch (err) { conn.end(); pool.end(); reject(err); }
-      });
-    });
-
-    conn.on('error', (err) => { pool.end(); reject(err); });
-    conn.connect({
-      host: config.sftp_host || config.host,
-      port: parseInt(config.sftp_port || config.port) || 22,
-      username: config.sftp_username || config.username,
-      password: config.sftp_password || config.password,
     });
   });
 };

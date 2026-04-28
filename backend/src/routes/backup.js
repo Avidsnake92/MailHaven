@@ -271,4 +271,143 @@ router.get('/logs', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
+// POST /backup/restore — ripristina backup .mhbak dal NAS
+router.post('/restore', async (req, res) => {
+  const { provider_type, remote_file } = req.body;
+  const db = req.app.locals.db;
+  try {
+    const config = await getConfig(db, provider_type || 'sftp');
+    if (!config) return res.status(400).json({ error: 'Configurazione non trovata' });
+
+    const jobId = createJob();
+    res.json({ job_id: jobId, message: 'Restore avviato' });
+
+    setImmediate(async () => {
+      try {
+        updateJob(jobId, { progress: 5, message: 'Connessione al NAS...' });
+        const { Client } = require('ssh2');
+        const { readHeader, decryptBuffer } = require('../services/mhbakformat');
+        const AdmZip = require('adm-zip');
+        const { simpleParser } = require('mailparser');
+        const { compress } = require('../services/compression');
+        const zlib = require('zlib');
+        const { promisify } = require('util');
+        const gzip = promisify(zlib.gzip);
+
+        // Scarica file dal NAS
+        const fileBuffer = await new Promise((resolve, reject) => {
+          const conn = new Client();
+          conn.on('ready', () => {
+            conn.sftp((err, sftp) => {
+              if (err) { conn.end(); return reject(err); }
+              const chunks = [];
+              const stream = sftp.createReadStream(remote_file);
+              stream.on('data', chunk => chunks.push(chunk));
+              stream.on('end', () => { conn.end(); resolve(Buffer.concat(chunks)); });
+              stream.on('error', (err) => { conn.end(); reject(err); });
+            });
+          });
+          conn.on('error', reject);
+          conn.connect({
+            host: config.sftp_host, port: config.sftp_port || 22,
+            username: config.sftp_username, password: config.sftp_password,
+          });
+        });
+
+        updateJob(jobId, { progress: 20, message: 'Decifratura backup...' });
+
+        // Leggi header e decifra
+        const { metadata, key, iv, headerEnd } = readHeader(fileBuffer, process.env.ENCRYPTION_KEY);
+        const encryptedZip = fileBuffer.slice(headerEnd);
+        const zipBuffer = decryptBuffer(encryptedZip, key, iv);
+
+        updateJob(jobId, { progress: 35, message: `Backup del ${metadata.created_at} - ${metadata.email_count} email` });
+
+        // Estrai ZIP
+        const zip = new AdmZip(zipBuffer);
+        const entries = zip.getEntries().filter(e => e.entryName.endsWith('.eml'));
+        const total = entries.length;
+        let imported = 0, skipped = 0, errors = 0;
+
+        updateJob(jobId, { progress: 40, message: `Importazione ${total} email...` });
+
+        for (const entry of entries) {
+          try {
+            const rawBuffer = entry.getData();
+            const parsed = await simpleParser(rawBuffer);
+            const messageId = parsed.messageId;
+
+            // Controlla se esiste già
+            if (messageId) {
+              const existing = await db.query('SELECT id FROM archived_emails WHERE message_id=$1 LIMIT 1', [messageId]);
+              if (existing.rows.length > 0) { skipped++; imported++; continue; }
+            }
+
+            // Estrai info dal path: email/cartella/subject_id.eml
+            const parts = entry.entryName.split('/');
+            const mailboxEmail = parts[0];
+            const folder = parts.slice(1, -1).join('.');
+
+            // Trova mailbox
+            const mbR = await db.query('SELECT id FROM mailboxes WHERE email=$1 LIMIT 1', [mailboxEmail]);
+            if (!mbR.rows[0]) { errors++; imported++; continue; }
+
+            // Comprimi e cifra
+            const rawCompressed = require('../services/crypto').encryptBuffer
+              ? require('../services/crypto').encryptBuffer(await gzip(rawBuffer))
+              : await gzip(rawBuffer);
+
+            const recipients = parsed.to?.value?.map(a => a.address) || [];
+            const spamScore = parseFloat(parsed.headers?.get('x-spam-score') || 0) || null;
+
+            await db.query(
+              `INSERT INTO archived_emails
+               (mailbox_id, uid, message_id, subject, sender_name, sender_email,
+                recipients, cc, bcc, sent_at, path, has_attachments, attachments,
+                raw, body_html, body_text, headers, spam_score, size_bytes, is_restored, compressed_size_bytes)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+               ON CONFLICT (mailbox_id, uid, path) DO NOTHING`,
+              [
+                mbR.rows[0].id,
+                null,
+                messageId,
+                parsed.subject || '(Nessun oggetto)',
+                parsed.from?.value?.[0]?.name || null,
+                parsed.from?.value?.[0]?.address || null,
+                JSON.stringify(recipients),
+                JSON.stringify(parsed.cc?.value?.map(a => a.address) || []),
+                JSON.stringify(parsed.bcc?.value?.map(a => a.address) || []),
+                parsed.date || new Date(),
+                folder || 'INBOX',
+                (parsed.attachments?.length || 0) > 0,
+                JSON.stringify(parsed.attachments?.map(a => ({ filename: a.filename, contentType: a.contentType, size: a.size })) || []),
+                rawCompressed,
+                parsed.html || null,
+                parsed.text || null,
+                JSON.stringify(Object.fromEntries(parsed.headers || [])),
+                spamScore,
+                rawBuffer.length,
+                true,
+                rawBuffer.length,
+              ]
+            );
+            imported++;
+          } catch (e) { errors++; imported++; }
+
+          if (imported % 20 === 0) {
+            updateJob(jobId, { progress: 40 + Math.round((imported / Math.max(total,1)) * 55), message: `Email ${imported}/${total}...` });
+          }
+        }
+
+        await log(db, req.user?.id, 'BACKUP_RESTORED', { file: remote_file, imported: imported - skipped - errors, skipped, errors }, '');
+        updateJob(jobId, { status: 'completed', progress: 100, message: `Restore completato! ${imported - skipped - errors} importate, ${skipped} già presenti, ${errors} errori` });
+      } catch (err) {
+        updateJob(jobId, { status: 'error', progress: 0, message: err.message });
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
