@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useBranding } from '../context/BrandingContext'
-import { Activity, Search, ChevronLeft, ChevronRight, Loader2, Mail, Download, RotateCcw, LogIn, Key, Trash2, Plus, Edit2, ShieldCheck, ShieldAlert, Shield } from 'lucide-react'
+import { Activity, Search, ChevronLeft, ChevronRight, ChevronDown, Loader2, Mail, Download, RotateCcw, LogIn, Key, Trash2, Plus, Edit2, ShieldCheck, ShieldAlert, Shield } from 'lucide-react'
 
 const ACTION_CONFIG = {
   LOGIN:                  { label: 'Accesso',            color: 'bg-green-100 text-green-700',   icon: LogIn },
@@ -108,35 +108,44 @@ function ActivityLog() {
           ) : logs.map(log => {
             const config = ACTION_CONFIG[log.action] || { label: log.action, color: 'bg-gray-100 text-gray-600', icon: Activity }
             const Icon = config.icon
+            const isSelected = selectedLog?.id === log.id
             return (
-              <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer"
-                onClick={() => setSelectedLog(selectedLog?.id === log.id ? null : log)}>
-                <td className="px-4 py-3 text-xs text-gray-500 mono whitespace-nowrap">{formatDate(log.created_at)}</td>
-                <td className="px-4 py-3">
-                  {log.user_email ? (
-                    <div><p className="text-sm font-medium text-gray-900">{log.user_name || log.user_email}</p><p className="text-xs text-gray-400">{log.user_email}</p></div>
-                  ) : <span className="text-xs text-gray-400 italic">Sistema</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.color}`}>
-                    <Icon size={11} />{config.label}
-                  </span>
-                </td>
-                <td className="hidden sm:table-cell px-4 py-3 text-xs text-gray-500 max-w-xs truncate">
-                  {log.details ? (() => { try { const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details; return Object.values(d).slice(0,2).join(' · ') } catch { return log.details } })() : '—'}
-                </td>
-                <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-400 mono">{log.ip_address || '—'}</td>
-              </tr>
+              <React.Fragment key={log.id}>
+                <tr className={`border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
+                  onClick={() => setSelectedLog(isSelected ? null : log)}>
+                  <td className="px-4 py-3 text-xs text-gray-500 mono whitespace-nowrap">{formatDate(log.created_at)}</td>
+                  <td className="px-4 py-3">
+                    {log.user_email ? (
+                      <div><p className="text-sm font-medium text-gray-900">{log.user_name || log.user_email}</p><p className="text-xs text-gray-400">{log.user_email}</p></div>
+                    ) : <span className="text-xs text-gray-400 italic">Sistema</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.color}`}>
+                      <Icon size={11} />{config.label}
+                    </span>
+                  </td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-xs text-gray-500 max-w-xs truncate">
+                    {log.details ? (() => { try { const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details; return Object.values(d).slice(0,2).join(' · ') } catch { return log.details } })() : ''}
+                  </td>
+                  <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-400 mono">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{log.ip_address || ''}</span>
+                      <ChevronDown size={13} className={`text-gray-400 transition-transform shrink-0 ${isSelected ? 'rotate-180' : ''}`} />
+                    </div>
+                  </td>
+                </tr>
+                {isSelected && (
+                  <tr className="border-b border-blue-100">
+                    <td colSpan={5} className="px-6 py-3 bg-blue-50">
+                      <div className="space-y-1">{formatDetails(log.details)}</div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             )
           })}
         </tbody>
       </table>
-      {selectedLog && (
-        <div className="border-t border-gray-100 px-6 py-4 bg-gray-50">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Dettagli evento</p>
-          <div className="space-y-1">{formatDetails(selectedLog.details)}</div>
-        </div>
-      )}
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
           <p className="text-sm text-gray-500">Pagina {page} di {totalPages}</p>
@@ -251,16 +260,16 @@ function AvLog() {
               return (
                 <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-4 py-3 text-xs text-gray-500 mono whitespace-nowrap">{formatDate(log.created_at)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{log.filename || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{log.filename || ''}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.color}`}>
                       <Icon size={11} />{config.label}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-red-600">
-                    {log.viruses?.length > 0 ? log.viruses.join(', ') : '—'}
+                    {log.viruses?.length > 0 ? log.viruses.join(', ') : ''}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{log.user_name || log.user_email || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{log.user_name || log.user_email || ''}</td>
                 </tr>
               )
             })}
@@ -284,7 +293,7 @@ export default function Logs() {
   const [activeTab, setActiveTab] = useState('activity')
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto min-h-full fade-in">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto h-full overflow-y-auto fade-in">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Log</h1>

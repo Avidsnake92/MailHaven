@@ -116,7 +116,7 @@ export default function EmailView() {
   const recipients = email.recipients?.map(r => r.email || r.name).join(', ') || ''
 
   return (
-    <div className="p-6 max-w-4xl mx-auto min-h-full fade-in">
+    <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6 transition-colors">
         <ArrowLeft size={16} /> Torna all'archivio
       </button>

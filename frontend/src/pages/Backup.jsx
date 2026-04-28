@@ -324,7 +324,7 @@ export default function Backup() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto min-h-full fade-in">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Backup</h1>
         <p className="text-sm text-gray-500 mt-0.5">Backup automatico su S3 o NAS via SFTP</p>
