@@ -116,7 +116,7 @@ export default function EmailView() {
   const recipients = email.recipients?.map(r => r.email || r.name).join(', ') || ''
 
   return (
-    <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
+    <div className="p-6 max-w-4xl mx-auto min-h-full fade-in">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6 transition-colors">
         <ArrowLeft size={16} /> Torna all'archivio
       </button>
@@ -126,14 +126,16 @@ export default function EmailView() {
         <div className="px-6 py-5 border-b border-gray-100">
           <h1 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
             {email.subject || '(Nessun oggetto)'}
-            {email.spamInfo?.isSpam && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-700">
-                <AlertTriangle size={11} /> SPAM {email.spamInfo.score ? `(${email.spamInfo.score})` : ''}
-              </span>
-            )}
-            {email.spamInfo && !email.spamInfo.isSpam && email.spamInfo.score !== null && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">
-                <ShieldCheck size={11} /> Score: {email.spamInfo.score}
+            {email.spamInfo?.score !== null && email.spamInfo?.score !== undefined && (
+              <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${
+                email.spamInfo.score >= 5
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-green-100 text-green-700'
+              }`}>
+                {email.spamInfo.score >= 5
+                  ? <><AlertTriangle size={11} /> SPAM (Score: {email.spamInfo.score})</>
+                  : <><ShieldCheck size={11} /> Score: {email.spamInfo.score}</>
+                }
               </span>
             )}
           </h1>

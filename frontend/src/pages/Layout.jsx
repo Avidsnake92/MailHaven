@@ -95,17 +95,10 @@ export default function Layout() {
       <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col shrink-0">
         <div className="px-6 py-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            {branding.logo_url ? (
-              <img src={branding.logo_url} alt="Logo" className="h-8 w-auto" />
-            ) : (
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: branding.primary_color || '#2563eb' }}>
-                <Archive size={16} className="text-white" />
-              </div>
-            )}
-            <span className="font-bold text-gray-900 text-lg tracking-tight">{branding.app_name || 'MailVault'}</span>
+            <img src="/logo.svg" alt="MailHaven" style={{width:"100%", height:"auto", display:"block", padding:"0 8px"}} />
           </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" style={{overscrollBehavior: 'contain'}}>
           <NavItems />
         </nav>
         <UserBar />
@@ -121,14 +114,7 @@ export default function Layout() {
         className={`fixed top-0 left-0 h-full w-72 bg-white border-r border-gray-200 flex flex-col z-50 transform transition-transform duration-300 md:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {branding.logo_url ? (
-              <img src={branding.logo_url} alt="Logo" className="h-8 w-auto" />
-            ) : (
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: branding.primary_color || '#2563eb' }}>
-                <Archive size={16} className="text-white" />
-              </div>
-            )}
-            <span className="font-bold text-gray-900 text-lg tracking-tight">{branding.app_name || 'MailVault'}</span>
+            <img src="/logo.svg" alt="MailHaven" style={{width:"100%", height:"auto", display:"block", padding:"0 8px"}} />
           </div>
           <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
             <X size={20} />
@@ -150,21 +136,14 @@ export default function Layout() {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2 flex-1">
-            {branding.logo_url ? (
-              <img src={branding.logo_url} alt="Logo" className="h-6 w-auto" />
-            ) : (
-              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: branding.primary_color || '#2563eb' }}>
-                <Archive size={12} className="text-white" />
-              </div>
-            )}
-            <span className="font-bold text-gray-900">{branding.app_name || 'MailVault'}</span>
+            <img src="/logo.svg" alt="MailHaven" style={{width:"100%", height:"auto", display:"block", padding:"0 8px"}} />
           </div>
           <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500">
             <LogOut size={18} />
           </button>
         </header>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

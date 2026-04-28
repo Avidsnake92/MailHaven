@@ -324,7 +324,7 @@ export default function Backup() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto min-h-full fade-in">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Backup</h1>
         <p className="text-sm text-gray-500 mt-0.5">Backup automatico su S3 o NAS via SFTP</p>
@@ -518,6 +518,18 @@ export default function Backup() {
               Carica lista backup
             </button>
           </div>
+          {backupRunning && (
+            <div className="mt-4">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>{backupProgressMsg || 'Elaborazione...'}</span>
+                <span>{backupProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                  style={{width: `${backupProgress}%`}} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

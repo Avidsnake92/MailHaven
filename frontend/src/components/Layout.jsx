@@ -98,7 +98,7 @@ export default function Layout() {
             <img src="/logo.svg" alt="MailHaven" style={{width:"100%", height:"auto", display:"block", padding:"0 8px"}} />
           </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" style={{overscrollBehavior: 'contain'}}>
           <NavItems />
         </nav>
         <UserBar />
