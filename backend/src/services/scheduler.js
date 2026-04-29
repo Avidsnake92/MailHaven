@@ -32,7 +32,14 @@ const syncAllMailboxes = async () => {
           `UPDATE sync_log SET status='completed', emails_synced=$1, finished_at=NOW() WHERE id=$2`,
           [synced, logId]
         );
-        if (synced > 0) console.log(`[Scheduler] ${mailbox.email}: +${synced} emails`);
+        if (synced > 0) {
+          console.log(`[Scheduler] ${mailbox.email}: +${synced} emails`);
+          // Trigger batch AV scan per le nuove email
+          try {
+            const avBatch = require('./avBatchScanner');
+            avBatch.runNow(db);
+          } catch(e) { /* AV batch non disponibile */ }
+        }
       } catch (err) {
         console.error(`[Scheduler] Error syncing ${mailbox.email}:`, err.message);
         await db.query(

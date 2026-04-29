@@ -122,4 +122,15 @@ app.listen(PORT, '0.0.0.0', async () => {
   } catch (e) {
     console.error('AV Scheduler error:', e.message);
   }
+
+  // Start AV Batch Scanner (scansiona nuove email con allegati in background)
+  try {
+    const avBatchScanner = require('./services/avBatchScanner');
+    avBatchScanner.start(pool, 10); // ogni 10 minuti
+    // Rendi disponibile globalmente per il trigger post-sync
+    app.locals.avBatchScanner = avBatchScanner;
+    console.log('AV Batch Scanner started');
+  } catch (e) {
+    console.error('AV Batch Scanner error:', e.message);
+  }
 });

@@ -176,7 +176,7 @@ router.get('/', async (req, res) => {
       db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${where}`, params),
       db.query(
         `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email,
-                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored,
+                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status,
                 ae.mailbox_id, m.email as mailbox_email
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
@@ -196,6 +196,7 @@ router.get('/', async (req, res) => {
       sentAt: e.sent_at,
       path: e.path,
       hasAttachments: e.has_attachments,
+      avStatus: e.av_status,
       isRestored: e.is_restored,
       spamScore: e.spam_score,
       mailboxId: e.mailbox_id,
@@ -364,7 +365,13 @@ router.get('/:id/scan', async (req, res) => {
       results.push({ filename: att.filename, ...result });
     }
     const allClean = results.every(r => r.clean);
-    res.json({ results, allClean, hasAttachments: results.length > 0 });
+    // Salva risultato nel DB
+    const avStatus = results.length === 0 ? 'clean' : (allClean ? 'clean' : 'infected');
+    await db.query(
+      'UPDATE archived_emails SET av_status=$1 WHERE id=$2',
+      [avStatus, req.params.id]
+    );
+    res.json({ results, allClean, avStatus, hasAttachments: results.length > 0 });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

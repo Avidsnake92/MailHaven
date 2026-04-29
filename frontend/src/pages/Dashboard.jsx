@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -8,7 +8,7 @@ import { useBranding } from '../context/BrandingContext'
 import {
   Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight,
   CheckSquare, Square, X, Calendar, Inbox, ChevronDown, ChevronRight as ChevronR,
-  Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database
+  Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database, Shield, ShieldCheck, ShieldAlert, ShieldQuestion
 } from 'lucide-react'
 
 // Folder tree component
@@ -81,6 +81,63 @@ const formatBytes = (bytes) => {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
+
+// Highlight search terms
+const Highlight = ({ text, query }) => {
+  if (!query || !text) return <span>{text || ''}</span>
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
+  return (
+    <span>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase()
+          ? <mark key={i} className="bg-yellow-200 text-yellow-900 rounded px-0.5 not-italic">{part}</mark>
+          : <span key={i}>{part}</span>
+      )}
+    </span>
+  )
+}
+
+// Shield AV component
+const AvShield = ({ emailId, hasAttachments, avStatus: initialStatus }) => {
+  const [status, setStatus] = React.useState(initialStatus || null)
+
+  if (!hasAttachments) return (
+    <span title="Nessun allegato" className="text-gray-200">
+      <Shield size={14} />
+    </span>
+  )
+
+  const scan = async (e) => {
+    e.stopPropagation()
+    setStatus('loading')
+    try {
+      const res = await api.get(`/emails/${emailId}/scan`)
+      setStatus(res.data.allClean ? 'clean' : 'infected')
+    } catch {
+      setStatus('error')
+    }
+  }
+
+  if (status === 'loading') return <Loader2 size={14} className="animate-spin text-blue-400" />
+  if (status === 'clean') return (
+    <span title="Allegati puliti — nessun virus rilevato" className="text-green-500">
+      <ShieldCheck size={14} />
+    </span>
+  )
+  if (status === 'infected') return (
+    <span title="⚠️ Virus rilevato negli allegati!" className="text-red-500 animate-pulse">
+      <ShieldAlert size={14} />
+    </span>
+  )
+  // null o error = non ancora scansionato, mostra bottone
+  return (
+    <button onClick={scan} title="Allegati non scansionati — clicca per scansionare" className="text-gray-300 hover:text-blue-500 transition-colors">
+      <ShieldQuestion size={14} />
+    </button>
+  )
 }
 
 export default function Dashboard() {
@@ -512,6 +569,16 @@ export default function Dashboard() {
                   className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${showFilters || fromDate || toDate ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                   <Filter size={14} /> Filtri {(fromDate || toDate) ? '·' : ''}
                 </button>
+                <button onClick={() => { setFullTextSearch(f => !f); setPage(1) }}
+                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${fullTextSearch ? 'bg-purple-50 border-purple-200 text-purple-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  title="Ricerca nel corpo delle email">
+                  <Search size={14} /> {fullTextSearch ? 'Full-text ON' : 'Full-text'}
+                </button>
+                <button onClick={() => { setShowRestored(r => !r); setPage(1) }}
+                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${showRestored ? 'bg-green-50 border-green-200 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  title="Mostra email ripristinate">
+                  <RotateCcw size={14} /> {showRestored ? 'Restore ON' : 'Restore'}
+                </button>
               </div>
 
               {showFilters && (
@@ -565,7 +632,7 @@ export default function Dashboard() {
                     </td></tr>
                   ) : emails.map(email => (
                     <tr key={email.id}
-                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${selected.includes(email.id) ? 'bg-blue-50' : ''}`}>
+                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${selected.includes(email.id) ? 'bg-blue-50' : email.isRestored ? 'bg-emerald-50 hover:bg-emerald-100' : ''}`}>
                       <td className="px-4 py-3" onClick={e => { e.stopPropagation(); toggleSelect(email.id) }}>
                         {selected.includes(email.id)
                           ? <CheckSquare size={16} className="text-blue-600" />
@@ -577,7 +644,15 @@ export default function Dashboard() {
                       </td>
                       <td className="px-4 py-3 max-w-xs" onClick={() => navigate(`/email/${email.id}`)}>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-gray-900 truncate">{email.subject || '(Nessun oggetto)'}</p>
+                          <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-2">
+                            <Highlight text={email.subject || '(Nessun oggetto)'} query={search} />
+                            {email.isRestored && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">
+                                <RotateCcw size={10} />
+                                Ripristinata
+                              </span>
+                            )}
+                          </p>
                           {email.tags?.includes('spam') && (
                             <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-600">SPAM</span>
                           )}
@@ -590,6 +665,7 @@ export default function Dashboard() {
                       </td>
                       <td className="hidden md:table-cell px-4 py-3" onClick={() => navigate(`/email/${email.id}`)}>
                         <div className="flex items-center gap-1.5">
+                          <AvShield emailId={email.id} hasAttachments={email.hasAttachments} avStatus={email.avStatus} />
                           {email.hasAttachments && (
                             <Paperclip size={13} className="text-gray-400 shrink-0" />
                           )}
