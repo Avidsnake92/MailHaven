@@ -232,3 +232,24 @@ ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_access_token TEXT;
 ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_refresh_token TEXT;
 ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_expires_at TIMESTAMP;
 ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_refresh_expires_at TIMESTAMP;
+
+-- Full-text search
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS search_vector tsvector;
+CREATE INDEX IF NOT EXISTS idx_archived_emails_search ON archived_emails USING GIN(search_vector);
+
+-- Funzione di aggiornamento vettore
+CREATE OR REPLACE FUNCTION update_search_vector() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector :=
+    setweight(to_tsvector('simple', coalesce(NEW.subject, '')), 'A') ||
+    setweight(to_tsvector('simple', coalesce(NEW.sender_email, '')), 'B') ||
+    setweight(to_tsvector('simple', coalesce(NEW.sender_name, '')), 'B') ||
+    setweight(to_tsvector('simple', coalesce(NEW.body_text, '')), 'C');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trig_search_vector ON archived_emails;
+CREATE TRIGGER trig_search_vector
+  BEFORE INSERT OR UPDATE ON archived_emails
+  FOR EACH ROW EXECUTE FUNCTION update_search_vector();

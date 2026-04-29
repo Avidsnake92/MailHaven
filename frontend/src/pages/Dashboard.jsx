@@ -106,6 +106,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState([])
   const [search, setSearch] = useState(savedState.search || '')
   const [showRestored, setShowRestored] = useState(false)
+  const [fullTextSearch, setFullTextSearch] = useState(false)
   const [storageStats, setStorageStats] = useState(null)
   const [fromDate, setFromDate] = useState(savedState.fromDate || '')
   const [toDate, setToDate] = useState(savedState.toDate || '')
@@ -186,6 +187,7 @@ export default function Dashboard() {
       if (toDate) params.to_date = toDate
       if (selectedFolder) params.path = selectedFolder
       if (showRestored) params.show_restored = 'true'
+      if (fullTextSearch && search) params.fulltext = 'true'
       const res = await api.get('/emails', { params })
       setEmails(res.data.items || [])
       setTotal(res.data.total || 0)
@@ -195,7 +197,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
-  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, showRestored])
+  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, showRestored, fullTextSearch])
 
   useEffect(() => { fetchEmails() }, [fetchEmails])
 
@@ -266,7 +268,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-full min-h-0 relative">
+    <div className="flex min-h-screen md:h-screen relative">
       {/* Mobile sidebar toggle */}
       <button onClick={() => setSidebarOpen(!sidebarOpen)}
         className="md:hidden fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full shadow-lg text-white flex items-center justify-center"

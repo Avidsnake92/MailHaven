@@ -143,8 +143,10 @@ export default function Layout() {
           </button>
         </header>
 
-        <main className="flex-1 overflow-hidden">
-          <Outlet />
+        <main className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

@@ -134,7 +134,7 @@ router.get('/storage', async (req, res) => {
 // GET /emails — list emails with filters
 router.get('/', async (req, res) => {
   const db = req.app.locals.db;
-  const { mailbox_id, path, search, date_from, date_to, page = 1, limit = 50, show_restored = 'false' } = req.query;
+  const { mailbox_id, path, search, date_from, date_to, page = 1, limit = 50, show_restored = 'false', fulltext = 'false' } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
