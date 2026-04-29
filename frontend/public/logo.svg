@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="Livello_1" data-name="Livello 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 841.89 595.28">
+<svg id="Livello_1" data-name="Livello 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="75 192 670 205">
   <defs>
     <style>
       .cls-1 {
@@ -15,31 +15,31 @@
       }
 
       .cls-7 {
-        letter-spacing: -.05em;
-      }
-
-      .cls-8 {
-        letter-spacing: -.03em;
-      }
-
-      .cls-9 {
         font-size: 91.35px;
       }
 
-      .cls-9, .cls-10 {
+      .cls-7, .cls-8 {
         font-family: Interstate-Regular, Interstate;
       }
 
-      .cls-9, .cls-5 {
+      .cls-7, .cls-5 {
         fill: #0b132b;
       }
 
-      .cls-10 {
-        font-size: 27.66px;
+      .cls-9 {
+        letter-spacing: -.02em;
       }
 
-      .cls-10, .cls-4 {
+      .cls-8 {
+        font-size: 31.85px;
+      }
+
+      .cls-8, .cls-4 {
         fill: #1d4ed8;
+      }
+
+      .cls-10 {
+        letter-spacing: 0em;
       }
 
       .cls-11 {
@@ -47,14 +47,6 @@
       }
 
       .cls-12 {
-        letter-spacing: -.03em;
-      }
-
-      .cls-13 {
-        letter-spacing: 0em;
-      }
-
-      .cls-14 {
         letter-spacing: -.01em;
       }
 
@@ -65,37 +57,45 @@
       .cls-6 {
         fill: #161a32;
       }
+
+      .cls-13 {
+        letter-spacing: -.06em;
+      }
+
+      .cls-14 {
+        letter-spacing: 0em;
+      }
     </style>
-    <linearGradient id="Sfumatura_senza_nome_10" data-name="Sfumatura senza nome 10" x1="82.37" y1="275.87" x2="154.71" y2="275.87" gradientUnits="userSpaceOnUse">
+    <linearGradient id="Sfumatura_senza_nome_10" data-name="Sfumatura senza nome 10" x1="82.37" y1="267.62" x2="154.71" y2="267.62" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#fff"/>
       <stop offset="1" stop-color="#60a5fa"/>
     </linearGradient>
-    <linearGradient id="Sfumatura_senza_nome_6" data-name="Sfumatura senza nome 6" x1="195.19" y1="275.87" x2="267.53" y2="275.87" gradientUnits="userSpaceOnUse">
+    <linearGradient id="Sfumatura_senza_nome_6" data-name="Sfumatura senza nome 6" x1="195.19" y1="267.62" x2="267.53" y2="267.62" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#60a5fa"/>
       <stop offset="1" stop-color="#fff"/>
     </linearGradient>
   </defs>
   <g>
     <g>
-      <path class="cls-3" d="M154.71,271.33v6.65l-72.35,12.87c1.22-10.64,4.23-20.73,8.72-29.96l63.63,10.45Z"/>
-      <path class="cls-1" d="M267.53,290.85l-72.34-12.87v-6.65l63.62-10.45c4.5,9.24,7.51,19.32,8.72,29.96Z"/>
+      <path class="cls-3" d="M154.71,263.08v6.65l-72.35,12.87c1.22-10.64,4.23-20.73,8.72-29.96l63.63,10.45Z"/>
+      <path class="cls-1" d="M267.53,282.6l-72.34-12.87v-6.65l63.62-10.45c4.5,9.24,7.51,19.32,8.72,29.96Z"/>
     </g>
     <g>
-      <path class="cls-6" d="M89.46,379.54s.7.1,1.82,0h-1.82Z"/>
-      <path class="cls-5" d="M252.05,372.7c-5.84-6.98-16.96-5.56-16.96-5.56,0,0-3.7-9.83-19.81-10.55,0,0-1.23-8.59-17.76-12l-6.47-51.72c1.85-.12,3.32-1.64,3.32-3.52,0-3.11-2.47-5.63-5.56-5.72v-13.45h2.32c.53,0,.95-.43.95-.95v-2.51c0-1.92-1.55-3.47-3.47-3.47h-.32c-.98-4.31-5.21-7.7-10.58-8.47v-.95c.53-.56.85-1.32.85-2.15,0-1.74-1.41-3.16-3.16-3.16s-3.16,1.41-3.16,3.16c0,.83.33,1.58.86,2.15v.95c-5.37.77-9.6,4.16-10.58,8.47h-.32c-1.92,0-3.47,1.55-3.47,3.47v2.51c0,.53.43.95.95.95h2.32v13.45c-3.08.09-5.56,2.61-5.56,5.72,0,1.88,1.47,3.4,3.32,3.52l-6.54,52.29c-11.27,2.04-25,7.27-28.15,20.6,0,0-18.67-.05-23.66,7.36-3.41,5.06-7.75,6.2-10.15,6.41h173.17s-6.56.14-12.4-6.84Z"/>
+      <path class="cls-6" d="M89.46,371.29s.7.1,1.82,0h-1.82Z"/>
+      <path class="cls-5" d="M252.05,364.45c-5.84-6.98-16.96-5.56-16.96-5.56,0,0-3.7-9.83-19.81-10.55,0,0-1.23-8.59-17.76-12l-6.47-51.72c1.85-.12,3.32-1.64,3.32-3.52,0-3.11-2.47-5.63-5.56-5.72v-13.45h2.32c.53,0,.95-.43.95-.95v-2.51c0-1.92-1.55-3.47-3.47-3.47h-.32c-.98-4.31-5.21-7.7-10.58-8.47v-.95c.53-.56.85-1.32.85-2.15,0-1.74-1.41-3.16-3.16-3.16s-3.16,1.41-3.16,3.16c0,.83.33,1.58.86,2.15v.95c-5.37.77-9.6,4.16-10.58,8.47h-.32c-1.92,0-3.47,1.55-3.47,3.47v2.51c0,.53.43.95.95.95h2.32v13.45c-3.08.09-5.56,2.61-5.56,5.72,0,1.88,1.47,3.4,3.32,3.52l-6.54,52.29c-11.27,2.04-25,7.27-28.15,20.6,0,0-18.67-.05-23.66,7.36-3.41,5.06-7.75,6.2-10.15,6.41h173.17s-6.56.14-12.4-6.84Z"/>
     </g>
-    <path class="cls-4" d="M249.83,357.08c11.51-15.5,18.32-34.7,18.32-55.49,0-51.47-41.73-93.19-93.2-93.19s-93.19,41.73-93.19,93.19c0,20.84,6.85,40.1,18.41,55.62-14.25-16.96-22.83-38.85-22.83-62.73,0-53.91,43.7-97.61,97.61-97.61s97.62,43.7,97.62,97.61c0,23.83-8.55,45.67-22.73,62.61Z"/>
-    <path class="cls-4" d="M87.34,379.59s-.43,4.56,47.17,4.13l-16.38,1.85s-1.01,4.85,42.74,4.28l-19.81,2.99s7.68,4.99,33.48,5.27,35.49-5.56,35.49-5.56l-19.95-2.71s35.77,2.14,45.89-4.28l-20.09-1.71s39.33-.57,50.02-4.28H87.34Z"/>
+    <path class="cls-4" d="M249.83,348.83c11.51-15.5,18.32-34.7,18.32-55.49,0-51.47-41.73-93.19-93.2-93.19s-93.19,41.73-93.19,93.19c0,20.84,6.85,40.1,18.41,55.62-14.25-16.96-22.83-38.85-22.83-62.73,0-53.91,43.7-97.61,97.61-97.61s97.62,43.7,97.62,97.61c0,23.83-8.55,45.67-22.73,62.61Z"/>
+    <path class="cls-4" d="M87.34,371.34s-.43,4.56,47.17,4.13l-16.38,1.85s-1.01,4.85,42.74,4.28l-19.81,2.99s7.68,4.99,33.48,5.27c25.8.29,35.49-5.56,35.49-5.56l-19.95-2.71s35.77,2.14,45.89-4.28l-20.09-1.71s39.33-.57,50.02-4.28H87.34Z"/>
     <g>
-      <rect class="cls-2" x="166.19" y="271.38" width="18.53" height="10.55"/>
+      <rect class="cls-2" x="166.19" y="263.13" width="18.53" height="10.55"/>
       <g>
-        <polygon class="cls-2" points="189.77 312.91 189.77 329.85 161.12 329.85 161.12 311.39 161.16 312.74 175.58 324.25 189.77 312.91"/>
-        <polygon class="cls-2" points="189.26 310.75 188.46 311.39 175.58 321.68 162.69 311.39 161.89 310.75 189.26 310.75"/>
+        <polyline class="cls-2" points="161.16 304.49 175.58 316 189.77 304.66 189.77 321.6 161.12 321.6"/>
+        <polygon class="cls-2" points="189.26 302.5 188.46 303.14 175.58 313.43 162.69 303.14 161.89 302.5 189.26 302.5"/>
       </g>
     </g>
   </g>
   <g>
-    <text class="cls-9" transform="translate(313.56 309.18)"><tspan x="0" y="0">MailH</tspan><tspan class="cls-14" x="237.69" y="0">a</tspan><tspan class="cls-11" x="286.56" y="0">v</tspan><tspan class="cls-13" x="334.42" y="0">en</tspan></text>
-    <text class="cls-10" transform="translate(318.97 348.7)"><tspan x="0" y="0">GUIDING </tspan><tspan class="cls-7" x="119.43" y="0">Y</tspan><tspan x="136.97" y="0">OUR MAIL </tspan><tspan class="cls-8" x="276.98" y="0">T</tspan><tspan x="292.86" y="0">O </tspan><tspan class="cls-12" x="320" y="0">S</tspan><tspan x="336.62" y="0">AFETY</tspan></text>
+    <text class="cls-7" transform="translate(313.56 300.93)"><tspan x="0" y="0">MailH</tspan><tspan class="cls-12" x="237.69" y="0">a</tspan><tspan class="cls-9" x="286.56" y="0">v</tspan><tspan class="cls-10" x="334.42" y="0">en</tspan></text>
+    <text class="cls-8" transform="translate(318.97 341.73)"><tspan x="0" y="0">KEEPING </tspan><tspan class="cls-13" x="144.19" y="0">Y</tspan><tspan x="164.38" y="0">OUR EMAIL </tspan><tspan class="cls-11" x="345.16" y="0">S</tspan><tspan class="cls-14" x="364.3" y="0">AFE</tspan></text>
   </g>
 </svg>
