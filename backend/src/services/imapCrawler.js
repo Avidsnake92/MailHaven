@@ -36,6 +36,13 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
       imapConfig.xoauth2 = Buffer.from(
         `user=${mailbox.imap_user || mailbox.email}\x01auth=Bearer ${accessToken}\x01\x01`
       ).toString('base64');
+    } else if (mailbox.oauth_provider === 'google' && mailbox.oauth_access_token) {
+      const { getValidGoogleToken } = require('../routes/oauth');
+      const accessToken = await getValidGoogleToken(db, mailbox);
+      // Google usa XOAUTH2 identico a Microsoft
+      imapConfig.xoauth2 = Buffer.from(
+        `user=${mailbox.imap_user || mailbox.email}\x01auth=Bearer ${accessToken}\x01\x01`
+      ).toString('base64');
     } else {
       imapConfig.password = decrypt(mailbox.imap_password_encrypted);
     }

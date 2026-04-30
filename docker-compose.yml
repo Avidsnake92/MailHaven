@@ -18,6 +18,12 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
+      - MICROSOFT_TENANT_ID=${MICROSOFT_TENANT_ID}
+      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - OAUTH_REDIRECT_BASE_URL=https://mailhaven.k2tech.it
     ports:
       - "3001:3001"
     networks:
@@ -26,6 +32,7 @@ services:
       - mailvault-db
     volumes:
       - clamav-db:/var/lib/clamav
+      - ./backend/src:/app/src
 
   mailvault-frontend:
     build: ./frontend

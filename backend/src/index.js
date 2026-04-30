@@ -78,6 +78,7 @@ app.use('/api/branding', require('./routes/branding'));
 app.use('/api/restore', require('./routes/restore'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/spam', require('./routes/spam'));
+app.use('/api/oauth', require('./routes/oauth'));
 
 // Health check
 app.get('/api/health', (req, res) => {
