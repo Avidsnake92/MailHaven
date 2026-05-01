@@ -41,9 +41,6 @@ export default function Layout() {
       <NavLink to="/antispam" className={navClass}>
         <ShieldAlert size={17} /> Antispam
       </NavLink>
-      <NavLink to="/security" className={navClass}>
-        <ShieldCheck size={17} /> Sicurezza
-      </NavLink>
       {(user?.role === 'admin' || user?.role === 'superadmin') && (
         <NavLink to="/admin" className={navClass}>
           <Users size={17} /> Gestione

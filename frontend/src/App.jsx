@@ -50,7 +50,6 @@ function AppContent() {
         <Route index element={<Dashboard />} />
         <Route path="email/:id" element={<EmailView />} />
         <Route path="antispam" element={<Antispam />} />
-        <Route path="security" element={<Security />} />
         <Route path="backup" element={
           <ProtectedRoute roles={['superadmin']}>
             <Backup />

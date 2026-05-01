@@ -2,9 +2,229 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, X, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X } from 'lucide-react'
 
-const tabs = ['Clienti', 'Utenti', 'Caselle Email']
+const tabs = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
+
+// ═══════════════════════════════════════════════════════════════
+// StorageTab — embedded in Gestione
+// ═══════════════════════════════════════════════════════════════
+function StorageTab({ user }) {
+  const [clients, setClients] = React.useState([])
+  const [mailboxes, setMailboxes] = React.useState([])
+  const [vm, setVm] = React.useState(null)
+  const [loading, setLoading] = React.useState(true)
+  const [activeTab, setActiveTab] = React.useState('mailboxes')
+
+  const role = user?.role || 'user'
+  const isSuperadmin = role === 'superadmin'
+  const isAdmin = role === 'admin' || isSuperadmin
+
+  const formatBytes = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const BarUsage = ({ percent, color = 'blue' }) => {
+    const colors = { blue: 'bg-blue-500', green: 'bg-green-500', amber: 'bg-amber-500', red: 'bg-red-500' }
+    const p = Math.min(percent || 0, 100)
+    const c = p > 85 ? 'red' : p > 65 ? 'amber' : color
+    return (
+      <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+        <div className={`h-1.5 rounded-full transition-all ${colors[c]}`} style={{ width: `${p}%` }} />
+      </div>
+    )
+  }
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      if (isAdmin) {
+        const [cRes, mRes] = await Promise.all([
+          api.get('/admin/storage/clients'),
+          api.get('/admin/storage/mailboxes'),
+        ])
+        setClients(cRes.data)
+        setMailboxes(mRes.data)
+      } else {
+        const mRes = await api.get('/admin/storage/mailboxes')
+        setMailboxes(mRes.data)
+      }
+      if (isSuperadmin) {
+        const vRes = await api.get('/admin/storage/vm')
+        setVm(vRes.data)
+      }
+    } catch (e) { console.error(e) }
+    setLoading(false)
+  }
+
+  React.useEffect(() => { load() }, [])
+
+  const totalOriginal = mailboxes.reduce((s, m) => s + m.originalBytes, 0)
+  const totalCompressed = mailboxes.reduce((s, m) => s + m.compressedBytes, 0)
+  const totalEmails = mailboxes.reduce((s, m) => s + m.emailCount, 0)
+  const totalSaved = totalOriginal - totalCompressed
+  const totalRatio = totalOriginal > 0 ? Math.round((totalSaved / totalOriginal) * 100) : 0
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-48">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Cards sommario */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Email totali', value: totalEmails.toLocaleString() },
+          { label: 'Spazio originale', value: formatBytes(totalOriginal) },
+          { label: 'Spazio compresso', value: formatBytes(totalCompressed), sub: `${totalRatio}% risparmiato` },
+          { label: 'Spazio risparmiato', value: formatBytes(totalSaved) },
+        ].map(c => (
+          <div key={c.label} className="bg-white rounded-xl border border-gray-100 p-4">
+            <p className="text-xs text-gray-500">{c.label}</p>
+            <p className="text-lg font-semibold text-gray-900">{c.value}</p>
+            {c.sub && <p className="text-xs text-green-600">{c.sub}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* VM Stats — solo superadmin */}
+      {isSuperadmin && vm && (
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="font-semibold text-gray-900 text-sm">Spazio VM</h3>
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-medium">Superadmin</span>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-600">Disco sistema</span>
+                <span className="font-medium">{formatBytes(vm.vm.usedBytes)} / {formatBytes(vm.vm.totalBytes)}</span>
+              </div>
+              <BarUsage percent={vm.vm.usedPercent} />
+              <p className="text-xs text-gray-400 mt-1">{formatBytes(vm.vm.availBytes)} disponibili</p>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-600">Volumi Docker</span>
+                <span className="font-medium">{formatBytes(vm.docker.dbBytes)}</span>
+              </div>
+              <BarUsage percent={vm.vm.totalBytes > 0 ? Math.round((vm.docker.dbBytes / vm.vm.totalBytes) * 100) : 0} color="purple" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs per/cliente e per/casella */}
+      {isAdmin && (
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+          <button onClick={() => setActiveTab('clients')}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors font-medium ${activeTab === 'clients' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            Per cliente
+          </button>
+          <button onClick={() => setActiveTab('mailboxes')}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors font-medium ${activeTab === 'mailboxes' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            Per casella
+          </button>
+        </div>
+      )}
+
+      {/* Tabella clienti */}
+      {isAdmin && activeTab === 'clients' && (
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Caselle</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Originale</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Compresso</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">Risparmio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map(c => (
+                <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.name}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">{c.mailboxCount}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">{c.emailCount.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">{formatBytes(c.originalBytes)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium">{formatBytes(c.compressedBytes)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-green-600">{c.compressionRatio}%</span>
+                      <BarUsage percent={c.compressionRatio} color="green" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-50 border-t-2 border-gray-200">
+                <td className="px-4 py-3 text-sm font-bold">Totale</td>
+                <td className="px-4 py-3 text-right text-sm font-bold">{clients.reduce((s,c)=>s+c.mailboxCount,0)}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold">{totalEmails.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold">{formatBytes(totalOriginal)}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">{formatBytes(totalCompressed)}</td>
+                <td className="px-4 py-3 text-sm font-bold text-green-600">{totalRatio}%</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* Tabella caselle */}
+      {activeTab === 'mailboxes' && (
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Casella</th>
+                {isAdmin && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Cliente</th>}
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Originale</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Compresso</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">Risparmio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mailboxes.map(m => (
+                <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-gray-900">{m.email}</p>
+                    {m.displayName && m.displayName !== m.email && <p className="text-xs text-gray-400">{m.displayName}</p>}
+                  </td>
+                  {isAdmin && <td className="px-4 py-3 text-sm text-gray-500">{m.clientName}</td>}
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">{m.emailCount.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">{formatBytes(m.originalBytes)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium">{formatBytes(m.compressedBytes)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-green-600">{m.compressionRatio}%</span>
+                      <BarUsage percent={m.compressionRatio} color="green" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button onClick={load} className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600">
+          <RefreshCw size={14} /> Aggiorna
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function Admin() {
   const [tab, setTab] = useState(0)
@@ -35,6 +255,7 @@ export default function Admin() {
       {tab === 0 && <ClientsTab branding={branding} user={user} />}
       {tab === 1 && <UsersTab branding={branding} user={user} />}
       {tab === 2 && <MailboxesTab branding={branding} user={user} />}
+      {tab === 3 && <StorageTab user={user} />}
     </div>
   )
 }

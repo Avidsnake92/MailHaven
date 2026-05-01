@@ -5,11 +5,7 @@ import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import {
-  Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight,
-  CheckSquare, Square, X, Calendar, Inbox, ChevronDown, ChevronRight as ChevronR,
-  Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database, Shield, ShieldCheck, ShieldAlert, ShieldQuestion
-} from 'lucide-react'
+import { Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight, CheckSquare, Square, Calendar, Inbox, ChevronDown, Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database, Shield, ShieldCheck, ShieldAlert, HelpCircle, Trash2 } from 'lucide-react'
 
 // Folder tree component
 function FolderTree({ folders, selectedFolder, onSelect }) {
@@ -59,7 +55,7 @@ function FolderTree({ folders, selectedFolder, onSelect }) {
                 onClick={() => setExpanded(e => ({ ...e, [data._path]: !e[data._path] }))}
                 className="px-2 py-1.5"
               >
-                {isExpanded ? <ChevronDown size={12} /> : <ChevronR size={12} />}
+                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               </button>
             )}
           </div>
@@ -135,7 +131,7 @@ const AvShield = ({ emailId, hasAttachments, avStatus: initialStatus }) => {
   // null o error = non ancora scansionato, mostra bottone
   return (
     <button onClick={scan} title="Allegati non scansionati — clicca per scansionare" className="text-gray-300 hover:text-blue-500 transition-colors">
-      <ShieldQuestion size={14} />
+      <HelpCircle size={14} />
     </button>
   )
 }
@@ -163,6 +159,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState([])
   const [search, setSearch] = useState(savedState.search || '')
   const [showRestored, setShowRestored] = useState(false)
+  const [showDeleted, setShowDeleted] = useState(false)
   const [fullTextSearch, setFullTextSearch] = useState(false)
   const [storageStats, setStorageStats] = useState(null)
   const [fromDate, setFromDate] = useState(savedState.fromDate || '')
@@ -244,6 +241,7 @@ export default function Dashboard() {
       if (toDate) params.to_date = toDate
       if (selectedFolder) params.path = selectedFolder
       if (showRestored) params.show_restored = 'true'
+      if (showDeleted) params.show_deleted = 'true'
       if (fullTextSearch && search) params.fulltext = 'true'
       const res = await api.get('/emails', { params })
       setEmails(res.data.items || [])
@@ -254,7 +252,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
-  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, showRestored, fullTextSearch])
+  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, showRestored, showDeleted, fullTextSearch])
 
   useEffect(() => { fetchEmails() }, [fetchEmails])
 
@@ -579,6 +577,11 @@ export default function Dashboard() {
                   title="Mostra email ripristinate">
                   <RotateCcw size={14} /> {showRestored ? 'Restore ON' : 'Restore'}
                 </button>
+                <button onClick={() => { setShowDeleted(d => !d); setPage(1) }}
+                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${showDeleted ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  title="Mostra email eliminate dalla casella">
+                  <Trash2 size={14} /> {showDeleted ? 'Eliminate ON' : 'Eliminate'}
+                </button>
               </div>
 
               {showFilters && (
@@ -632,7 +635,7 @@ export default function Dashboard() {
                     </td></tr>
                   ) : emails.map(email => (
                     <tr key={email.id}
-                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${selected.includes(email.id) ? 'bg-blue-50' : email.isRestored ? 'bg-emerald-50 hover:bg-emerald-100' : ''}`}>
+                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${selected.includes(email.id) ? 'bg-blue-50' : email.isRestored ? 'bg-emerald-50 hover:bg-emerald-100' : email.isDeleted ? 'bg-amber-50 hover:bg-amber-100' : ''}`}>
                       <td className="px-4 py-3" onClick={e => { e.stopPropagation(); toggleSelect(email.id) }}>
                         {selected.includes(email.id)
                           ? <CheckSquare size={16} className="text-blue-600" />
@@ -650,6 +653,12 @@ export default function Dashboard() {
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">
                                 <RotateCcw size={10} />
                                 Ripristinata
+                              </span>
+                            )}
+                            {email.isDeleted && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+                                <Trash2 size={10} />
+                                Eliminata
                               </span>
                             )}
                           </p>

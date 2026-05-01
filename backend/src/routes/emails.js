@@ -134,7 +134,7 @@ router.get('/storage', async (req, res) => {
 // GET /emails — list emails with filters
 router.get('/', async (req, res) => {
   const db = req.app.locals.db;
-  const { mailbox_id, path, search, date_from, date_to, page = 1, limit = 50, show_restored = 'false', fulltext = 'false' } = req.query;
+  const { mailbox_id, path, search, date_from, date_to, page = 1, limit = 50, show_restored = 'false', show_deleted = 'false', fulltext = 'false' } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
@@ -156,6 +156,10 @@ router.get('/', async (req, res) => {
     if (show_restored !== 'true') {
       conditions.push('ae.is_restored = false');
     }
+    // Nascondi email eliminate di default
+    if (show_deleted !== 'true') {
+      conditions.push('(ae.is_deleted = false OR ae.is_deleted IS NULL)');
+    }
 
     if (path && path !== 'ALL') {
       conditions.push(`ae.path = $${p++}`);
@@ -176,7 +180,7 @@ router.get('/', async (req, res) => {
       db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${where}`, params),
       db.query(
         `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email,
-                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status,
+                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status, ae.is_deleted,
                 ae.mailbox_id, m.email as mailbox_email
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
@@ -198,6 +202,7 @@ router.get('/', async (req, res) => {
       hasAttachments: e.has_attachments,
       avStatus: e.av_status,
       isRestored: e.is_restored,
+      isDeleted: e.is_deleted,
       spamScore: e.spam_score,
       mailboxId: e.mailbox_id,
       userEmail: e.mailbox_email,

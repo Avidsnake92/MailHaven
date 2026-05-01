@@ -4,7 +4,7 @@ import { useBranding } from '../context/BrandingContext'
 import { 
   HardDrive, Upload, Download, CheckCircle, XCircle, 
   Loader2, RefreshCw, Clock, Database, Server,
-  ChevronDown, ChevronUp, Eye, EyeOff, Trash2
+  ChevronDown, ChevronUp, Eye, EyeOff, Trash2, RotateCcw
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -342,7 +342,7 @@ export default function Backup() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto fade-in">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Backup</h1>
         <p className="text-sm text-gray-500 mt-0.5">Backup automatico su S3 o NAS via SFTP</p>

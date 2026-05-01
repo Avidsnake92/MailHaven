@@ -307,6 +307,136 @@ router.post('/mailboxes/:id/users', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
+
+// ═══════════════════════════════════════════════════════════════
+// STORAGE STATS
+// ═══════════════════════════════════════════════════════════════
+
+// GET /admin/storage/clients — spazio per ogni cliente (superadmin e admin)
+router.get('/storage/clients', async (req, res) => {
+  const db = req.app.locals.db;
+  const { user } = req;
+  try {
+    let query, params = [];
+    if (user.role === 'superadmin') {
+      // Tutti i clienti
+      query = `
+        SELECT c.id, c.name, c.company,
+          COUNT(DISTINCT m.id) as mailbox_count,
+          COUNT(ae.id) as email_count,
+          COALESCE(SUM(ae.size_bytes), 0) as original_bytes,
+          COALESCE(SUM(ae.compressed_size_bytes), 0) as compressed_bytes
+        FROM clients c
+        LEFT JOIN mailboxes m ON m.client_id = c.id
+        LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
+        GROUP BY c.id, c.name, c.company
+        ORDER BY compressed_bytes DESC`;
+    } else {
+      // Solo il cliente dell'admin
+      query = `
+        SELECT c.id, c.name, c.company,
+          COUNT(DISTINCT m.id) as mailbox_count,
+          COUNT(ae.id) as email_count,
+          COALESCE(SUM(ae.size_bytes), 0) as original_bytes,
+          COALESCE(SUM(ae.compressed_size_bytes), 0) as compressed_bytes
+        FROM clients c
+        LEFT JOIN mailboxes m ON m.client_id = c.id
+        LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
+        WHERE c.id = $1
+        GROUP BY c.id, c.name, c.company`;
+      params = [user.client_id];
+    }
+    const r = await db.query(query, params);
+    res.json(r.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      company: row.company,
+      mailboxCount: parseInt(row.mailbox_count || 0),
+      emailCount: parseInt(row.email_count || 0),
+      originalBytes: parseInt(row.original_bytes || 0),
+      compressedBytes: parseInt(row.compressed_bytes || 0),
+      savedBytes: parseInt(row.original_bytes || 0) - parseInt(row.compressed_bytes || 0),
+      compressionRatio: parseInt(row.original_bytes) > 0
+        ? Math.round(((parseInt(row.original_bytes) - parseInt(row.compressed_bytes)) / parseInt(row.original_bytes)) * 100)
+        : 0,
+    })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/storage/mailboxes — spazio per casella (con filtro client_id)
+router.get('/storage/mailboxes', async (req, res) => {
+  const db = req.app.locals.db;
+  const { user } = req;
+  const { client_id } = req.query;
+  try {
+    let filter = '';
+    let params = [];
+    if (user.role === 'superadmin') {
+      if (client_id) { filter = 'WHERE m.client_id=$1'; params = [client_id]; }
+    } else if (user.role === 'admin') {
+      filter = 'WHERE m.client_id=$1'; params = [user.client_id];
+    } else {
+      // Utente normale — solo le sue caselle
+      filter = `WHERE m.id IN (SELECT mailbox_id FROM user_mailboxes WHERE user_id=$1)`;
+      params = [user.id];
+    }
+
+    const r = await db.query(`
+      SELECT m.id, m.email, m.display_name, c.name as client_name,
+        COUNT(ae.id) as email_count,
+        COALESCE(SUM(ae.size_bytes), 0) as original_bytes,
+        COALESCE(SUM(ae.compressed_size_bytes), 0) as compressed_bytes
+      FROM mailboxes m
+      LEFT JOIN clients c ON c.id = m.client_id
+      LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
+      ${filter}
+      GROUP BY m.id, m.email, m.display_name, c.name
+      ORDER BY compressed_bytes DESC
+    `, params);
+
+    res.json(r.rows.map(row => ({
+      id: row.id,
+      email: row.email,
+      displayName: row.display_name,
+      clientName: row.client_name,
+      emailCount: parseInt(row.email_count || 0),
+      originalBytes: parseInt(row.original_bytes || 0),
+      compressedBytes: parseInt(row.compressed_bytes || 0),
+      savedBytes: parseInt(row.original_bytes || 0) - parseInt(row.compressed_bytes || 0),
+      compressionRatio: parseInt(row.original_bytes) > 0
+        ? Math.round(((parseInt(row.original_bytes) - parseInt(row.compressed_bytes)) / parseInt(row.original_bytes)) * 100)
+        : 0,
+    })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET /admin/storage/vm — spazio VM (solo superadmin)
+router.get('/storage/vm', requireRole('superadmin'), async (req, res) => {
+  const { execSync } = require('child_process');
+  try {
+    // Spazio disco VM
+    const dfOut = execSync("df -B1 / 2>/dev/null || df /").toString();
+    const lines = dfOut.trim().split('\n');
+    const parts = lines[1].trim().split(/\s+/);
+    const totalBytes = parseInt(parts[1]);
+    const usedBytes = parseInt(parts[2]);
+    const availBytes = parseInt(parts[3]);
+    const usedPercent = parseInt(parts[4]);
+
+    // Spazio usato da Docker (cartella dati PostgreSQL)
+    let dbBytes = 0;
+    try {
+      const duOut = execSync("du -sb /var/lib/docker/volumes/ 2>/dev/null || echo '0'").toString();
+      dbBytes = parseInt(duOut.split('\t')[0]) || 0;
+    } catch(e) {}
+
+    res.json({
+      vm: { totalBytes, usedBytes, availBytes, usedPercent },
+      docker: { dbBytes },
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;
 
 // ---- ACTIVITY LOG ----

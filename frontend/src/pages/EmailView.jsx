@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useBranding } from '../context/BrandingContext'
-import { ArrowLeft, Download, RotateCcw, Paperclip, Loader2, Mail, User, Calendar, Inbox, FileDown, ChevronDown, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, Download, RotateCcw, Paperclip, Loader2, Mail, User, Calendar, Inbox, ChevronDown, AlertTriangle, ShieldCheck, ShieldAlert, X } from "lucide-react"
 
 export default function EmailView() {
   const { id } = useParams()
@@ -183,7 +183,7 @@ export default function EmailView() {
               <div className="absolute top-9 left-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-44 py-1">
                 <button onClick={() => { setShowExportMenu(false); handleExportEml() }}
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                  <FileDown size={13} className="text-blue-500" /> EML
+                  <Download size={13} className="text-blue-500" /> EML
                 </button>
                 <button onClick={() => { setShowExportMenu(false); handleExportMbox() }}
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">

@@ -72,6 +72,30 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
         if (err || !uids.length) return res(0);
 
         const newUids = uids.filter(uid => !existingUids.has(uid));
+
+        // Rileva email eliminate: erano in archivio ma non più sul server
+        const serverUids = new Set(uids);
+        const deletedUids = [...existingUids].filter(uid => !serverUids.has(uid));
+        const restoredUids = [...serverUids].filter(uid => existingUids.has(uid));
+        const updatePromises = [];
+        if (deletedUids.length > 0) {
+          updatePromises.push(
+            db.query(
+              'UPDATE archived_emails SET is_deleted=true WHERE mailbox_id=$1 AND path=$2 AND uid=ANY($3) AND is_deleted=false',
+              [mailbox.id, folderPath, deletedUids]
+            ).then(() => console.log('[Crawler] ' + mailbox.email + ' ' + folderPath + ': ' + deletedUids.length + ' email eliminate'))
+          );
+        }
+        if (restoredUids.length > 0) {
+          updatePromises.push(
+            db.query(
+              'UPDATE archived_emails SET is_deleted=false WHERE mailbox_id=$1 AND path=$2 AND uid=ANY($3) AND is_deleted=true',
+              [mailbox.id, folderPath, restoredUids]
+            )
+          );
+        }
+        Promise.all(updatePromises).catch(e => console.error('[Crawler] Delete detection error:', e.message));
+
         if (!newUids.length) return res(0);
 
         // Fetch in batches of 50

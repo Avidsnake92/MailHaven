@@ -125,11 +125,11 @@ function ActivityLog() {
                     </span>
                   </td>
                   <td className="hidden sm:table-cell px-4 py-3 text-xs text-gray-500 max-w-xs truncate">
-                    {log.details ? (() => { try { const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details; return Object.values(d).slice(0,2).join(' · ') } catch { return log.details } })() : ''}
+                    {log.details ? (() => { try { const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details; return Object.values(d).slice(0,2).join(' · ') } catch { return log.details } })() : '—'}
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-400 mono">
                     <div className="flex items-center justify-between gap-2">
-                      <span>{log.ip_address || ''}</span>
+                      <span>{log.ip_address || '—'}</span>
                       <ChevronDown size={13} className={`text-gray-400 transition-transform shrink-0 ${isSelected ? 'rotate-180' : ''}`} />
                     </div>
                   </td>
@@ -260,16 +260,16 @@ function AvLog() {
               return (
                 <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-4 py-3 text-xs text-gray-500 mono whitespace-nowrap">{formatDate(log.created_at)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{log.filename || ''}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{log.filename || '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.color}`}>
                       <Icon size={11} />{config.label}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-red-600">
-                    {log.viruses?.length > 0 ? log.viruses.join(', ') : ''}
+                    {log.viruses?.length > 0 ? log.viruses.join(', ') : '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{log.user_name || log.user_email || ''}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{log.user_name || log.user_email || '—'}</td>
                 </tr>
               )
             })}
