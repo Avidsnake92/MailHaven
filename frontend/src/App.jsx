@@ -12,6 +12,7 @@ import Logs from './pages/Logs'
 import Security from './pages/Security'
 import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
+import Restarting from './pages/Restarting'
 import Layout from './components/Layout'
 import api from './services/api'
 
@@ -24,7 +25,6 @@ const ProtectedRoute = ({ children, roles }) => {
 
 function AppContent() {
   const [setupDone, setSetupDone] = useState(null)
-
   useEffect(() => {
     api.get('/setup/status')
       .then(res => setSetupDone(res.data.setup_done))
@@ -42,6 +42,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/restarting" element={<Restarting />} />
       <Route path="/" element={
         <ProtectedRoute>
           <Layout />
