@@ -1,23 +1,26 @@
 #!/bin/bash
-# MailHaven ‚Äî Build e deploy frontend
+# MailHaven ó Build e deploy frontend
 # Uso: bash build-frontend.sh
 
 echo "=== MailHaven Frontend Build ==="
 
-# Copia sorgenti nel container backend
-echo "Copio sorgenti..."
-docker exec mailvault-backend rm -rf /tmp/frontend
-docker cp /root/mailvault/frontend mailvault-backend:/tmp/frontend
-
-# Build
+# Build con container Node dedicato
 echo "Compilo..."
-docker exec mailvault-backend sh -c "cd /tmp/frontend && npm install --include=dev && npm run build"
+docker run --rm \
+  -v ~/mailvault/frontend:/app \
+  -w /app \
+  node:20-alpine \
+  sh -c "npm install && npm run build 2>&1"
 
-# Deploy
+# Verifica che la build sia andata a buon fine
+if [ ! -d ~/mailvault/frontend/dist ]; then
+  echo "ERRORE: build fallita, dist non trovato!"
+  exit 1
+fi
+
+# Deploy in nginx
 echo "Deploy..."
-docker cp mailvault-backend:/tmp/frontend/dist /root/frontend-dist-tmp
-docker cp /root/frontend-dist-tmp/. mailvault-frontend:/usr/share/nginx/html/
-rm -rf /root/frontend-dist-tmp
+docker cp ~/mailvault/frontend/dist/. mailvault-frontend:/usr/share/nginx/html/
 
 echo "=== Build completato! ==="
-echo "Ricarica il browser in modalit√† incognito."
+echo "Ricarica il browser in modalit‡ incognito."

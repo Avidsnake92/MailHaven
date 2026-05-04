@@ -33,6 +33,10 @@ services:
     volumes:
       - clamav-db:/var/lib/clamav
       - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+      - ./data:/app/data
+      - ./version.json:/app/version.json
+      - ./CHANGELOG.md:/app/CHANGELOG.md	
 
   mailvault-frontend:
     build: ./frontend
