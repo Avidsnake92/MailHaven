@@ -59,6 +59,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/setup', require('./routes/setup'));
 app.use('/api/plugin', require('./routes/plugin'));
 app.use('/api/oauth', require('./routes/oauth'));
+app.use('/api/update', require('./routes/update'));
 
 // Headers per Office Add-in
 app.use('/plugin', (req, res, next) => {
@@ -79,6 +80,7 @@ app.use('/api/restore', require('./routes/restore'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/spam', require('./routes/spam'));
 app.use('/api/oauth', require('./routes/oauth'));
+app.use('/api/update', require('./routes/update'));
 
 // Health check
 app.get('/api/health', (req, res) => {

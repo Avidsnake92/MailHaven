@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react"
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, Lock, Unlock } from 'lucide-react'
@@ -9,6 +9,7 @@ const TABS = [
   { id: 'smtp',  label: 'Notifiche Email',   icon: Mail     },
   { id: 'plugin', label: 'Plugin Client',    icon: Puzzle   },
   { id: 'security', label: 'Sicurezza',      icon: ShieldCheck },
+  { id: 'update',   label: 'Aggiornamento', icon: RefreshCw },
 ]
 
 // ═══════════════════════════════════════════════════════
@@ -204,9 +205,186 @@ function SecurityTab({ user }) {
 }
 
 
+// UpdateTab — tab aggiornamento da inserire in Settings.jsx
+function UpdateTab() {
+  const [status, setStatus] = React.useState(null)
+  const [loading, setLoading] = React.useState(false)
+  const [updating, setUpdating] = React.useState(false)
+  const [msg, setMsg] = React.useState('')
+  const [error, setError] = React.useState('')
+  const [showChangelog, setShowChangelog] = React.useState(false)
+  const [backupConfirmed, setBackupConfirmed] = React.useState(false)
+  const [commits, setCommits] = React.useState([])
+
+  const loadStatus = async () => {
+    setLoading(true); setError('')
+    try {
+      const res = await api.get('/update/status')
+      setStatus(res.data)
+      if (res.data.hasUpdate) {
+        const logsRes = await api.get('/update/logs')
+        setCommits(logsRes.data)
+      }
+    } catch (err) {
+      setError('Impossibile verificare aggiornamenti: ' + (err.response?.data?.error || err.message))
+    }
+    setLoading(false)
+  }
+
+  const handleUpdate = async () => {
+    if (!backupConfirmed) return
+    setUpdating(true); setMsg(''); setError('')
+    try {
+      await api.post('/update/run')
+      setMsg('Aggiornamento avviato! Il server si riavvierà a breve. Attendi 2-3 minuti poi ricarica la pagina.')
+    } catch (err) {
+      setError('Errore durante l\'aggiornamento: ' + (err.response?.data?.error || err.message))
+    }
+    setUpdating(false)
+  }
+
+  // Parsing changelog — mostra solo le ultime 3 versioni
+  const parseChangelog = (text) => {
+    if (!text) return []
+    const sections = text.split(/^## /m).filter(Boolean)
+    return sections.slice(0, 3).map(s => {
+      const lines = s.trim().split('\n')
+      const title = lines[0].trim()
+      const body = lines.slice(1).join('\n').trim()
+      return { title, body }
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      {msg && <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">{msg}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
+
+      {/* Versione corrente */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+          <RefreshCw size={18} className="text-gray-500" />
+          <h2 className="font-semibold text-gray-900">Versione installata</h2>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-1">Versione</p>
+              <p className="font-mono font-bold text-gray-900">{status?.current?.version || '—'}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-1">Build</p>
+              <p className="font-mono font-bold text-gray-900">{status?.current?.build || '—'}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-1">Commit corrente</p>
+              <p className="font-mono text-sm text-gray-700">{status?.currentCommit || '—'}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-1">Commit remoto</p>
+              <p className="font-mono text-sm text-gray-700">{status?.remoteCommit || '—'}</p>
+            </div>
+          </div>
+          <button onClick={loadStatus} disabled={loading}
+            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-50">
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Verifica aggiornamenti
+          </button>
+        </div>
+      </div>
+
+      {/* Aggiornamento disponibile */}
+      {status && status.hasUpdate && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-blue-100">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <h2 className="font-semibold text-blue-900">Aggiornamento disponibile</h2>
+            {status.commitsBehind > 0 && (
+              <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                {status.commitsBehind} commit in ritardo
+              </span>
+            )}
+          </div>
+          <div className="p-6 space-y-4">
+
+            {/* Ultimi commit */}
+            {commits.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-blue-900 mb-2">Modifiche in arrivo:</p>
+                <div className="space-y-1">
+                  {commits.map(c => (
+                    <div key={c.hash} className="flex items-start gap-2 text-sm">
+                      <span className="font-mono text-xs text-blue-400 mt-0.5 shrink-0">{c.hash}</span>
+                      <span className="text-blue-800">{c.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Changelog */}
+            {status.changelog && (
+              <div>
+                <button onClick={() => setShowChangelog(s => !s)}
+                  className="flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900">
+                  <ChevronDown size={14} className={`transition-transform ${showChangelog ? 'rotate-180' : ''}`} />
+                  {showChangelog ? 'Nascondi' : 'Vedi'} changelog completo
+                </button>
+                {showChangelog && (
+                  <div className="mt-3 bg-white border border-blue-100 rounded-lg p-4 space-y-4 max-h-64 overflow-y-auto">
+                    {parseChangelog(status.changelog).map((s, i) => (
+                      <div key={i}>
+                        <p className="font-semibold text-gray-900 text-sm mb-1">{s.title}</p>
+                        <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans">{s.body}</pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Avviso backup */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Esegui un backup prima di aggiornare</p>
+                  <p className="text-xs text-amber-700 mt-1">L'aggiornamento riavvierà il server. Assicurati di aver eseguito un backup recente dalla sezione Backup.</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                <input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)}
+                  className="w-4 h-4 rounded border-amber-300" />
+                <span className="text-sm font-medium text-amber-800">Ho eseguito un backup e voglio procedere</span>
+              </label>
+            </div>
+
+            {/* Bottone aggiorna */}
+            <button onClick={handleUpdate} disabled={!backupConfirmed || updating}
+              className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {updating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              {updating ? 'Aggiornamento in corso...' : 'Aggiorna MailHaven'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sistema aggiornato */}
+      {status && !status.hasUpdate && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center gap-4">
+          <ShieldCheck size={24} className="text-green-500 shrink-0" />
+          <div>
+            <p className="font-semibold text-green-900">MailHaven è aggiornato</p>
+            <p className="text-sm text-green-700 mt-0.5">Stai usando l'ultima versione disponibile.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Settings() {
   const { user } = useAuth()
-  
   const [activeTab, setActiveTab] = useState('sync')
   const [saving, setSaving]       = useState(false)
   const [msg, setMsg]             = useState('')
@@ -462,6 +640,7 @@ export default function Settings() {
 
         {/* PLUGIN */}
         {activeTab === 'security' && <SecurityTab user={user} />}
+        {activeTab === 'update' && <UpdateTab />}
         {activeTab === 'plugin' && (
           <div className="space-y-6">
             <div>
