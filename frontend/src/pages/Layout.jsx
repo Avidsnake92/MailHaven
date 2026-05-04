@@ -81,13 +81,13 @@ export default function Layout() {
         <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors" title="Logout">
           <LogOut size={16} />
         </button>
-      </div>
+    </div>
       {branding.footer_text && (
         <p className="text-xs text-gray-400 text-center mt-3">{branding.footer_text}</p>
       )}
+      <p className="text-xs text-gray-300 text-center mt-1">v1.0.4</p>
     </div>
   )
-
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
 
