@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
-import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, Lock, Unlock } from 'lucide-react'
+import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle } from 'lucide-react'
 
 const TABS = [
-  { id: 'sync',  label: 'Sincronizzazione', icon: Database },
-  { id: 'av',    label: 'Antivirus',         icon: Shield   },
-  { id: 'smtp',  label: 'Notifiche Email',   icon: Mail     },
-  { id: 'plugin', label: 'Plugin Client',    icon: Puzzle   },
-  { id: 'security', label: 'Sicurezza',      icon: ShieldCheck },
-  { id: 'update',   label: 'Aggiornamento', icon: RefreshCw },
+  { id: 'sync',     label: 'Sincronizzazione', icon: Database    },
+  { id: 'av',       label: 'Antivirus',         icon: Shield      },
+  { id: 'smtp',     label: 'Notifiche Email',   icon: Mail        },
+  { id: 'plugin',   label: 'Plugin Client',     icon: Puzzle      },
+  { id: 'security', label: 'Sicurezza',         icon: ShieldCheck },
+  { id: 'update',   label: 'Aggiornamento',     icon: RefreshCw   },
 ]
 
 // ═══════════════════════════════════════════════════════
-// SecurityTab — 2FA + account bloccati
+// SecurityTab
 // ═══════════════════════════════════════════════════════
 function SecurityTab({ user }) {
   const [me, setMe] = useState(null)
@@ -83,8 +83,6 @@ function SecurityTab({ user }) {
     <div className="space-y-6">
       {msg && <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">{msg}</div>}
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
-
-      {/* 2FA */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
           <ShieldCheck size={18} className="text-gray-500" />
@@ -153,8 +151,6 @@ function SecurityTab({ user }) {
           )}
         </div>
       </div>
-
-      {/* Account bloccati */}
       {(user?.role === 'superadmin' || user?.role === 'admin') && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
@@ -204,63 +200,299 @@ function SecurityTab({ user }) {
   )
 }
 
+// ═══════════════════════════════════════════════════════
+// UpdateTab — con animazioni, barra progresso, avviso backup
+// ═══════════════════════════════════════════════════════
+const UPDATE_STEPS = [
+  { id: 'fetch',   label: 'Download aggiornamenti',     icon: '⬇️' },
+  { id: 'install', label: 'Installazione dipendenze',   icon: '📦' },
+  { id: 'build',   label: 'Compilazione frontend',      icon: '🔨' },
+  { id: 'restart', label: 'Riavvio servizi',            icon: '🔄' },
+  { id: 'done',    label: 'Aggiornamento completato',   icon: '✅' },
+]
 
-// UpdateTab — tab aggiornamento da inserire in Settings.jsx
 function UpdateTab() {
-  const [status, setStatus] = React.useState(null)
-  const [loading, setLoading] = React.useState(false)
-  const [updating, setUpdating] = React.useState(false)
-  const [msg, setMsg] = React.useState('')
-  const [error, setError] = React.useState('')
-  const [showChangelog, setShowChangelog] = React.useState(false)
-  const [backupConfirmed, setBackupConfirmed] = React.useState(false)
-  const [commits, setCommits] = React.useState([])
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [phase, setPhase] = useState('idle') // idle | confirm | updating | done | error
+  const [currentStep, setCurrentStep] = useState(0)
+  const [progress, setProgress] = useState(0)
+  const [error, setError] = useState('')
+  const [showChangelog, setShowChangelog] = useState(false)
+  const [backupConfirmed, setBackupConfirmed] = useState(false)
+  const progressTimer = useRef(null)
 
   const loadStatus = async () => {
     setLoading(true); setError('')
     try {
       const res = await api.get('/update/status')
       setStatus(res.data)
-      if (res.data.hasUpdate) {
-        const logsRes = await api.get('/update/logs')
-        setCommits(logsRes.data)
-      }
     } catch (err) {
       setError('Impossibile verificare aggiornamenti: ' + (err.response?.data?.error || err.message))
     }
     setLoading(false)
   }
 
-  const handleUpdate = async () => {
-    if (!backupConfirmed) return
-    setUpdating(true); setMsg(''); setError('')
-    try {
-      await api.post('/update/run')
-      setMsg('Aggiornamento avviato! Il server si riavvierà a breve. Attendi 2-3 minuti poi ricarica la pagina.')
-    } catch (err) {
-      setError('Errore durante l\'aggiornamento: ' + (err.response?.data?.error || err.message))
+  useEffect(() => { loadStatus() }, [])
+
+  // Simula progresso animato durante l'aggiornamento
+  const startProgressAnimation = () => {
+    setCurrentStep(0)
+    setProgress(0)
+    let step = 0
+    let prog = 0
+
+    // Durata totale stimata: ~3 minuti = 180 sec
+    // Step timing: fetch 20s, install 40s, build 60s, restart 30s, done 10s
+    const stepDurations = [20000, 40000, 60000, 30000, 10000]
+    const totalDuration = stepDurations.reduce((a, b) => a + b, 0)
+
+    const tick = () => {
+      prog += 0.5
+      if (prog > 100) prog = 99 // non arriva mai a 100 automaticamente
+
+      // Calcola in quale step siamo
+      let elapsed = (prog / 100) * totalDuration
+      let acc = 0
+      let newStep = 0
+      for (let i = 0; i < stepDurations.length; i++) {
+        acc += stepDurations[i]
+        if (elapsed < acc) { newStep = i; break }
+        newStep = i
+      }
+      setCurrentStep(newStep)
+      setProgress(Math.round(prog))
+      progressTimer.current = setTimeout(tick, 900)
     }
-    setUpdating(false)
+
+    progressTimer.current = setTimeout(tick, 900)
   }
 
-  // Parsing changelog — mostra solo le ultime 3 versioni
+  const handleUpdate = async () => {
+    if (!backupConfirmed) return
+    setPhase('updating')
+    setError('')
+    startProgressAnimation()
+
+    try {
+      await api.post('/update/run')
+      // Aspetta ~3 minuti poi completa
+      setTimeout(() => {
+        clearTimeout(progressTimer.current)
+        setProgress(100)
+        setCurrentStep(UPDATE_STEPS.length - 1)
+        setPhase('done')
+      }, 185000)
+    } catch (err) {
+      clearTimeout(progressTimer.current)
+      setError('Errore durante l\'aggiornamento: ' + (err.response?.data?.error || err.message))
+      setPhase('error')
+    }
+  }
+
   const parseChangelog = (text) => {
     if (!text) return []
     const sections = text.split(/^## /m).filter(Boolean)
     return sections.slice(0, 3).map(s => {
       const lines = s.trim().split('\n')
-      const title = lines[0].trim()
-      const body = lines.slice(1).join('\n').trim()
-      return { title, body }
+      return { title: lines[0].trim(), body: lines.slice(1).join('\n').trim() }
     })
   }
 
+  // ── FASE: aggiornamento in corso ──
+  if (phase === 'updating') {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 space-y-8">
+        <style>{`
+          @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59,130,246,0.5); }
+            70% { transform: scale(1); box-shadow: 0 0 0 16px rgba(59,130,246,0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+          }
+          @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          .pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
+          .spin-slow { animation: spin-slow 3s linear infinite; }
+        `}</style>
+
+        {/* Icona animata */}
+        <div className="relative">
+          <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center pulse-ring">
+            <RefreshCw size={36} className="text-blue-600 spin-slow" />
+          </div>
+        </div>
+
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Aggiornamento in corso...</h2>
+          <p className="text-sm text-gray-500">Non chiudere questa finestra. Il server si riavvierà automaticamente.</p>
+        </div>
+
+        {/* Barra progresso */}
+        <div className="w-full max-w-md">
+          <div className="flex justify-between text-xs text-gray-500 mb-2">
+            <span>{UPDATE_STEPS[currentStep]?.label}</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+            <div
+              className="h-3 rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${progress}%`,
+                background: 'linear-gradient(90deg, #3b82f6, #6366f1)'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="w-full max-w-md space-y-2">
+          {UPDATE_STEPS.map((s, i) => {
+            const isDone = i < currentStep
+            const isActive = i === currentStep
+            return (
+              <div key={s.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
+                isActive ? 'bg-blue-50 border border-blue-200' :
+                isDone ? 'bg-green-50 border border-green-100' :
+                'bg-gray-50 border border-gray-100 opacity-40'
+              }`}>
+                <span className="text-lg">{isDone ? '✅' : s.icon}</span>
+                <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : isDone ? 'text-green-700' : 'text-gray-500'}`}>
+                  {s.label}
+                </span>
+                {isActive && <Loader2 size={14} className="ml-auto text-blue-500 animate-spin" />}
+                {isDone && <Check size={14} className="ml-auto text-green-500" />}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── FASE: completato ──
+  if (phase === 'done') {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-6">
+        <style>{`
+          @keyframes pop { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+          .pop { animation: pop 0.5s ease-out forwards; }
+        `}</style>
+        <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center pop">
+          <CheckCircle2 size={40} className="text-green-500" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Aggiornamento completato!</h2>
+          <p className="text-sm text-gray-500 mb-4">Ricarica la pagina per vedere la nuova versione.</p>
+          <button onClick={() => window.location.reload()}
+            className="flex items-center gap-2 mx-auto px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+            <RefreshCw size={15} /> Ricarica pagina
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── FASE: errore ──
+  if (phase === 'error') {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
+          <AlertCircle size={40} className="text-red-500" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Errore durante l'aggiornamento</h2>
+          <p className="text-sm text-red-600 mb-4">{error}</p>
+          <button onClick={() => setPhase('idle')}
+            className="px-5 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50">
+            Torna indietro
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── FASE: conferma backup (modale) ──
+  if (phase === 'confirm') {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 border-2 border-red-400 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 bg-red-500">
+            <AlertTriangle size={20} className="text-white" />
+            <h2 className="font-bold text-white text-lg">⚠️ Attenzione — Backup obbligatorio</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <p className="text-red-800 font-medium">Prima di procedere con l'aggiornamento devi assicurarti di aver eseguito un backup!</p>
+            <ul className="text-sm text-red-700 space-y-1 list-disc list-inside">
+              <li>Il server si riavvierà durante l'aggiornamento</li>
+              <li>In caso di errore potresti perdere dati non salvati</li>
+              <li>L'operazione dura circa 3-5 minuti</li>
+            </ul>
+
+            <div className="bg-white border border-red-200 rounded-lg p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-red-300 text-red-600" />
+                <span className="text-sm font-semibold text-red-800">
+                  Confermo di aver eseguito un backup recente dalla sezione Backup e voglio procedere con l'aggiornamento
+                </span>
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleUpdate}
+                disabled={!backupConfirmed}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: backupConfirmed ? '#dc2626' : '#9ca3af' }}>
+                <ArrowDownCircle size={16} />
+                {backupConfirmed ? 'Sì, aggiorna ora' : 'Conferma il backup prima'}
+              </button>
+              <button onClick={() => { setPhase('idle'); setBackupConfirmed(false) }}
+                className="px-5 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── FASE: idle (vista principale) ──
   return (
     <div className="space-y-6">
-      {msg && <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">{msg}</div>}
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
 
-      {/* Versione corrente */}
+      {/* Banner aggiornamento disponibile (in cima) */}
+      {status?.hasUpdate && (
+        <div className="relative overflow-hidden rounded-xl border-2 border-blue-400 bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-5">
+          <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
+            <ArrowDownCircle size={128} />
+          </div>
+          <div className="flex items-start gap-4 relative z-10">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-lg">🚀 Aggiornamento disponibile!</p>
+              <p className="text-blue-100 text-sm mt-0.5">
+                {status.commitsBehind} commit in ritardo · Nuova versione pronta
+              </p>
+              {status.latestCommits?.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {status.latestCommits.slice(0, 3).map(c => (
+                    <div key={c.hash} className="flex items-start gap-2 text-sm">
+                      <span className="font-mono text-xs text-blue-200 mt-0.5 shrink-0">{c.hash}</span>
+                      <span className="text-blue-50">{c.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Versione installata */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
           <RefreshCw size={18} className="text-gray-500" />
@@ -285,87 +517,41 @@ function UpdateTab() {
               <p className="font-mono text-sm text-gray-700">{status?.remoteCommit || '—'}</p>
             </div>
           </div>
-          <button onClick={loadStatus} disabled={loading}
-            className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-50">
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            Verifica aggiornamenti
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={loadStatus} disabled={loading}
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-50">
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              Verifica aggiornamenti
+            </button>
+            {status?.hasUpdate && (
+              <button onClick={() => setPhase('confirm')}
+                className="flex items-center gap-2 text-sm font-bold px-5 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm">
+                <ArrowDownCircle size={15} /> Aggiorna ora
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Aggiornamento disponibile */}
-      {status && status.hasUpdate && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-blue-100">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <h2 className="font-semibold text-blue-900">Aggiornamento disponibile</h2>
-            {status.commitsBehind > 0 && (
-              <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                {status.commitsBehind} commit in ritardo
-              </span>
-            )}
-          </div>
-          <div className="p-6 space-y-4">
-
-            {/* Ultimi commit */}
-            {commits.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-blue-900 mb-2">Modifiche in arrivo:</p>
-                <div className="space-y-1">
-                  {commits.map(c => (
-                    <div key={c.hash} className="flex items-start gap-2 text-sm">
-                      <span className="font-mono text-xs text-blue-400 mt-0.5 shrink-0">{c.hash}</span>
-                      <span className="text-blue-800">{c.message}</span>
-                    </div>
-                  ))}
+      {/* Changelog */}
+      {status?.changelog && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <button onClick={() => setShowChangelog(s => !s)}
+            className="w-full flex items-center gap-3 px-6 py-4 hover:bg-gray-50 transition-colors">
+            <Database size={18} className="text-gray-500" />
+            <span className="font-semibold text-gray-900">Changelog</span>
+            <ChevronDown size={16} className={`ml-auto text-gray-400 transition-transform ${showChangelog ? 'rotate-180' : ''}`} />
+          </button>
+          {showChangelog && (
+            <div className="px-6 pb-6 space-y-4 max-h-72 overflow-y-auto">
+              {parseChangelog(status.changelog).map((s, i) => (
+                <div key={i} className="border-l-2 border-blue-200 pl-4">
+                  <p className="font-semibold text-gray-900 text-sm mb-1">{s.title}</p>
+                  <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans">{s.body}</pre>
                 </div>
-              </div>
-            )}
-
-            {/* Changelog */}
-            {status.changelog && (
-              <div>
-                <button onClick={() => setShowChangelog(s => !s)}
-                  className="flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900">
-                  <ChevronDown size={14} className={`transition-transform ${showChangelog ? 'rotate-180' : ''}`} />
-                  {showChangelog ? 'Nascondi' : 'Vedi'} changelog completo
-                </button>
-                {showChangelog && (
-                  <div className="mt-3 bg-white border border-blue-100 rounded-lg p-4 space-y-4 max-h-64 overflow-y-auto">
-                    {parseChangelog(status.changelog).map((s, i) => (
-                      <div key={i}>
-                        <p className="font-semibold text-gray-900 text-sm mb-1">{s.title}</p>
-                        <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans">{s.body}</pre>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Avviso backup */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-800">Esegui un backup prima di aggiornare</p>
-                  <p className="text-xs text-amber-700 mt-1">L'aggiornamento riavvierà il server. Assicurati di aver eseguito un backup recente dalla sezione Backup.</p>
-                </div>
-              </div>
-              <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                <input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)}
-                  className="w-4 h-4 rounded border-amber-300" />
-                <span className="text-sm font-medium text-amber-800">Ho eseguito un backup e voglio procedere</span>
-              </label>
+              ))}
             </div>
-
-            {/* Bottone aggiorna */}
-            <button onClick={handleUpdate} disabled={!backupConfirmed || updating}
-              className="flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-              {updating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              {updating ? 'Aggiornamento in corso...' : 'Aggiorna MailHaven'}
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -383,34 +569,31 @@ function UpdateTab() {
   )
 }
 
+// ═══════════════════════════════════════════════════════
+// Settings principale
+// ═══════════════════════════════════════════════════════
 export default function Settings() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('sync')
-  const [saving, setSaving]       = useState(false)
-  const [msg, setMsg]             = useState('')
-  const [msgType, setMsgType]     = useState('ok')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState('ok')
 
-  // Sync
   const [syncInterval, setSyncInterval] = useState('15')
-  const [syncEnabled, setSyncEnabled]   = useState(true)
-
-  // AV
-  const [avUpdateSchedule, setAvUpdateSchedule]           = useState('24')
-  const [avUpdateTime, setAvUpdateTime]                   = useState('02:00')
-  const [avScanOnOpen, setAvScanOnOpen]                   = useState(true)
-  const [avNotifyOnInfection, setAvNotifyOnInfection]     = useState(false)
-  const [updatingAv, setUpdatingAv]                       = useState(false)
-
-  // SMTP
-  const [smtpHost, setSmtpHost]       = useState('')
-  const [smtpPort, setSmtpPort]       = useState('465')
-  const [smtpSecure, setSmtpSecure]   = useState(true)
-  const [smtpUser, setSmtpUser]       = useState('')
-  const [smtpPass, setSmtpPass]       = useState('')
+  const [syncEnabled, setSyncEnabled] = useState(true)
+  const [avUpdateSchedule, setAvUpdateSchedule] = useState('24')
+  const [avUpdateTime, setAvUpdateTime] = useState('02:00')
+  const [avScanOnOpen, setAvScanOnOpen] = useState(true)
+  const [avNotifyOnInfection, setAvNotifyOnInfection] = useState(false)
+  const [updatingAv, setUpdatingAv] = useState(false)
+  const [smtpHost, setSmtpHost] = useState('')
+  const [smtpPort, setSmtpPort] = useState('465')
+  const [smtpSecure, setSmtpSecure] = useState(true)
+  const [smtpUser, setSmtpUser] = useState('')
+  const [smtpPass, setSmtpPass] = useState('')
   const [testingSmtp, setTestingSmtp] = useState(false)
   const [pluginTokens, setPluginTokens] = useState([])
   const [loadingTokens, setLoadingTokens] = useState(false)
-  const [serverUrl, setServerUrl] = useState('')
 
   useEffect(() => {
     if (activeTab === 'plugin') loadPluginTokens()
@@ -418,21 +601,18 @@ export default function Settings() {
 
   const loadPluginTokens = async () => {
     setLoadingTokens(true)
-    try {
-      const res = await api.get('/plugin/tokens')
-      setPluginTokens(res.data || [])
-    } catch {} finally { setLoadingTokens(false) }
+    try { const res = await api.get('/plugin/tokens'); setPluginTokens(res.data || []) }
+    catch {} finally { setLoadingTokens(false) }
   }
 
   const generateToken = async (clientType) => {
     try {
       const res = await api.post('/plugin/tokens', {
         name: clientType === 'outlook' ? 'Outlook Add-in' : 'Thunderbird Extension',
-        client_type: clientType,
-        expires_days: 365
+        client_type: clientType, expires_days: 365
       })
       setPluginTokens(prev => [res.data, ...prev])
-    } catch (e) { showMsg('Errore generazione token', 'error') }
+    } catch { showMsg('Errore generazione token', 'error') }
   }
 
   const revokeToken = async (id) => {
@@ -473,16 +653,10 @@ export default function Settings() {
     setSaving(true)
     try {
       await api.post('/admin/settings', {
-        sync_interval_minutes:   syncInterval,
-        sync_enabled:            String(syncEnabled),
-        av_update_hours:         avUpdateSchedule,
-        av_update_time:          avUpdateTime,
-        av_scan_on_open:         String(avScanOnOpen),
-        av_notify_on_infection:  String(avNotifyOnInfection),
-        smtp_host:               smtpHost,
-        smtp_port:               smtpPort,
-        smtp_secure:             String(smtpSecure),
-        smtp_user:               smtpUser,
+        sync_interval_minutes: syncInterval, sync_enabled: String(syncEnabled),
+        av_update_hours: avUpdateSchedule, av_update_time: avUpdateTime,
+        av_scan_on_open: String(avScanOnOpen), av_notify_on_infection: String(avNotifyOnInfection),
+        smtp_host: smtpHost, smtp_port: smtpPort, smtp_secure: String(smtpSecure), smtp_user: smtpUser,
         ...(smtpPass ? { smtp_pass: smtpPass } : {}),
       })
       api.post('/admin/av/restart-scheduler').catch(() => {})
@@ -493,10 +667,8 @@ export default function Settings() {
 
   const updateAvNow = async () => {
     setUpdatingAv(true)
-    try {
-      await api.post('/admin/av/update')
-      showMsg('Database ClamAV aggiornato!')
-    } catch { showMsg('Errore aggiornamento AV', 'error') }
+    try { await api.post('/admin/av/update'); showMsg('Database ClamAV aggiornato!') }
+    catch { showMsg('Errore aggiornamento AV', 'error') }
     finally { setUpdatingAv(false) }
   }
 
@@ -536,7 +708,6 @@ export default function Settings() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <SettingsIcon size={20} className="text-gray-500" /> Impostazioni
@@ -544,14 +715,11 @@ export default function Settings() {
         <p className="text-sm text-gray-500 mt-0.5">Configurazione del sistema MailHaven</p>
       </div>
 
-      {/* Tab bar */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setActiveTab(id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === id
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}>
             <Icon size={15} />
             {label}
@@ -559,18 +727,12 @@ export default function Settings() {
         ))}
       </div>
 
-      {/* Tab content */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
-
-        {/* SYNC */}
         {activeTab === 'sync' && (
           <div className="space-y-6">
-            <Toggle
-              checked={syncEnabled}
-              onChange={setSyncEnabled}
+            <Toggle checked={syncEnabled} onChange={setSyncEnabled}
               label="Sincronizzazione automatica"
-              description="Abilita il crawler IMAP periodico su tutte le caselle attive"
-            />
+              description="Abilita il crawler IMAP periodico su tutte le caselle attive" />
             <Field label="Intervallo di sincronizzazione">
               <select value={syncInterval} onChange={e => setSyncInterval(e.target.value)} className={selectClass}>
                 <option value="5">Ogni 5 minuti</option>
@@ -586,21 +748,14 @@ export default function Settings() {
           </div>
         )}
 
-        {/* ANTIVIRUS */}
         {activeTab === 'av' && (
           <div className="space-y-6">
-            <Toggle
-              checked={avScanOnOpen}
-              onChange={setAvScanOnOpen}
+            <Toggle checked={avScanOnOpen} onChange={setAvScanOnOpen}
               label="Scansione automatica all'apertura"
-              description="Scansiona gli allegati quando si apre un'email"
-            />
-            <Toggle
-              checked={avNotifyOnInfection}
-              onChange={setAvNotifyOnInfection}
+              description="Scansiona gli allegati quando si apre un'email" />
+            <Toggle checked={avNotifyOnInfection} onChange={setAvNotifyOnInfection}
               label="Notifica via email in caso di virus"
-              description="Invia una notifica all'amministratore se viene rilevato un virus"
-            />
+              description="Invia una notifica all'amministratore se viene rilevato un virus" />
             <div className="border-t border-gray-100 pt-6">
               <Field label="Aggiornamento automatico database virus">
                 <div className="flex items-center gap-3 flex-wrap mt-1.5">
@@ -618,13 +773,6 @@ export default function Settings() {
                     </div>
                   )}
                 </div>
-                {avUpdateSchedule !== '0' && (
-                  <p className="text-xs text-gray-400 mt-2">
-                    {avUpdateSchedule === '6'  && `Aggiornamento alle ${avUpdateTime}, poi ogni 6 ore`}
-                    {avUpdateSchedule === '12' && `Aggiornamento alle ${avUpdateTime}, poi ogni 12 ore`}
-                    {avUpdateSchedule === '24' && `Aggiornamento ogni giorno alle ${avUpdateTime}`}
-                  </p>
-                )}
               </Field>
             </div>
             <div className="flex items-center gap-3">
@@ -633,23 +781,18 @@ export default function Settings() {
                 {updatingAv ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                 {updatingAv ? 'Aggiornamento...' : 'Aggiorna database ora'}
               </button>
-              <span className="text-xs text-gray-400">Forza aggiornamento immediato del database ClamAV</span>
             </div>
           </div>
         )}
 
-        {/* PLUGIN */}
         {activeTab === 'security' && <SecurityTab user={user} />}
         {activeTab === 'update' && <UpdateTab />}
+
         {activeTab === 'plugin' && (
           <div className="space-y-6">
             <div>
               <h3 className="text-sm font-semibold text-gray-800 mb-1">Plugin per client email</h3>
-              <p className="text-xs text-gray-500 mb-4">
-                Installa il plugin nel tuo client email per accedere all'archivio MailHaven direttamente da Outlook o Thunderbird.
-              </p>
-
-              {/* Download plugin */}
+              <p className="text-xs text-gray-500 mb-4">Installa il plugin nel tuo client email per accedere all'archivio MailHaven direttamente da Outlook o Thunderbird.</p>
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <a href={`${window.location.origin.replace(':8080',':3001')}/plugin/outlook/manifest.xml`}
                   download="mailvault-outlook-manifest.xml"
@@ -666,15 +809,11 @@ export default function Settings() {
                   <span className="text-xs text-gray-500">Scarica estensione</span>
                 </a>
               </div>
-
-              {/* Istruzioni */}
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 mb-6">
                 <p className="font-semibold mb-1">Come installare:</p>
                 <p><b>Outlook:</b> File → Gestisci componenti aggiuntivi → Carica manifest XML</p>
                 <p className="mt-1"><b>Thunderbird:</b> Strumenti → Componenti aggiuntivi → Installa da file</p>
               </div>
-
-              {/* Token manager */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-800">Token di accesso</h3>
@@ -689,12 +828,10 @@ export default function Settings() {
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mb-3">I token permettono ai plugin di accedere all'archivio senza reinserire la password ogni volta.</p>
-
                 {loadingTokens ? (
                   <div className="text-center py-4 text-gray-400 text-sm">Caricamento...</div>
                 ) : pluginTokens.length === 0 ? (
-                  <div className="text-center py-6 text-gray-400 text-sm">Nessun token generato. I token vengono creati automaticamente al primo accesso dal plugin.</div>
+                  <div className="text-center py-6 text-gray-400 text-sm">Nessun token generato.</div>
                 ) : (
                   <div className="space-y-2">
                     {pluginTokens.map(t => (
@@ -726,7 +863,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* SMTP */}
         {activeTab === 'smtp' && (
           <div className="space-y-5">
             <div className="grid grid-cols-3 gap-3">
@@ -737,8 +873,7 @@ export default function Settings() {
                 </Field>
               </div>
               <Field label="Porta">
-                <input type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)}
-                  className={inputClass} />
+                <input type="number" value={smtpPort} onChange={e => setSmtpPort(e.target.value)} className={inputClass} />
               </Field>
             </div>
             <Field label="Username">
@@ -746,16 +881,10 @@ export default function Settings() {
                 placeholder="notifiche@tuodominio.it" className={inputClass} />
             </Field>
             <Field label="Password">
-              <input type="password" id="smtp-pass-field" defaultValue={smtpPass}
-                onChange={e => setSmtpPass(e.target.value)}
+              <input type="password" defaultValue={smtpPass} onChange={e => setSmtpPass(e.target.value)}
                 placeholder="••••••••" className={inputClass} autoComplete="new-password" />
             </Field>
-            <Toggle
-              checked={smtpSecure}
-              onChange={setSmtpSecure}
-              label="SSL/TLS"
-              description="Usa connessione sicura (porta 465)"
-            />
+            <Toggle checked={smtpSecure} onChange={setSmtpSecure} label="SSL/TLS" description="Usa connessione sicura (porta 465)" />
             {smtpHost && (
               <button onClick={testSmtp} disabled={testingSmtp}
                 className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-60 transition-colors">
@@ -767,9 +896,8 @@ export default function Settings() {
         )}
       </div>
 
-      {/* Save bar */}
       <div className="flex items-center gap-4 mt-6">
-        <button onClick={saveSettings} disabled={saving}
+        <button onClick={saveSettings} disabled={saving || activeTab === 'update' || activeTab === 'security'}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-60 bg-blue-600 hover:bg-blue-700 transition-colors">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {saving ? 'Salvataggio...' : 'Salva impostazioni'}
