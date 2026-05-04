@@ -15,6 +15,7 @@ const getIp = (req) => {
 
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
+const SESSION_MAX_MS = 8 * 60 * 60 * 1000; // 8 ore max per sessione
 
 // Login
 router.post('/login', async (req, res) => {
@@ -101,9 +102,9 @@ router.post('/login', async (req, res) => {
     await log(db, user.id, 'LOGIN', { email, totp: user.totp_enabled }, ip);
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, client_id: user.client_id, full_name: user.full_name },
+      { id: user.id, email: user.email, role: user.role, client_id: user.client_id, full_name: user.full_name, sessionStart: Date.now() },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '15m' }
     );
 
     res.json({
@@ -114,6 +115,20 @@ router.post('/login', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Errore server' });
   }
+});
+
+// Refresh token
+router.post('/refresh', authMiddleware, async (req, res) => {
+  const sessionStart = req.user.sessionStart || Date.now();
+  if (Date.now() - sessionStart > SESSION_MAX_MS) {
+    return res.status(401).json({ error: 'Sessione scaduta, effettua nuovamente il login.' });
+  }
+  const token = jwt.sign(
+    { id: req.user.id, email: req.user.email, role: req.user.role, client_id: req.user.client_id, full_name: req.user.full_name, sessionStart },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+  res.json({ token });
 });
 
 // Get current user
@@ -152,14 +167,12 @@ router.post('/2fa/setup', authMiddleware, async (req, res) => {
     const result = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     
-    // Generate new secret
     const secret = generateSecret();
     const branding = await db.query('SELECT app_name FROM branding LIMIT 1');
     const appName = branding.rows[0]?.app_name || 'MailVault';
     
     const { qrDataUrl, uri } = await generateQR(user.email, secret, appName);
     
-    // Save secret (not enabled yet — requires verification)
     await db.query('UPDATE users SET totp_secret = $1, totp_enabled = false WHERE id = $2', 
       [encrypt(secret), req.user.id]);
     

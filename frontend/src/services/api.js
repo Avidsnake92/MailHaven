@@ -17,9 +17,12 @@ api.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('mv_token')
-      localStorage.removeItem('mv_user')
-      window.location.href = '/login'
+      // Non fare logout su /auth/refresh (lo gestisce AuthContext)
+      if (!err.config?.url?.includes('/auth/refresh')) {
+        localStorage.removeItem('mv_token')
+        localStorage.removeItem('mv_user')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }
