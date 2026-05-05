@@ -53,7 +53,7 @@ router.get('/status', requireSuperadmin, async (req, res) => {
 router.post('/run', requireSuperadmin, async (req, res) => {
   res.json({ started: true, message: 'Aggiornamento avviato. Il server si riavvierà a breve.' });
   setTimeout(() => {
-    exec('bash /root/mailhaven/do-update.sh', (err) => {
+    exec('nohup bash /root/mailhaven/do-update.sh > /root/mailhaven/data/update.log 2>&1 &', (err) => {
       if (err) console.error('[Update] Errore:', err.message);
     });
   }, 1000);
