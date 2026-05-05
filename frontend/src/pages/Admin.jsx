@@ -462,12 +462,13 @@ function ClientsTab({ branding, user }) {
             </tr></thead>
             <tbody>{clients.map(c => (
               <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-6 py-3.5">
-                  <p className="text-sm font-medium text-gray-900">{c.name}</p>
-                  <p className="text-xs text-gray-500 sm:hidden">{c.company || ''} · {c.active ? 'Attivo' : 'Disabilitato'}</p>
-                </td>
-                <td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">{c.company || '—'}</td>
-                <td className="hidden sm:table-cell px-6 py-3.5">
+              <td className="px-6 py-3.5">
+  <p className="text-sm font-medium text-gray-900">
+    {c.name}{c.company ? ` (${c.company})` : ''}
+  </p>
+  <p className="text-xs text-gray-500 sm:hidden">{c.active ? 'Attivo' : 'Disabilitato'}</p>
+</td>
+<td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">{c.company || '�'}</td>                <td className="hidden sm:table-cell px-6 py-3.5">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                     {c.active ? 'Attivo' : 'Disabilitato'}
                   </span>
@@ -639,7 +640,7 @@ function UsersTab({ branding, user }) {
                 <select value={form.client_id} onChange={e => { setForm({ ...form, client_id: e.target.value }); loadClientUsers(e.target.value); setAssignedUsers([]); }}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none">
                   <option value="">— Nessuno —</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ''}</option>)}
                 </select>
               </div>
             </div>
