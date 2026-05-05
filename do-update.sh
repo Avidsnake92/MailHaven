@@ -11,6 +11,9 @@ echo "[Update] Build frontend..."
 rm -rf frontend/dist
 bash build-frontend.sh
 
+echo "[Update] Aggiornamento git status..."
+bash check-update.sh
+
 echo "[Update] Riavvio backend..."
 docker compose up -d mailhaven-backend
 
