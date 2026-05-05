@@ -1,13 +1,13 @@
 services:
-  mailvault-backend:
+  mailhaven-backend:
     build: ./backend
-    container_name: mailvault-backend
+    container_name: mailhaven-backend
     restart: unless-stopped
     environment:
       - NODE_ENV=production
       - PORT=3001
       - JWT_SECRET=${JWT_SECRET}
-      - DB_HOST=mailvault-db
+      - DB_HOST=mailhaven-db
       - DB_PORT=5432
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
@@ -27,11 +27,11 @@ services:
     ports:
       - "3001:3001"
     networks:
-      - mailvault-net
+      - mailhaven-net
     depends_on:
-      - mailvault-db
+      - mailhaven-db
     volumes:
-      - clamav-db:/var/lib/clamav
+      - mailhaven-clamav-db:/var/lib/clamav
       - ./backend/src:/app/src
       - ./backend/package.json:/app/package.json
       - ./data:/app/data
@@ -39,35 +39,35 @@ services:
       - ./CHANGELOG.md:/app/CHANGELOG.md
       - ./data/git-status.json:/app/git-status.json	
 
-  mailvault-frontend:
+  mailhaven-frontend:
     build: ./frontend
-    container_name: mailvault-frontend
+    container_name: mailhaven-frontend
     restart: unless-stopped
     ports:
       - "8080:80"
     networks:
-      - mailvault-net
+      - mailhaven-net
     depends_on:
-      - mailvault-backend
+      - mailhaven-backend
 
-  mailvault-db:
+  mailhaven-db:
     image: postgres:17-alpine
-    container_name: mailvault-db
+    container_name: mailhaven-db
     restart: unless-stopped
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
-      - mailvault-db-data:/var/lib/postgresql/data
+      - mailhaven-db-data:/var/lib/postgresql/data
       - ./backend/src/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - mailvault-net
+      - mailhaven-net
 
 networks:
-  mailvault-net:
+  mailhaven-net:
     driver: bridge
 
 volumes:
-  mailvault-db-data:
-  clamav-db:
+  mailhaven-db-data:
+  mailhaven-clamav-db:

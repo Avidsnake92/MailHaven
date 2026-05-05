@@ -48,7 +48,7 @@ const runBackup = async (db, config) => {
 
   // Upload to S3
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-  const key = `${config.prefix || 'mailvault-backup'}/${timestamp}.zip`;
+  const key = `${config.prefix || 'mailhaven-backup'}/${timestamp}.zip`;
 
   const upload = new Upload({
     client,
@@ -75,7 +75,7 @@ const runBackup = async (db, config) => {
 // List backups on S3
 const listBackups = async (config) => {
   const client = getClient(config);
-  const prefix = config.prefix || 'mailvault-backup';
+  const prefix = config.prefix || 'mailhaven-backup';
 
   const response = await client.send(new ListObjectsV2Command({
     Bucket: config.bucket,

@@ -84,7 +84,7 @@ router.post('/complete', async (req, res) => {
     }
 
     // 3. Crea superadmin
-    await db.query("DELETE FROM users WHERE email = 'admin@mailvault.local'");
+    await db.query("DELETE FROM users WHERE email = 'admin@mailhaven.local'");
     const hash = await bcrypt.hash(admin_password, 10);
     await db.query(
       `INSERT INTO users (email, password_hash, full_name, role, active)
@@ -132,7 +132,7 @@ router.post('/test-smtp', async (req, res) => {
       tls: { rejectUnauthorized: false },
     });
     await transporter.sendMail({
-      from: smtp_user || 'noreply@mailvault.local',
+      from: smtp_user || 'noreply@mailhaven.local',
       to: to || smtp_user,
       subject: 'MailHaven — Test SMTP',
       text: 'Configurazione SMTP funzionante! MailHaven è pronto.',

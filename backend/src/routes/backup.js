@@ -82,8 +82,8 @@ router.post('/config', async (req, res) => {
              prefix=$6, force_path_style=$7, schedule=$8, enabled=$9, updated_at=NOW()
              ${secret_key ? ', secret_key_encrypted=$11' : ''} WHERE id=$10`;
         p = secret_key 
-          ? [provider, endpoint, region, bucket, access_key, prefix || 'mailvault-backup', force_path_style !== false, schedule || 'manual', enabled || false, existing.rows[0].id, encSecret]
-          : [provider, endpoint, region, bucket, access_key, prefix || 'mailvault-backup', force_path_style !== false, schedule || 'manual', enabled || false, existing.rows[0].id];
+          ? [provider, endpoint, region, bucket, access_key, prefix || 'mailhaven-backup', force_path_style !== false, schedule || 'manual', enabled || false, existing.rows[0].id, encSecret]
+          : [provider, endpoint, region, bucket, access_key, prefix || 'mailhaven-backup', force_path_style !== false, schedule || 'manual', enabled || false, existing.rows[0].id];
       } else {
         q = `UPDATE backup_config SET sftp_host=$1, sftp_port=$2, sftp_username=$3, 
              sftp_remote_path=$4, schedule=$5, enabled=$6, updated_at=NOW()
@@ -100,7 +100,7 @@ router.post('/config', async (req, res) => {
          sftp_host, sftp_port, sftp_username, sftp_password_encrypted, sftp_remote_path) 
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
         [provider_type, provider, endpoint, region, bucket, access_key, encSecret,
-         prefix || 'mailvault-backup', force_path_style !== false, schedule || 'manual', enabled || false,
+         prefix || 'mailhaven-backup', force_path_style !== false, schedule || 'manual', enabled || false,
          sftp_host, sftp_port || 22, sftp_username, encSftpPass, sftp_remote_path || '/backups']
       );
     }

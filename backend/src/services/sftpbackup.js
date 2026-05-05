@@ -19,7 +19,7 @@ const runSftpBackupWithProgress = (config, onProgress) => {
     const conn = new Client();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
     const remotePath = config.sftp_remote_path || config.remote_path || '/backups';
-    const remoteFile = path.join(remotePath, `mailvault-${timestamp}.mhbak`);
+    const remoteFile = path.join(remotePath, `mailhaven-${timestamp}.mhbak`);
     const pool = getDbPool();
     const encKey = process.env.ENCRYPTION_KEY;
 
@@ -133,7 +133,7 @@ const listSftpBackups = (config) => {
           conn.end();
           if (err) return reject(err);
           const backups = list
-            .filter(f => f.filename.startsWith('mailvault-') && (f.filename.endsWith('.mhbak') || f.filename.endsWith('.zip')))
+            .filter(f => f.filename.startsWith('mailhaven-') && (f.filename.endsWith('.mhbak') || f.filename.endsWith('.zip')))
             .sort((a, b) => b.attrs.mtime - a.attrs.mtime)
             .map(f => ({
               key: path.join(remotePath, f.filename),

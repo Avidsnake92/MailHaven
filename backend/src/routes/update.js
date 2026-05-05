@@ -18,7 +18,7 @@ router.get('/status', requireSuperadmin, async (req, res) => {
 
     // Aggiorna git status tramite script sul host
     await new Promise((resolve) => {
-      exec('bash /root/mailvault/check-update.sh', (err) => resolve());
+      exec('bash /root/mailhaven/check-update.sh', (err) => resolve());
     });
 
     // Leggi risultato
@@ -53,7 +53,7 @@ router.get('/status', requireSuperadmin, async (req, res) => {
 router.post('/run', requireSuperadmin, async (req, res) => {
   res.json({ started: true, message: 'Aggiornamento avviato. Il server si riavvierà a breve.' });
   setTimeout(() => {
-    exec('bash /root/mailvault/do-update.sh', (err) => {
+    exec('bash /root/mailhaven/do-update.sh', (err) => {
       if (err) console.error('[Update] Errore:', err.message);
     });
   }, 1000);

@@ -73,7 +73,7 @@ ON CONFLICT DO NOTHING;
 
 -- Insert default superadmin (password: Admin1234!)
 INSERT INTO users (email, password_hash, full_name, role)
-VALUES ('admin@mailvault.local', '$2b$10$X5u0wnjBem7dsC5an566vOi1Ze0mnvySSKJrCehBFtmFY8g/hPNW2', 'Super Admin', 'superadmin')
+VALUES ('admin@mailhaven.local', '$2b$10$X5u0wnjBem7dsC5an566vOi1Ze0mnvySSKJrCehBFtmFY8g/hPNW2', 'Super Admin', 'superadmin')
 ON CONFLICT (email) DO NOTHING;
 
 -- S3 Backup configuration
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS backup_config (
   bucket VARCHAR(255),
   access_key TEXT,
   secret_key_encrypted TEXT,
-  prefix VARCHAR(255) DEFAULT 'mailvault-backup',
+  prefix VARCHAR(255) DEFAULT 'mailhaven-backup',
   force_path_style BOOLEAN DEFAULT true,
   schedule VARCHAR(50) DEFAULT 'manual',
   enabled BOOLEAN DEFAULT false,

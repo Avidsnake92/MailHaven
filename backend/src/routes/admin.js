@@ -575,7 +575,7 @@ router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
       tls: { rejectUnauthorized: false },
     });
     await transporter.sendMail({
-      from: smtp_user || 'noreply@mailvault.local',
+      from: smtp_user || 'noreply@mailhaven.local',
       to: smtp_user,
       subject: 'MailHaven — Test SMTP',
       text: 'Configurazione SMTP funzionante!',

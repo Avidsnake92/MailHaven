@@ -41,7 +41,7 @@ read -s GITHUB_TOKEN
 echo ""
 
 REPO_URL="https://${GITHUB_TOKEN}@github.com/Avidsnake92/MailHaven.git"
-INSTALL_DIR="/root/mailvault"
+INSTALL_DIR="/root/mailhaven"
 
 if [ -d "$INSTALL_DIR" ]; then
   echo -e "${YELLOW}Directory $INSTALL_DIR già esistente. Aggiorno il repo...${NC}"

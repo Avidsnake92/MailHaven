@@ -20,7 +20,7 @@ fi
 
 # Deploy in nginx
 echo "Deploy..."
-docker cp ~/mailvault/frontend/dist/. mailvault-frontend:/usr/share/nginx/html/
+docker cp ~/mailvault/frontend/dist/. mailhaven-frontend:/usr/share/nginx/html/
 
 echo "=== Build completato! ==="
 echo "Ricarica il browser in modalità incognito."

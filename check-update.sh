@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/mailvault
+cd /root/mailhaven
 git fetch origin main --quiet 2>/dev/null
 CURRENT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 REMOTE=$(git rev-parse --short origin/main 2>/dev/null || echo "unknown")
@@ -9,4 +9,4 @@ COMMITS=$(git log --oneline -5 origin/main 2>/dev/null | while IFS= read -r line
   msg=$(echo "$line" | cut -c9- | sed 's/"/\\"/g')
   echo "{\"hash\":\"$hash\",\"message\":\"$msg\"}"
 done | paste -sd,)
-echo "{\"currentCommit\":\"$CURRENT\",\"remoteCommit\":\"$REMOTE\",\"commitsBehind\":$BEHIND,\"latestCommits\":[${COMMITS}]}" > /root/mailvault/data/git-status.json
+echo "{\"currentCommit\":\"$CURRENT\",\"remoteCommit\":\"$REMOTE\",\"commitsBehind\":$BEHIND,\"latestCommits\":[${COMMITS}]}" > /root/mailhaven/data/git-status.json

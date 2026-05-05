@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/mailvault
+cd /root/mailhaven
 
 echo "[Update] Fetch aggiornamenti..."
 git fetch origin main
@@ -11,6 +11,6 @@ echo "[Update] Build frontend..."
 bash build-frontend.sh
 
 echo "[Update] Riavvio backend..."
-docker compose up -d mailvault-backend
+docker compose up -d mailhaven-backend
 
 echo "[Update] Completato!"
