@@ -70,4 +70,8 @@ networks:
 
 volumes:
   mailhaven-db-data:
+    external: true
+    name: mailhaven_mailhaven-db-data
   mailhaven-clamav-db:
+    external: true
+    name: mailhaven_mailhaven-clamav-db
