@@ -18,13 +18,40 @@ const getSpamScore = (headers) => {
   return isNaN(val) ? null : val;
 };
 
+// Provider noti con SSL datato o configurazione specifica
+const LEGACY_PROVIDERS = {
+  'tiscali.it':    { host: 'imap.tiscali.it',      port: 993, tls: true,  legacy: true  },
+  'libero.it':     { host: 'imapmail.libero.it',    port: 993, tls: true,  legacy: true  },
+  'virgilio.it':   { host: 'imap.virgilio.it',      port: 993, tls: true,  legacy: true  },
+  'tin.it':        { host: 'imap.tin.it',           port: 993, tls: true,  legacy: true  },
+  'alice.it':      { host: 'imap.alice.it',         port: 993, tls: true,  legacy: true  },
+  'tim.it':        { host: 'imap.tim.it',           port: 993, tls: true,  legacy: true  },
+  'gmail.com':     { host: 'imap.gmail.com',        port: 993, tls: true,  legacy: false },
+  'outlook.com':   { host: 'outlook.office365.com', port: 993, tls: true,  legacy: false },
+  'hotmail.com':   { host: 'outlook.office365.com', port: 993, tls: true,  legacy: false },
+  'hotmail.it':    { host: 'outlook.office365.com', port: 993, tls: true,  legacy: false },
+  'live.com':      { host: 'outlook.office365.com', port: 993, tls: true,  legacy: false },
+  'yahoo.com':     { host: 'imap.mail.yahoo.com',   port: 993, tls: true,  legacy: false },
+  'yahoo.it':      { host: 'imap.mail.yahoo.com',   port: 993, tls: true,  legacy: false },
+};
+
 const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) => {
+  const emailDomain = (mailbox.email || '').split('@')[1]?.toLowerCase();
+  const provider = LEGACY_PROVIDERS[emailDomain];
+  const isLegacy = !!provider?.legacy;
+
   let imapConfig = {
     user: mailbox.imap_user || mailbox.email,
-    host: mailbox.imap_host,
-    port: mailbox.imap_port || 993,
-    tls: mailbox.imap_tls !== false,
-    tlsOptions: { rejectUnauthorized: false },
+    host: provider?.host || mailbox.imap_host,
+    port: provider?.port || mailbox.imap_port || 993,
+    tls: provider ? provider.tls : (mailbox.imap_tls !== false),
+    tlsOptions: {
+      rejectUnauthorized: false,
+      ...(isLegacy ? {
+        minVersion: 'TLSv1',
+        ciphers: 'ALL',
+      } : {})
+    },
     connTimeout: 30000,
     authTimeout: 15000,
   };
@@ -39,7 +66,6 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
     } else if (mailbox.oauth_provider === 'google' && mailbox.oauth_access_token) {
       const { getValidGoogleToken } = require('../routes/oauth');
       const accessToken = await getValidGoogleToken(db, mailbox);
-      // Google usa XOAUTH2 identico a Microsoft
       imapConfig.xoauth2 = Buffer.from(
         `user=${mailbox.imap_user || mailbox.email}\x01auth=Bearer ${accessToken}\x01\x01`
       ).toString('base64');
@@ -56,24 +82,21 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
 
   const processFolder = (folderPath) => new Promise((res, rej) => {
     imap.openBox(folderPath, true, async (err, box) => {
-      if (err) return res(0); // skip inaccessible folders
+      if (err) return res(0);
 
       if (!box.messages.total) return res(0);
 
-      // Get already synced UIDs for this folder
       const existing = await db.query(
         'SELECT uid FROM archived_emails WHERE mailbox_id=$1 AND path=$2',
         [mailbox.id, folderPath]
       );
       const existingUids = new Set(existing.rows.map(r => r.uid));
 
-      // Fetch all UIDs
       imap.search(['ALL'], (err, uids) => {
         if (err || !uids.length) return res(0);
 
         const newUids = uids.filter(uid => !existingUids.has(uid));
 
-        // Rileva email eliminate: erano in archivio ma non più sul server
         const serverUids = new Set(uids);
         const deletedUids = [...existingUids].filter(uid => !serverUids.has(uid));
         const restoredUids = [...serverUids].filter(uid => existingUids.has(uid));
@@ -98,7 +121,6 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
 
         if (!newUids.length) return res(0);
 
-        // Fetch in batches of 50
         const batchSize = 50;
         let processed = 0;
 
@@ -137,7 +159,6 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
 
                   const spamScore = getSpamScore(parsed.headers);
 
-                  // Controlla se esiste già un'email con stesso message_id (è un restore)
                   let isRestored = false;
                   if (parsed.messageId) {
                     const existing = await db.query(
@@ -192,7 +213,6 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
           fetch.once('error', () => bRes(0));
         });
 
-        // Process in batches
         const runBatches = async () => {
           let total = 0;
           for (let i = 0; i < newUids.length; i += batchSize) {
@@ -208,7 +228,6 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
 
   imap.once('ready', async () => {
     try {
-      // Get all folders
       const folders = await new Promise((res, rej) => {
         imap.getBoxes((err, boxes) => {
           if (err) return rej(err);

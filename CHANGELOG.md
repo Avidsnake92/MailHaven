@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.5] - 2026-05-06
+### Aggiunto
+- Autodetect provider IMAP (Tiscali, Libero, Virgilio, Gmail, Outlook, Yahoo, ecc.)
+- Supporto SSL legacy per provider datati (Tiscali, Libero, Virgilio, Tim, Alice)
+
 ## [1.0.4] - 2026-05-06
 ### Aggiunto
 - Installer automatico (install.sh) per nuove installazioni

@@ -848,17 +848,35 @@ function MailboxesTab({ branding, user }) {
     finally { setSyncing(false); setTimeout(() => setSyncMsg(''), 4000) }
   }
 
-  // Auto-fill host when email changes
+  // Provider noti — autodetect host/porta/tls
+  const KNOWN_PROVIDERS = {
+    'tiscali.it':    { host: 'imap.tiscali.it',      port: 993, tls: true },
+    'libero.it':     { host: 'imapmail.libero.it',    port: 993, tls: true },
+    'virgilio.it':   { host: 'imap.virgilio.it',      port: 993, tls: true },
+    'tin.it':        { host: 'imap.tin.it',           port: 993, tls: true },
+    'alice.it':      { host: 'imap.alice.it',         port: 993, tls: true },
+    'tim.it':        { host: 'imap.tim.it',           port: 993, tls: true },
+    'gmail.com':     { host: 'imap.gmail.com',        port: 993, tls: true },
+    'outlook.com':   { host: 'outlook.office365.com', port: 993, tls: true },
+    'hotmail.com':   { host: 'outlook.office365.com', port: 993, tls: true },
+    'hotmail.it':    { host: 'outlook.office365.com', port: 993, tls: true },
+    'live.com':      { host: 'outlook.office365.com', port: 993, tls: true },
+    'yahoo.com':     { host: 'imap.mail.yahoo.com',   port: 993, tls: true },
+    'yahoo.it':      { host: 'imap.mail.yahoo.com',   port: 993, tls: true },
+  }
+
   const handleEmailChange = (email) => {
-    const domain = email.split('@')[1]
+    const domain = email.split('@')[1]?.toLowerCase()
+    const provider = KNOWN_PROVIDERS[domain]
     setForm(f => ({
       ...f, email,
       imap_user: email,
-      imap_host: f.imap_host || (domain ? `mail.${domain}` : ''),
+      imap_host: provider?.host || f.imap_host || (domain ? `mail.${domain}` : ''),
+      imap_port: provider?.port || f.imap_port || 993,
+      imap_tls: provider ? provider.tls : f.imap_tls,
       display_name: f.display_name || email
     }))
   }
-
   return (
     <>
       <div className="bg-white border border-gray-200 rounded-xl overflow-visible">
