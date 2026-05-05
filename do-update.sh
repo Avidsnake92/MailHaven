@@ -8,6 +8,7 @@ echo "[Update] Applicazione aggiornamenti..."
 git reset --hard origin/main
 
 echo "[Update] Build frontend..."
+rm -rf frontend/dist
 bash build-frontend.sh
 
 echo "[Update] Riavvio backend..."
