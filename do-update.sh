@@ -11,6 +11,6 @@ echo "[Update] Build frontend..."
 bash build-frontend.sh
 
 echo "[Update] Riavvio backend..."
-docker compose restart mailvault-backend
+docker compose up -d mailvault-backend
 
 echo "[Update] Completato!"
