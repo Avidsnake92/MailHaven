@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.6] - 2026-05-06
+### Aggiunto
+- Barra di stato sync per ogni casella email in Gestione
+- Modal log sync con storico ultimi 20 sync, durata e errori
+- Aggiornamento automatico stato sync dopo ogni sincronizzazione manuale
+
 ## [1.0.5] - 2026-05-06
 ### Aggiunto
 - Autodetect provider IMAP (Tiscali, Libero, Virgilio, Gmail, Outlook, Yahoo, ecc.)
