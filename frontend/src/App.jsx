@@ -14,6 +14,7 @@ import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
 import Restarting from './pages/Restarting'
 import Layout from './components/Layout'
+import UpdateNotification from './components/UpdateNotification'
 import api from './services/api'
 
 const ProtectedRoute = ({ children, roles }) => {
@@ -24,7 +25,9 @@ const ProtectedRoute = ({ children, roles }) => {
 }
 
 function AppContent() {
+  const { user } = useAuth()
   const [setupDone, setSetupDone] = useState(null)
+
   useEffect(() => {
     api.get('/setup/status')
       .then(res => setSetupDone(res.data.setup_done))
@@ -40,40 +43,45 @@ function AppContent() {
   if (!setupDone) return <Setup />
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/restarting" element={<Restarting />} />
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Layout />
-        </ProtectedRoute>
-      }>
-        <Route index element={<Dashboard />} />
-        <Route path="email/:id" element={<EmailView />} />
-        <Route path="antispam" element={<Antispam />} />
-        <Route path="backup" element={
-          <ProtectedRoute roles={['superadmin']}>
-            <Backup />
+    <>
+      {/* Notifica aggiornamenti — solo per superadmin loggati */}
+      {user && user.role === 'superadmin' && <UpdateNotification user={user} />}
+
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/restarting" element={<Restarting />} />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout />
           </ProtectedRoute>
-        } />
-        <Route path="admin" element={
-          <ProtectedRoute roles={['admin', 'superadmin']}>
-            <Admin />
-          </ProtectedRoute>
-        } />
-        <Route path="logs" element={
-          <ProtectedRoute roles={['admin', 'superadmin']}>
-            <Logs />
-          </ProtectedRoute>
-        } />
-        <Route path="settings" element={
-          <ProtectedRoute roles={['superadmin']}>
-            <Settings />
-          </ProtectedRoute>
-        } />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        }>
+          <Route index element={<Dashboard />} />
+          <Route path="email/:id" element={<EmailView />} />
+          <Route path="antispam" element={<Antispam />} />
+          <Route path="backup" element={
+            <ProtectedRoute roles={['superadmin']}>
+              <Backup />
+            </ProtectedRoute>
+          } />
+          <Route path="admin" element={
+            <ProtectedRoute roles={['admin', 'superadmin']}>
+              <Admin />
+            </ProtectedRoute>
+          } />
+          <Route path="logs" element={
+            <ProtectedRoute roles={['admin', 'superadmin']}>
+              <Logs />
+            </ProtectedRoute>
+          } />
+          <Route path="settings" element={
+            <ProtectedRoute roles={['superadmin']}>
+              <Settings />
+            </ProtectedRoute>
+          } />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }
 
