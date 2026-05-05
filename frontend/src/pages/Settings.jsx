@@ -222,17 +222,19 @@ function UpdateTab() {
   const [backupConfirmed, setBackupConfirmed] = useState(false)
   const progressTimer = useRef(null)
 
-  const loadStatus = async () => {
+const loadStatus = async () => {
     setLoading(true); setError('')
     try {
-      const res = await api.get('/update/status')
+      const [res] = await Promise.all([
+        api.get('/update/status'),
+        new Promise(resolve => setTimeout(resolve, 1500))
+      ])
       setStatus(res.data)
     } catch (err) {
       setError('Impossibile verificare aggiornamenti: ' + (err.response?.data?.error || err.message))
     }
     setLoading(false)
   }
-
   useEffect(() => { loadStatus() }, [])
 
   // Simula progresso animato durante l'aggiornamento
