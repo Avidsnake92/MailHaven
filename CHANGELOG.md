@@ -1,9 +1,12 @@
 # Changelog
 
 ## [1.1.4] - 2026-05-06
-### Corretto
-- Fix antispam: cast uuid→text nel JOIN per trovare correttamente le email
+### Aggiunto
+- Colonna Azienda in lista utenti
 - Check aggiornamenti automatico ogni 30 minuti in background
+### Corretto
+- Fix antispam: cast uuid→text nel JOIN
+- Fix encoding caratteri speciali in tabella utenti
 
 ## [1.1.3] - 2026-05-06
 ### Aggiunto
