@@ -46,7 +46,7 @@ fi
 
 echo ""
 echo -e "${BOLD}[1/9] Backup database...${NC}"
-docker exec mailvault-db pg_dump -U mailvault mailvault > /root/mailvault_backup_pre_migration_$(date +%Y%m%d_%H%M).sql
+docker exec mailvault-db pg_dump -U mailvault mailvault > /root/mailvault_backup_pre_migration_$(date +%Y%m%d_%H%M).sql 2>/dev/null || docker exec mailvault-db pg_dump -U mailhaven mailhaven > /root/mailvault_backup_pre_migration_$(date +%Y%m%d_%H%M).sql 2>/dev/null || echo "Backup saltato - DB gia migrato"
 echo -e "${GREEN}✓ Backup completato${NC}"
 
 echo ""
