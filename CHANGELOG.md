@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.4] - 2026-05-06
+### Corretto
+- Fix antispam: cast uuid→text nel JOIN per trovare correttamente le email
+- Check aggiornamenti automatico ogni 30 minuti in background
+
 ## [1.1.3] - 2026-05-06
 ### Aggiunto
 - Bottone Sync animato in Email Archiviate
@@ -12,9 +17,3 @@
 - Dropdown cliente mostra nome e azienda tra parentesi
 - Fix do-update rimuove dist prima del build
 - Fix nohup per esecuzione indipendente dal backend
-
-## [1.1.1] - 2026-05-06
-### Aggiunto
-- Notifica automatica aggiornamenti per superadmin
-- Popup prominente per aggiornamenti major/minor
-- Banner discreto per aggiornamenti patch

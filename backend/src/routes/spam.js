@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
     const result = await db.query(
       `SELECT sc.*, ae.subject, ae.sender_email, ae.sent_at, ae.path
        FROM spam_cache sc
-       JOIN archived_emails ae ON sc.email_id=ae.id
+       JOIN archived_emails ae ON sc.email_id=ae.id::text
        WHERE sc.score >= $1 ${mailboxFilter}
        ORDER BY sc.score DESC, ae.sent_at DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,

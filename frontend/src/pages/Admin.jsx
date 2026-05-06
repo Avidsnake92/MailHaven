@@ -609,6 +609,7 @@ function UsersTab({ branding, user }) {
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Utente</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ruolo</th>
               <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cliente</th>
+              <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Azienda</th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ultimo accesso</th>
               <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Stato</th>
               <th className="px-6 py-3 w-12"></th>
@@ -624,6 +625,7 @@ function UsersTab({ branding, user }) {
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${roleColor[u.role]}`}>{roleLabel[u.role]}</span>
                 </td>
                 <td className="hidden md:table-cell px-6 py-3.5 text-sm text-gray-600">{u.client_name || 'â€”'}</td>
+                <td className="hidden lg:table-cell px-6 py-3.5 text-sm text-gray-600">{u.client_company || '—'}</td>
                 <td className="hidden lg:table-cell px-6 py-3.5 text-sm text-gray-500">{u.last_login ? new Date(u.last_login).toLocaleDateString('it-IT') : 'Mai'}</td>
                 <td className="hidden sm:table-cell px-6 py-3.5">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>

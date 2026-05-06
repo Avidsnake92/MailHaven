@@ -53,12 +53,12 @@ router.get('/users', async (req, res) => {
     let result;
     if (req.user.role === 'superadmin') {
       result = await db.query(
-        `SELECT u.id, u.email, u.full_name, u.role, u.active, u.last_login, u.client_id, c.name as client_name
+        `SELECT u.id, u.email, u.full_name, u.role, u.active, u.last_login, u.client_id, c.name as client_name, c.company as client_company
          FROM users u LEFT JOIN clients c ON u.client_id = c.id ORDER BY u.created_at DESC`
       );
     } else {
       result = await db.query(
-        `SELECT u.id, u.email, u.full_name, u.role, u.active, u.last_login, u.client_id, c.name as client_name
+        `SELECT u.id, u.email, u.full_name, u.role, u.active, u.last_login, u.client_id, c.name as client_name, c.company as client_company
          FROM users u LEFT JOIN clients c ON u.client_id = c.id
          WHERE u.client_id = $1 ORDER BY u.created_at DESC`,
         [req.user.client_id]
