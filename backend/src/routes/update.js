@@ -17,10 +17,9 @@ router.get('/status', requireSuperadmin, async (req, res) => {
     try { currentVersion = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8')); } catch {}
 
     // Aggiorna git status tramite script sul host
-    await new Promise((resolve) => {
-      exec('bash /root/mailhaven/check-update.sh', (err) => resolve());
-    });
-
+await new Promise((resolve) => {
+  exec('bash /root/mailhaven/check-update.sh', (err) => setTimeout(resolve, 500));
+});
     // Leggi risultato
     let gitStatus = { currentCommit: 'unknown', remoteCommit: 'unknown', commitsBehind: 0, latestCommits: [] };
     try { gitStatus = JSON.parse(fs.readFileSync(GIT_STATUS_FILE, 'utf8')); } catch {}
