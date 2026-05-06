@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.5] - 2026-05-06
+### Corretto
+- Fix: dopo aggiornamento i commit si allineano correttamente
+- Delay 30s prima di check-update per attendere riavvio backend
+
 ## [1.1.4] - 2026-05-06
 ### Aggiunto
 - Colonna Azienda in lista utenti
@@ -14,9 +19,3 @@
 - Tab Log Sync con polling 5 secondi e storico per casella
 - Pulizia automatica log sync ogni 60 giorni
 - Animazione 1.5s su verifica aggiornamenti
-
-## [1.1.2] - 2026-05-06
-### Corretto
-- Dropdown cliente mostra nome e azienda tra parentesi
-- Fix do-update rimuove dist prima del build
-- Fix nohup per esecuzione indipendente dal backend
