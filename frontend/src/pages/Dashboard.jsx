@@ -5,7 +5,7 @@ import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight, CheckSquare, Square, Calendar, Inbox, ChevronDown, Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database, Shield, ShieldCheck, ShieldAlert, HelpCircle, Trash2, X } from 'lucide-react'
+import { Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight, CheckSquare, Square, Calendar, Inbox, ChevronDown, Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database, Shield, ShieldCheck, ShieldAlert, HelpCircle, Trash2, X, RefreshCw } from 'lucide-react'
 
 // Folder tree component
 function FolderTree({ folders, selectedFolder, onSelect }) {
