@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap } from 'lucide-react'
 
 const tabs = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
 
@@ -258,6 +258,47 @@ export default function Admin() {
       {tab === 3 && <StorageTab user={user} />}
     </div>
   )
+}
+
+
+// ── Password strength helpers ──
+const generatePassword = () => {
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const lower = 'abcdefghijklmnopqrstuvwxyz'
+  const numbers = '0123456789'
+  const special = '!@#$%^&*()_+-=[]{}|;:,.<>?'
+  const all = upper + lower + numbers + special
+  let pwd = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    numbers[Math.floor(Math.random() * numbers.length)],
+    special[Math.floor(Math.random() * special.length)],
+  ]
+  for (let i = 4; i < 16; i++) pwd.push(all[Math.floor(Math.random() * all.length)])
+  return pwd.sort(() => Math.random() - 0.5).join('')
+}
+
+const getPasswordStrength = (pwd) => {
+  if (!pwd) return { score: 0, label: '', color: '' }
+  let score = 0
+  if (pwd.length >= 8) score++
+  if (pwd.length >= 12) score++
+  if (/[A-Z]/.test(pwd)) score++
+  if (/[0-9]/.test(pwd)) score++
+  if (/[^A-Za-z0-9]/.test(pwd)) score++
+  if (score <= 1) return { score, label: 'Debole', color: 'bg-red-500' }
+  if (score <= 3) return { score, label: 'Media', color: 'bg-amber-500' }
+  return { score, label: 'Forte', color: 'bg-green-500' }
+}
+
+const validatePassword = (pwd) => {
+  const errors = []
+  if (!pwd) return errors
+  if (pwd.length < 8) errors.push('Minimo 8 caratteri')
+  if (!/[A-Z]/.test(pwd)) errors.push('Almeno una maiuscola')
+  if (!/[0-9]/.test(pwd)) errors.push('Almeno un numero')
+  if (!/[^A-Za-z0-9]/.test(pwd)) errors.push('Almeno un carattere speciale')
+  return errors
 }
 
 function UserPicker({ users, selected, onChange }) {
@@ -546,6 +587,7 @@ function UsersTab({ branding, user }) {
   const [deleteItem, setDeleteItem] = useState(null)
   const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'user', client_id: '', active: true })
   const [saving, setSaving] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -657,8 +699,47 @@ function UsersTab({ branding, user }) {
               <label className="block text-xs font-medium text-gray-600 mb-1.5">
                 {editItem ? 'Nuova password (lascia vuoto per non cambiare)' : 'Password *'}
               </label>
-              <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" />
+              <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={e => setForm({ ...form, password: e.target.value })}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 pr-9 focus:outline-none focus:ring-2"
+                    placeholder={editItem ? '••••••••' : 'Min 8 caratteri'}
+                  />
+                  <button type="button" onClick={() => setShowPassword(s => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <button type="button"
+                  onClick={() => { const p = generatePassword(); setForm({ ...form, password: p }); setShowPassword(true) }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 shrink-0">
+                  <Zap size={12} /> Genera
+                </button>
+              </div>
+              {form.password && (() => {
+                const strength = getPasswordStrength(form.password)
+                const errors = validatePassword(form.password)
+                return (
+                  <div className="mt-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                        <div className={`h-1.5 rounded-full transition-all ${strength.color}`}
+                          style={{ width: `${(strength.score / 5) * 100}%` }} />
+                      </div>
+                      <span className={`text-xs font-medium ${
+                        strength.score <= 1 ? 'text-red-500' :
+                        strength.score <= 3 ? 'text-amber-500' : 'text-green-600'
+                      }`}>{strength.label}</span>
+                    </div>
+                    {errors.length > 0 && (
+                      <p className="text-xs text-red-500">{errors.join(' · ')}</p>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

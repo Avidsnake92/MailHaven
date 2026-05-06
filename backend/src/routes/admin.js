@@ -3,6 +3,17 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { log } = require('../services/logger');
+
+// Validazione password
+const validatePassword = (password) => {
+  if (!password || password.length < 8) return 'La password deve essere di almeno 8 caratteri'
+  if (!/[A-Z]/.test(password)) return 'La password deve contenere almeno una lettera maiuscola'
+  if (!/[0-9]/.test(password)) return 'La password deve contenere almeno un numero'
+  if (!/[^A-Za-z0-9]/.test(password)) return 'La password deve contenere almeno un carattere speciale'
+  return null
+}
+
+
 const getIp = (req) => { const fwd = req.headers['x-forwarded-for']; return fwd ? fwd.split(',')[0].trim() : req.socket.remoteAddress; };
 
 router.use(authMiddleware);
@@ -75,6 +86,8 @@ router.post('/users', async (req, res) => {
     return res.status(403).json({ error: 'Non puoi creare utenti con questo ruolo' });
   }
   try {
+    const pwdError = validatePassword(password)
+    if (pwdError) return res.status(400).json({ error: pwdError })
     const hash = await bcrypt.hash(password, 10);
     const result = await db.query(
       'INSERT INTO users (email, password_hash, full_name, role, client_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, full_name, role, client_id',
@@ -92,6 +105,10 @@ router.put('/users/:id', async (req, res) => {
   const { full_name, role, active, client_id, password } = req.body;
   try {
     if (password) {
+      if (password) {
+        const pwdError = validatePassword(password)
+        if (pwdError) return res.status(400).json({ error: pwdError })
+      }
       const hash = await bcrypt.hash(password, 10);
       await db.query(
         'UPDATE users SET full_name=$1, role=$2, active=$3, client_id=$4, password_hash=$5, updated_at=NOW() WHERE id=$6',
