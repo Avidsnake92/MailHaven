@@ -12,6 +12,7 @@ rm -rf frontend/dist
 bash build-frontend.sh
 
 echo "[Update] Aggiornamento git status..."
+sleep 30
 bash check-update.sh
 
 echo "[Update] Riavvio backend..."
