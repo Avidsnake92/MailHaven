@@ -83,6 +83,19 @@ const start = async (database) => {
   setInterval(() => cleanupOldLogs(), 24 * 60 * 60 * 1000);
   setTimeout(() => cleanupOldLogs(), 5000); // pulizia iniziale
 
+  // Check aggiornamenti ogni 30 minuti
+  setInterval(() => {
+    const { exec } = require('child_process');
+    exec('bash /root/mailhaven/check-update.sh', (err) => {
+      if (err) console.error('[Scheduler] check-update error:', err.message);
+    });
+  }, 30 * 60 * 1000);
+  // Check iniziale dopo 10 secondi
+  setTimeout(() => {
+    const { exec } = require('child_process');
+    exec('bash /root/mailhaven/check-update.sh', () => {});
+  }, 10000);
+
   // First sync after 30 seconds
   setTimeout(() => syncAllMailboxes(), 30000);
 
