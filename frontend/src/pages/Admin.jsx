@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 
 const tabs = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
 
@@ -413,7 +413,23 @@ function ClientsTab({ branding, user }) {
     setLoading(true)
     api.get('/admin/clients').then(r => setClients(r.data)).finally(() => setLoading(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    loadSyncStatus()
+    const interval = setInterval(loadSyncStatus, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadSyncStatus = async () => {
+    try {
+      const res = await api.get('/admin/sync-status')
+      const byMailbox = {}
+      res.data.forEach(log => {
+        if (!byMailbox[log.mailbox_id]) byMailbox[log.mailbox_id] = log
+      })
+      setSyncStatus(byMailbox)
+    } catch {}
+  }
 
   const openNew = () => { setForm({ name: '', company: '', active: true }); setEditItem(null); setShowForm(true) }
   const openEdit = (c) => { setForm({ name: c.name, company: c.company || '', active: c.active }); setEditItem(c); setShowForm(true) }
@@ -468,7 +484,7 @@ function ClientsTab({ branding, user }) {
   </p>
   <p className="text-xs text-gray-500 sm:hidden">{c.active ? 'Attivo' : 'Disabilitato'}</p>
 </td>
-<td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">{c.company || '—'}</td>                <td className="hidden sm:table-cell px-6 py-3.5">
+<td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">{c.company || 'ï¿½'}</td>                <td className="hidden sm:table-cell px-6 py-3.5">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                     {c.active ? 'Attivo' : 'Disabilitato'}
                   </span>
@@ -536,7 +552,23 @@ function UsersTab({ branding, user }) {
     const [u, c] = await Promise.all([api.get('/admin/users'), api.get('/admin/clients')])
     setUsers(u.data); setClients(c.data); setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    loadSyncStatus()
+    const interval = setInterval(loadSyncStatus, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadSyncStatus = async () => {
+    try {
+      const res = await api.get('/admin/sync-status')
+      const byMailbox = {}
+      res.data.forEach(log => {
+        if (!byMailbox[log.mailbox_id]) byMailbox[log.mailbox_id] = log
+      })
+      setSyncStatus(byMailbox)
+    } catch {}
+  }
 
   const openNew = () => { setForm({ email: '', password: '', full_name: '', role: 'user', client_id: '', active: true }); setEditItem(null); setShowForm(true) }
   const openEdit = (u) => { setForm({ email: u.email, password: '', full_name: u.full_name || '', role: u.role, client_id: u.client_id || '', active: u.active }); setEditItem(u); setShowForm(true) }
@@ -745,6 +777,7 @@ function MailboxesTab({ branding, user }) {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
+  const [syncStatus, setSyncStatus] = useState({})
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [deleteItem, setDeleteItem] = useState(null)
@@ -782,7 +815,23 @@ function MailboxesTab({ branding, user }) {
     } catch { setAssignedUsers([]) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    loadSyncStatus()
+    const interval = setInterval(loadSyncStatus, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadSyncStatus = async () => {
+    try {
+      const res = await api.get('/admin/sync-status')
+      const byMailbox = {}
+      res.data.forEach(log => {
+        if (!byMailbox[log.mailbox_id]) byMailbox[log.mailbox_id] = log
+      })
+      setSyncStatus(byMailbox)
+    } catch {}
+  }
 
   const defaultForm = () => ({
     client_id: '', email: '', display_name: '',
@@ -849,7 +898,7 @@ function MailboxesTab({ branding, user }) {
     finally { setSyncing(false); setTimeout(() => setSyncMsg(''), 4000) }
   }
 
-  // Provider noti — autodetect host/porta/tls
+  // Provider noti ï¿½ autodetect host/porta/tls
   const KNOWN_PROVIDERS = {
     'tiscali.it':    { host: 'imap.tiscali.it',      port: 993, tls: true },
     'libero.it':     { host: 'imapmail.libero.it',    port: 993, tls: true },
@@ -942,6 +991,26 @@ function MailboxesTab({ branding, user }) {
                         </>
                       )}
                     </div>
+                    {syncStatus[m.id] && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {syncStatus[m.id].status === 'running' ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+                            <Loader2 size={10} className="animate-spin" /> Sync in corso...
+                          </span>
+                        ) : syncStatus[m.id].status === 'completed' ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                            <CheckCircle2 size={10} /> {syncStatus[m.id].emails_synced} email
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-red-500">
+                            <AlertCircle size={10} /> Errore sync
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-400">
+                          {new Date(syncStatus[m.id].finished_at || syncStatus[m.id].started_at).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -951,6 +1020,7 @@ function MailboxesTab({ branding, user }) {
                     try {
                       await api.post(`/admin/mailboxes/${m.id}/sync`)
                       setSyncMsg(`Sync avviato per ${m.email}`)
+                      setTimeout(() => loadSyncStatus(), 3000)
                     } catch { setSyncMsg('Errore sync') }
                     setTimeout(() => setSyncMsg(''), 3000)
                   }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Sincronizza ora">
