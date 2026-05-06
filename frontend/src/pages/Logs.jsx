@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useBranding } from '../context/BrandingContext'
-import { Activity, Search, ChevronLeft, ChevronRight, ChevronDown, Loader2, Mail, Download, RotateCcw, LogIn, Key, Trash2, Plus, Edit2, ShieldCheck, ShieldAlert, Shield } from 'lucide-react'
+import { Activity, Search, ChevronLeft, ChevronRight, ChevronDown, Loader2, Mail, Download, RotateCcw, LogIn, Key, Trash2, Plus, Edit2, ShieldCheck, ShieldAlert, Shield, RefreshCw, CheckCircle2, AlertCircle, Clock, Inbox } from 'lucide-react'
 
 const ACTION_CONFIG = {
   LOGIN:                  { label: 'Accesso',            color: 'bg-green-100 text-green-700',   icon: LogIn },
@@ -40,6 +40,10 @@ const AV_STATUS_CONFIG = {
 
 const formatDate = (d) => {
   try { return format(new Date(d), "dd MMM yyyy HH:mm:ss", { locale: it }) } catch { return d }
+}
+
+const formatDateShort = (d) => {
+  try { return format(new Date(d), "dd/MM HH:mm", { locale: it }) } catch { return d }
 }
 
 function ActivityLog() {
@@ -193,15 +197,12 @@ function AvLog() {
 
   const saveSettings = async () => {
     setSavingSettings(true)
-    try {
-      await api.post('/admin/settings', { av_notify_on_infection: avNotify })
-    } catch {}
-    finally { setSavingSettings(false) }
+    try { await api.post('/admin/settings', { av_notify_on_infection: avNotify }) }
+    catch {} finally { setSavingSettings(false) }
   }
 
   return (
     <div className="space-y-4">
-      {/* AV Settings */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Shield size={18} className="text-gray-500" />
@@ -222,8 +223,6 @@ function AvLog() {
           </button>
         </div>
       </div>
-
-      {/* AV Log table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
@@ -266,9 +265,7 @@ function AvLog() {
                       <Icon size={11} />{config.label}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-red-600">
-                    {log.viruses?.length > 0 ? log.viruses.join(', ') : '—'}
-                  </td>
+                  <td className="px-4 py-3 text-xs text-red-600">{log.viruses?.length > 0 ? log.viruses.join(', ') : '—'}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{log.user_name || log.user_email || '—'}</td>
                 </tr>
               )
@@ -289,6 +286,205 @@ function AvLog() {
   )
 }
 
+function SyncLog() {
+  const [mailboxes, setMailboxes] = useState([])
+  const [expanded, setExpanded] = useState({})
+  const [logs, setLogs] = useState({})
+  const [loadingLogs, setLoadingLogs] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [lastUpdate, setLastUpdate] = useState(null)
+
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const [mbRes, statusRes] = await Promise.all([
+        api.get('/admin/mailboxes'),
+        api.get('/admin/sync-status')
+      ])
+      const statusByMailbox = {}
+      statusRes.data.forEach(log => {
+        if (!statusByMailbox[log.mailbox_id]) statusByMailbox[log.mailbox_id] = []
+        statusByMailbox[log.mailbox_id].push(log)
+      })
+      const mbWithStatus = mbRes.data.map(m => ({
+        ...m,
+        lastSync: statusByMailbox[m.id]?.[0] || null,
+        syncCount: statusByMailbox[m.id]?.length || 0
+      }))
+      setMailboxes(mbWithStatus)
+      setLastUpdate(new Date())
+    } catch {} finally { setLoading(false) }
+  }, [])
+
+  // Polling ogni 5 secondi
+  useEffect(() => {
+    fetchSyncStatus()
+    const interval = setInterval(fetchSyncStatus, 5000)
+    return () => clearInterval(interval)
+  }, [fetchSyncStatus])
+
+  const toggleExpand = async (mailboxId) => {
+    const isExpanded = expanded[mailboxId]
+    setExpanded(prev => ({ ...prev, [mailboxId]: !isExpanded }))
+    if (!isExpanded && !logs[mailboxId]) {
+      setLoadingLogs(prev => ({ ...prev, [mailboxId]: true }))
+      try {
+        const res = await api.get(`/admin/mailboxes/${mailboxId}/sync-status`)
+        setLogs(prev => ({ ...prev, [mailboxId]: res.data }))
+      } catch {}
+      setLoadingLogs(prev => ({ ...prev, [mailboxId]: false }))
+    }
+  }
+
+  const refreshLogs = async (mailboxId) => {
+    setLoadingLogs(prev => ({ ...prev, [mailboxId]: true }))
+    try {
+      const res = await api.get(`/admin/mailboxes/${mailboxId}/sync-status`)
+      setLogs(prev => ({ ...prev, [mailboxId]: res.data }))
+    } catch {}
+    setLoadingLogs(prev => ({ ...prev, [mailboxId]: false }))
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Info retention */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+        <Clock size={16} className="text-amber-600 shrink-0" />
+        <p className="text-sm text-amber-800">
+          I log di sincronizzazione vengono conservati per <strong>60 giorni</strong> e poi eliminati automaticamente.
+        </p>
+        {lastUpdate && (
+          <span className="ml-auto text-xs text-amber-600 shrink-0">
+            Aggiornato: {format(lastUpdate, 'HH:mm:ss')}
+          </span>
+        )}
+      </div>
+
+      {/* Lista caselle */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={24} className="animate-spin text-gray-400" />
+        </div>
+      ) : mailboxes.length === 0 ? (
+        <div className="text-center py-16">
+          <Inbox size={32} className="text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Nessuna casella configurata</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {mailboxes.map(m => {
+            const isExpanded = expanded[m.id]
+            const mailboxLogs = logs[m.id] || []
+            const isLoading = loadingLogs[m.id]
+            const last = m.lastSync
+
+            return (
+              <div key={m.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                {/* Header casella */}
+                <button
+                  onClick={() => toggleExpand(m.id)}
+                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left">
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 bg-blue-600">
+                    {m.email[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{m.email}</p>
+                    <p className="text-xs text-gray-500">{m.client_name || 'Non assegnata'}</p>
+                  </div>
+
+                  {/* Stato ultima sync */}
+                  {last ? (
+                    <div className="flex items-center gap-3 shrink-0">
+                      {last.status === 'running' ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600">
+                          <Loader2 size={12} className="animate-spin" /> Sync in corso...
+                        </span>
+                      ) : last.status === 'completed' ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-600">
+                          <CheckCircle2 size={12} /> {last.emails_synced} email
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500">
+                          <AlertCircle size={12} /> Errore
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400">{formatDateShort(last.finished_at || last.started_at)}</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400 shrink-0">Nessuna sync</span>
+                  )}
+
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Log espanso */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100 bg-gray-50">
+                    <div className="flex items-center justify-between px-5 py-2">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Storico sincronizzazioni</p>
+                      <button onClick={(e) => { e.stopPropagation(); refreshLogs(m.id) }}
+                        className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700">
+                        <RefreshCw size={11} /> Aggiorna
+                      </button>
+                    </div>
+                    <div className="px-5 pb-4 space-y-2 max-h-72 overflow-y-auto">
+                      {isLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 size={18} className="animate-spin text-gray-400" />
+                        </div>
+                      ) : mailboxLogs.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-4">Nessun log disponibile</p>
+                      ) : mailboxLogs.map((log, i) => (
+                        <div key={i} className={`rounded-lg border p-3 ${
+                          log.status === 'completed' ? 'bg-green-50 border-green-100' :
+                          log.status === 'running' ? 'bg-blue-50 border-blue-200' :
+                          'bg-red-50 border-red-100'
+                        }`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              {log.status === 'completed'
+                                ? <CheckCircle2 size={13} className="text-green-500" />
+                                : log.status === 'running'
+                                ? <Loader2 size={13} className="animate-spin text-blue-500" />
+                                : <AlertCircle size={13} className="text-red-500" />}
+                              <span className={`text-xs font-semibold capitalize ${
+                                log.status === 'completed' ? 'text-green-700' :
+                                log.status === 'running' ? 'text-blue-700' : 'text-red-700'
+                              }`}>{log.status}</span>
+                              {log.emails_synced > 0 && (
+                                <span className="text-xs text-gray-500">· {log.emails_synced} email scaricate</span>
+                              )}
+                              {log.emails_synced === 0 && log.status === 'completed' && (
+                                <span className="text-xs text-gray-400">· Nessuna novità</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <Clock size={10} />
+                              {formatDate(log.started_at)}
+                            </div>
+                          </div>
+                          {log.finished_at && (
+                            <p className="text-xs text-gray-400">
+                              Durata: {Math.round((new Date(log.finished_at) - new Date(log.started_at)) / 1000)}s
+                            </p>
+                          )}
+                          {log.error && (
+                            <p className="text-xs text-red-600 mt-1 font-mono bg-red-100 rounded px-2 py-1 break-all">{log.error}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Logs() {
   const [activeTab, setActiveTab] = useState('activity')
 
@@ -297,15 +493,18 @@ export default function Logs() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Log</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Attività sistema e scansioni antivirus</p>
+          <p className="text-sm text-gray-500 mt-0.5">Attività sistema, sincronizzazioni e scansioni antivirus</p>
         </div>
       </div>
 
-      {/* Tab selector */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-6">
         <button onClick={() => setActiveTab('activity')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'activity' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
           <Activity size={14} /> Log Attività
+        </button>
+        <button onClick={() => setActiveTab('sync')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'sync' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+          <RefreshCw size={14} /> Log Sync
         </button>
         <button onClick={() => setActiveTab('av')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'av' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -313,7 +512,9 @@ export default function Logs() {
         </button>
       </div>
 
-      {activeTab === 'activity' ? <ActivityLog /> : <AvLog />}
+      {activeTab === 'activity' && <ActivityLog />}
+      {activeTab === 'sync' && <SyncLog />}
+      {activeTab === 'av' && <AvLog />}
     </div>
   )
 }

@@ -55,6 +55,21 @@ const syncAllMailboxes = async () => {
   }
 };
 
+
+// Pulizia automatica sync_log — mantieni solo ultimi 60 giorni
+const cleanupOldLogs = async () => {
+  try {
+    const result = await db.query(
+      `DELETE FROM sync_log WHERE started_at < NOW() - INTERVAL '60 days'`
+    );
+    if (result.rowCount > 0) {
+      console.log(`[Scheduler] Pulizia log: eliminati ${result.rowCount} log più vecchi di 60 giorni`);
+    }
+  } catch (err) {
+    console.error('[Scheduler] Errore pulizia log:', err.message);
+  }
+};
+
 const start = async (database) => {
   db = database;
 
@@ -63,6 +78,10 @@ const start = async (database) => {
   const intervalMinutes = parseInt(setting.rows[0]?.value || 15);
 
   console.log(`[Scheduler] Starting, sync every ${intervalMinutes} minutes`);
+
+  // Pulizia log ogni giorno alle 03:00
+  setInterval(() => cleanupOldLogs(), 24 * 60 * 60 * 1000);
+  setTimeout(() => cleanupOldLogs(), 5000); // pulizia iniziale
 
   // First sync after 30 seconds
   setTimeout(() => syncAllMailboxes(), 30000);
