@@ -168,6 +168,7 @@ export default function Dashboard() {
   const [restoreTarget, setRestoreTarget] = useState('')
   const [restoreLoading, setRestoreLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [actionMsg, setActionMsg] = useState('')
   const [restoredMailboxId] = useState(savedState.selectedMailboxId || null)
 
@@ -497,8 +498,19 @@ export default function Dashboard() {
             {/* Restore folder / Export mailbox buttons */}
             {selected.length === 0 && selectedMailbox && (
               <div className="flex items-center gap-2">
-                {/* Export entire mailbox */}
-                <div className="relative">
+                {/* Sync mailbox */}
+                <button onClick={async () => {
+                  setSyncing(true)
+                  try {
+                    await api.post(`/admin/mailboxes/${selectedMailbox.id}/sync`)
+                    setTimeout(() => { fetchEmails(); setSyncing(false) }, 3000)
+                  } catch { setSyncing(false) }
+                }} disabled={syncing}
+                  className={`flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg border transition-colors ${syncing ? 'border-orange-300 bg-orange-50 text-orange-600' : 'border-orange-300 text-orange-600 hover:bg-orange-50'}`}>
+                  <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                  {syncing ? 'Sync in corso...' : 'Sync'}
+                </button>
+                {/* Export entire mailbox */}                <div className="relative">
                   <button onClick={() => setShowExportMenu(m => !m)} disabled={exportLoading}
                     className="flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
                     {exportLoading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
