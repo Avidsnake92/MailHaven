@@ -1,21 +1,19 @@
 # Changelog
 
-## [1.1.5] - 2026-05-06
-### Corretto
-- Fix: dopo aggiornamento i commit si allineano correttamente
-- Delay 30s prima di check-update per attendere riavvio backend
+## [0.0.9] - 2026-05-06
+### Added
+- Block UI during update to prevent navigation and crashes
+- Redirect to restart page immediately when update starts
 
-## [1.1.4] - 2026-05-06
-### Aggiunto
-- Colonna Azienda in lista utenti
-- Check aggiornamenti automatico ogni 30 minuti in background
-### Corretto
-- Fix antispam: cast uuid→text nel JOIN
-- Fix encoding caratteri speciali in tabella utenti
+## [0.0.8] - 2026-05-06
+### Fixed
+- Antispam uuid cast fix
+- Automatic check-update every 30 minutes
+- Post-update git-status alignment
 
-## [1.1.3] - 2026-05-06
-### Aggiunto
-- Bottone Sync animato in Email Archiviate
-- Tab Log Sync con polling 5 secondi e storico per casella
-- Pulizia automatica log sync ogni 60 giorni
-- Animazione 1.5s su verifica aggiornamenti
+## [0.0.7] - 2026-05-06
+### Added
+- Animated Sync button in Email Archive
+- Sync Log tab with 5s polling and per-mailbox history
+- 60-day automatic log cleanup
+- Company column in users list

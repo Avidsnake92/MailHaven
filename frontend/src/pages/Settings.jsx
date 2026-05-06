@@ -270,22 +270,17 @@ const loadStatus = async () => {
     progressTimer.current = setTimeout(tick, 900)
   }
 
-  const handleUpdate = async () => {
+const handleUpdate = async () => {
     if (!backupConfirmed) return
     setPhase('updating')
     setError('')
     startProgressAnimation()
-
     try {
       await api.post('/update/run')
-      // Aspetta ~3 minuti poi completa
+      // Redirect immediato a pagina riavvio — blocca navigazione
       setTimeout(() => {
-        clearTimeout(progressTimer.current)
-        setProgress(100)
-        setCurrentStep(UPDATE_STEPS.length - 1)
-        setPhase('done')
-      }, 185000)
-    } catch (err) {
+        window.location.href = '/restarting'
+      }, 1500)    } catch (err) {
       clearTimeout(progressTimer.current)
       setError('Errore durante l\'aggiornamento: ' + (err.response?.data?.error || err.message))
       setPhase('error')
