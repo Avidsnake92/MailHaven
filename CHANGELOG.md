@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.28] - 2026-05-07
+### Fixed
+- Aggiornamento via GUI: usa file trigger invece di exec() dal container
+- Cron sull'host rileva update.trigger e lancia do-update.sh (fix definitivo)
+
 ## [0.0.27] - 2026-05-07
 ### Fixed
 - Settings: campo password SMTP non perde più focus (Field spostata fuori componente, useRef)

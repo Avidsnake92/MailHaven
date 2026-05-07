@@ -47,10 +47,15 @@ router.get('/status', requireSuperadmin, async (req, res) => {
 // POST /update/run
 router.post('/run', requireSuperadmin, async (req, res) => {
   res.json({ started: true, message: 'Aggiornamento avviato. Il server si riavvierà a breve.' });
+  // Crea file trigger — il cron sull'host lo rileva e lancia do-update.sh
   setTimeout(() => {
-    exec('nohup sh /root/mailhaven/do-update.sh > /root/mailhaven/data/update.log 2>&1 &', (err) => {
-      if (err) console.error('[Update] Errore:', err.message);
-    });
+    const fs = require('fs');
+    try {
+      fs.writeFileSync('/app/data/update.trigger', new Date().toISOString());
+      console.log('[Update] Trigger file creato');
+    } catch(e) {
+      console.error('[Update] Errore creazione trigger:', e.message);
+    }
   }, 1000);
 });
 
