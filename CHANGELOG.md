@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.16] - 2026-05-07
+### Fixed
+- Rimossa chiamata a check-update.sh dallo scheduler Node.js (bash non disponibile nel container)
+- Aggiunto cron sull'host per check-update.sh ogni 30 minuti
+- install.sh configura automaticamente il cron su nuove installazioni
+
 ## [0.0.15] - 2026-05-07
 ### Fixed
 - do-update.sh: aggiunto --build al docker compose up per forzare ricostruzione immagini

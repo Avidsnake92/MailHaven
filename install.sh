@@ -176,6 +176,14 @@ docker volume create mailhaven_mailhaven-db-data 2>/dev/null || true
 docker volume create mailhaven_mailhaven-clamav-db 2>/dev/null || true
 echo -e "${GREEN}✓ Volumi creati${NC}"
 
+
+# ── Cron check aggiornamenti ──
+echo ""
+echo -e "${BOLD}── Configurazione cron aggiornamenti ──${NC}"
+CRON_JOB="*/30 * * * * bash /root/mailhaven/check-update.sh >> /root/mailhaven/data/check-update.log 2>&1"
+(crontab -l 2>/dev/null | grep -v 'check-update.sh'; echo "$CRON_JOB") | crontab -
+echo -e "${GREEN}✓ Cron configurato (ogni 30 minuti)${NC}"
+
 # ── Avvia ──
 echo ""
 echo -e "${BOLD}── Avvio MailHaven ──${NC}"
