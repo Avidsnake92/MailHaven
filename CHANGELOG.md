@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.0.18] - 2026-05-07
+### Fixed
+- update.js: sostituito bash con sh per lanciare do-update.sh (bash non disponibile nel container alpine)
+
 ## [0.0.17] - 2026-05-07
 ### Fixed
 - do-update.sh configura automaticamente il cron per check-update.sh ad ogni aggiornamento

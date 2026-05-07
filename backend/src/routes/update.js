@@ -1,7 +1,7 @@
 const router = require('express').Router();
-const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const requireSuperadmin = [authMiddleware, requireRole('superadmin')];
@@ -16,11 +16,7 @@ router.get('/status', requireSuperadmin, async (req, res) => {
     let currentVersion = { version: '1.0.0', build: '—' };
     try { currentVersion = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8')); } catch {}
 
-    // Aggiorna git status tramite script sul host
-await new Promise((resolve) => {
-  exec('bash /root/mailhaven/check-update.sh', (err) => setTimeout(resolve, 500));
-});
-    // Leggi risultato
+    // Leggi git-status.json (aggiornato dallo scheduler ogni 30min o da check-update.sh sull'host)
     let gitStatus = { currentCommit: 'unknown', remoteCommit: 'unknown', commitsBehind: 0, latestCommits: [] };
     try { gitStatus = JSON.parse(fs.readFileSync(GIT_STATUS_FILE, 'utf8')); } catch {}
 
@@ -52,7 +48,7 @@ await new Promise((resolve) => {
 router.post('/run', requireSuperadmin, async (req, res) => {
   res.json({ started: true, message: 'Aggiornamento avviato. Il server si riavvierà a breve.' });
   setTimeout(() => {
-    exec('nohup bash /root/mailhaven/do-update.sh > /root/mailhaven/data/update.log 2>&1 &', (err) => {
+    exec('nohup sh /root/mailhaven/do-update.sh > /root/mailhaven/data/update.log 2>&1 &', (err) => {
       if (err) console.error('[Update] Errore:', err.message);
     });
   }, 1000);
