@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.0.17] - 2026-05-07
+### Fixed
+- do-update.sh configura automaticamente il cron per check-update.sh ad ogni aggiornamento
+
 ## [0.0.16] - 2026-05-07
 ### Fixed
 - Rimossa chiamata a check-update.sh dallo scheduler Node.js (bash non disponibile nel container)
