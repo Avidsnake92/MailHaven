@@ -591,15 +591,19 @@ router.post('/av/update', requireRole('superadmin'), async (req, res) => {
 router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
   const nodemailer = require('nodemailer');
   const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
+  if (!smtp_host) return res.status(400).json({ error: 'Server SMTP non configurato' });
+  if (!smtp_user) return res.status(400).json({ error: 'Utente SMTP non configurato' });
+  if (!smtp_pass) return res.status(400).json({ error: 'Password SMTP non configurata' });
   try {
     const transporter = nodemailer.createTransport({
       host: smtp_host, port: parseInt(smtp_port) || 465,
       secure: smtp_secure === true || smtp_secure === 'true',
-      auth: smtp_user ? { user: smtp_user, pass: smtp_pass } : undefined,
+      auth: { user: smtp_user, pass: smtp_pass },
       tls: { rejectUnauthorized: false },
     });
+    await transporter.verify();
     await transporter.sendMail({
-      from: smtp_user || 'noreply@mailhaven.local',
+      from: smtp_user,
       to: smtp_user,
       subject: 'MailHaven — Test SMTP',
       text: 'Configurazione SMTP funzionante!',

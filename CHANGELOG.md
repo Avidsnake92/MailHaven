@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.20] - 2026-05-07
+### Fixed
+- SMTP test: validazione credenziali prima di tentare invio (evita errore "Missing credentials for PLAIN")
+- SMTP test: aggiunto transporter.verify() per verificare connessione prima di inviare
+
 ## [0.0.19] - 2026-05-07
 ### Changed
 - Aggiornamento sistema: overlay globale invece di pagina /restarting separata
