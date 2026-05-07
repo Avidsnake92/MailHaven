@@ -260,3 +260,10 @@ ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT 
 ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
 ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS mailbox_id INTEGER;
 ALTER TABLE spam_cache ADD COLUMN IF NOT EXISTS mailbox_id INTEGER;
+
+-- Migrations automatiche — colonne aggiunte nel tempo
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS compressed_size_bytes BIGINT DEFAULT 0;
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_restored BOOLEAN DEFAULT false;
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS av_status VARCHAR(50) DEFAULT 'pending';
