@@ -130,6 +130,12 @@ mkdir -p "$INSTALL_DIR/data"
 echo ""
 echo -e "${BOLD}── Avvio MailHaven ──${NC}"
 cd "$INSTALL_DIR"
+
+# Crea volumi esterni
+echo -e "Creazione volumi Docker..."
+docker volume create mailhaven_mailhaven-db-data 2>/dev/null || true
+docker volume create mailhaven_mailhaven-clamav-db 2>/dev/null || true
+
 docker compose up -d --build
 
 echo ""
