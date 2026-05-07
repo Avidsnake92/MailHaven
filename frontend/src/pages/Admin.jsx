@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play } from 'lucide-react'
 
 const tabs = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
 
@@ -1097,7 +1097,19 @@ function MailboxesTab({ branding, user }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Pausa/Riprendi sync */}
                   <button onClick={async (e) => {
+                    e.stopPropagation()
+                    try {
+                      await api.post(`/admin/mailboxes/${m.id}/pause`, { paused: !m.sync_paused })
+                      load()
+                    } catch {}
+                  }}
+                    title={m.sync_paused ? 'Riprendi sync' : 'Pausa sync'}
+                    className={`p-1.5 rounded-lg transition-colors ${m.sync_paused ? 'text-orange-500 bg-orange-50 hover:bg-orange-100' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}>
+                    {m.sync_paused ? <Play size={14} /> : <Pause size={14} />}
+                  </button>
+                                    <button onClick={async (e) => {
                     e.stopPropagation()
                     setSyncMsg('Sync avviato...')
                     try {

@@ -13,7 +13,7 @@ const syncAllMailboxes = async () => {
       `SELECT m.*, c.name as client_name 
        FROM mailboxes m 
        LEFT JOIN clients c ON c.id = m.client_id
-       WHERE m.active = true AND m.imap_password_encrypted IS NOT NULL`
+       WHERE m.active = true AND m.imap_password_encrypted IS NOT NULL AND (m.sync_paused IS NULL OR m.sync_paused = false)`
     );
 
     const mailboxes = result.rows;
