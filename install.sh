@@ -80,8 +80,9 @@ if [ "$INSTALL_MODE" = "1" ]; then
   DB_USER="mailhaven"
   DB_PASSWORD=$(generate_key | cut -c1-24)
 
-  read -p "URL di accesso (es. https://mail.tuodominio.it) [http://localhost:8080]: " OAUTH_REDIRECT_BASE_URL
-  OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL:-http://localhost:8080}
+ LOCAL_IP=$(hostname -I | awk '{print $1}')
+read -p "URL di accesso (es. https://mail.tuodominio.it) [http://${LOCAL_IP}:8080]: " OAUTH_REDIRECT_BASE_URL
+OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL:-http://${LOCAL_IP}:8080}
 
   SMTP_HOST=""
   SMTP_PORT="587"
