@@ -105,9 +105,9 @@ const start = async (database) => {
                 latestCommits: commitList
               };
               try {
-                fs.writeFileSync('/app/git-status.json', JSON.stringify(status));
+                fs.writeFileSync('/app/data/git-status.json', JSON.stringify(status));
               } catch(e) {
-                fs.writeFileSync('/root/mailhaven/data/git-status.json', JSON.stringify(status));
+                fs.writeFileSync('/app/data/git-status.json', JSON.stringify(status));
               }
             });
           });

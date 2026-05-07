@@ -7,7 +7,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 const requireSuperadmin = [authMiddleware, requireRole('superadmin')];
 const APP_DIR = '/app';
 const VERSION_FILE = path.join(APP_DIR, 'version.json');
-const GIT_STATUS_FILE = path.join(APP_DIR, 'git-status.json');
+const GIT_STATUS_FILE = path.join(APP_DIR, 'data', 'git-status.json');
 
 // GET /update/status
 router.get('/status', requireSuperadmin, async (req, res) => {
