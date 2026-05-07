@@ -253,3 +253,10 @@ DROP TRIGGER IF EXISTS trig_search_vector ON archived_emails;
 CREATE TRIGGER trig_search_vector
   BEFORE INSERT OR UPDATE ON archived_emails
   FOR EACH ROW EXECUTE FUNCTION update_search_vector();
+
+-- Migrations automatiche
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS compressed_size_bytes BIGINT DEFAULT 0;
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;
+ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS mailbox_id INTEGER;
+ALTER TABLE spam_cache ADD COLUMN IF NOT EXISTS mailbox_id INTEGER;
