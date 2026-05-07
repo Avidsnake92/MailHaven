@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.27] - 2026-05-07
+### Fixed
+- Settings: campo password SMTP non perde più focus (Field spostata fuori componente, useRef)
+- Settings: indicatore verde "✓ Password già configurata" se password già salvata nel DB
+- Settings: bottone "Invia email di test" disabilitato finché host, username e password non sono compilati
+- Settings: GET /settings non ritorna mai smtp_pass in chiaro, usa smtp_pass_saved
+- SMTP test: usa password salvata nel DB se non viene reinserita
+
 ## [0.0.26] - 2026-05-07
 ### Fixed
 - Settings: indicatore visivo "● salvata" accanto al campo password SMTP se già configurata
