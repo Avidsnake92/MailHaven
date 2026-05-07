@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.24] - 2026-05-07
+### Fixed
+- Settings: campo password SMTP usa ref invece di state (fix perdita focus ad ogni carattere)
+- Settings: Field spostato fuori dal componente (fix re-mount ad ogni re-render)
+- Settings: password non obbligatoria nel test se già salvata nel DB
+
 ## [0.0.23] - 2026-05-07
 ### Fixed
 - SMTP: configurazione letta dal DB invece che solo dal .env (niente più riavvio container)
