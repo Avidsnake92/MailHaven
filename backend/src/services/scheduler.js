@@ -83,36 +83,12 @@ const start = async (database) => {
   setInterval(() => cleanupOldLogs(), 24 * 60 * 60 * 1000);
   setTimeout(() => cleanupOldLogs(), 5000); // pulizia iniziale
 
-  // Check aggiornamenti ogni 30 minuti (in Node.js, senza bash)
+  // Check aggiornamenti ogni 30 minuti (eseguito sull'host via check-update.sh)
   const runCheckUpdate = () => {
     const { exec } = require('child_process');
-    const fs = require('fs');
-    const path = require('path');
-    // Esegui git fetch e leggi stato
-    exec('git -C /root/mailhaven fetch origin main --quiet 2>/dev/null', () => {
-      exec('git -C /root/mailhaven rev-parse --short HEAD', (e1, current) => {
-        exec('git -C /root/mailhaven rev-parse --short origin/main', (e2, remote) => {
-          exec('git -C /root/mailhaven rev-list HEAD..origin/main --count', (e3, behind) => {
-            exec('git -C /root/mailhaven log --oneline -5 origin/main', (e4, commits) => {
-              const commitList = (commits || '').trim().split('\n').filter(Boolean).map(line => ({
-                hash: line.substring(0, 7),
-                message: line.substring(8)
-              }));
-              const status = {
-                currentCommit: (current || 'unknown').trim(),
-                remoteCommit: (remote || 'unknown').trim(),
-                commitsBehind: parseInt((behind || '0').trim()),
-                latestCommits: commitList
-              };
-              try {
-                fs.writeFileSync('/app/data/git-status.json', JSON.stringify(status));
-              } catch(e) {
-                fs.writeFileSync('/app/data/git-status.json', JSON.stringify(status));
-              }
-            });
-          });
-        });
-      });
+    exec('bash /root/mailhaven/check-update.sh', (err) => {
+      if (err) console.log('[Scheduler] check-update skip: ' + err.message.split('
+')[0]);
     });
   };
   setInterval(runCheckUpdate, 30 * 60 * 1000);
