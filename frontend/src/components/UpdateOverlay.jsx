@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 
 const STEPS = [
-  { id: 'fetch',   label: 'Download aggiornamento',      duration: 8000  },
-  { id: 'build',   label: 'Build frontend',              duration: 25000 },
-  { id: 'restart', label: 'Riavvio servizi',             duration: 15000 },
-  { id: 'backend', label: 'Avvio backend MailHaven',     duration: 10000 },
-  { id: 'ready',   label: 'Sistema pronto',              duration: 2000  },
+  { id: 'wait',    label: 'Avvio aggiornamento in corso',  duration: 60000 },
+  { id: 'fetch',   label: 'Download e applicazione patch', duration: 15000 },
+  { id: 'build',   label: 'Build frontend',                duration: 30000 },
+  { id: 'restart', label: 'Ricostruzione container',       duration: 30000 },
+  { id: 'ready',   label: 'Sistema pronto',                duration: 5000  },
 ]
 
 const TOTAL_DURATION = STEPS.reduce((a, s) => a + s.duration, 0)
@@ -41,23 +41,43 @@ export default function UpdateOverlay({ onComplete }) {
     return () => clearInterval(timer)
   }, [])
 
+  // Polling: aspetta che il server vada GIU' poi che torni SU'
   useEffect(() => {
+    let serverWentDown = false
+
+    // Aspetta 60s (cron parte al minuto successivo) poi inizia a monitorare
     const startDelay = setTimeout(() => {
-      const poll = setInterval(async () => {
+      const downPoll = setInterval(async () => {
         try {
-          const res = await fetch('/api/health', { cache: 'no-store' })
-          if (res.ok) {
-            setServerReady(true)
-            setProgress(100)
-            setCurrentStep(STEPS.length - 1)
-            setStepProgress(100)
-            clearInterval(poll)
-            setTimeout(() => onComplete(), 1500)
-          }
-        } catch {}
-      }, 5000)
-      return () => clearInterval(poll)
-    }, 15000)
+          await fetch('/api/health', { cache: 'no-store' })
+          // Server ancora su, continua ad aspettare
+        } catch {
+          // Server giù — ora aspetta che torni su
+          serverWentDown = true
+          clearInterval(downPoll)
+          const upPoll = setInterval(async () => {
+            try {
+              const res = await fetch('/api/health', { cache: 'no-store' })
+              if (res.ok) {
+                setServerReady(true)
+                setProgress(100)
+                setCurrentStep(STEPS.length - 1)
+                setStepProgress(100)
+                clearInterval(upPoll)
+                setTimeout(() => onComplete(), 2000)
+              }
+            } catch {}
+          }, 3000)
+        }
+      }, 3000)
+
+      // Timeout massimo 10 minuti
+      setTimeout(() => {
+        if (!serverWentDown) onComplete()
+      }, 10 * 60 * 1000)
+
+    }, 60000)
+
     return () => clearTimeout(startDelay)
   }, [onComplete])
 
@@ -165,7 +185,7 @@ export default function UpdateOverlay({ onComplete }) {
         </div>
 
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '28px' }}>
-          MailHaven · Verifica automatica ogni 5 secondi
+          MailHaven · Verifica automatica ogni 3 secondi
         </p>
       </div>
     </div>
