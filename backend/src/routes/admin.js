@@ -162,6 +162,7 @@ router.get('/mailboxes', async (req, res) => {
       `SELECT m.id, m.client_id, m.email, m.display_name,
               m.imap_host, m.imap_port, m.imap_tls, m.imap_user, m.active,
               CASE WHEN m.imap_password_encrypted IS NOT NULL THEN true ELSE false END as has_password,
+              m.sync_paused,
               c.name as client_name,
               (SELECT COUNT(*) FROM archived_emails ae WHERE ae.mailbox_id = m.id) as email_count
        FROM mailboxes m LEFT JOIN clients c ON m.client_id = c.id ORDER BY m.email`
@@ -248,6 +249,15 @@ router.post('/mailboxes/:id/sync', async (req, res) => {
 });
 
 // Sync status
+router.post('/mailboxes/:id/pause', async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const { paused } = req.body;
+    await db.query('UPDATE mailboxes SET sync_paused=$1 WHERE id=$2', [paused, req.params.id]);
+    res.json({ success: true, sync_paused: paused });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/sync-status', async (req, res) => {
   const db = req.app.locals.db;
   try {
