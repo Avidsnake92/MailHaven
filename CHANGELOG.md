@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.15] - 2026-05-07
+### Fixed
+- do-update.sh: aggiunto --build al docker compose up per forzare ricostruzione immagini
+- do-update.sh: rimosso blocco git-status.json duplicato
+- do-update.sh: rimosso sleep 30 inutile
+- do-update.sh: aggiunto rebuild mailhaven-frontend oltre al backend
+
 ## [0.0.14] - 2026-05-07
 ### Fixed
 - git-status.json scritto in /app/data/ per evitare conflitti con mount Docker
