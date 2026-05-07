@@ -83,18 +83,40 @@ const start = async (database) => {
   setInterval(() => cleanupOldLogs(), 24 * 60 * 60 * 1000);
   setTimeout(() => cleanupOldLogs(), 5000); // pulizia iniziale
 
-  // Check aggiornamenti ogni 30 minuti
-  setInterval(() => {
+  // Check aggiornamenti ogni 30 minuti (in Node.js, senza bash)
+  const runCheckUpdate = () => {
     const { exec } = require('child_process');
-    exec('bash /root/mailhaven/check-update.sh', (err) => {
-      if (err) console.error('[Scheduler] check-update error:', err.message);
+    const fs = require('fs');
+    const path = require('path');
+    // Esegui git fetch e leggi stato
+    exec('git -C /root/mailhaven fetch origin main --quiet 2>/dev/null', () => {
+      exec('git -C /root/mailhaven rev-parse --short HEAD', (e1, current) => {
+        exec('git -C /root/mailhaven rev-parse --short origin/main', (e2, remote) => {
+          exec('git -C /root/mailhaven rev-list HEAD..origin/main --count', (e3, behind) => {
+            exec('git -C /root/mailhaven log --oneline -5 origin/main', (e4, commits) => {
+              const commitList = (commits || '').trim().split('\n').filter(Boolean).map(line => ({
+                hash: line.substring(0, 7),
+                message: line.substring(8)
+              }));
+              const status = {
+                currentCommit: (current || 'unknown').trim(),
+                remoteCommit: (remote || 'unknown').trim(),
+                commitsBehind: parseInt((behind || '0').trim()),
+                latestCommits: commitList
+              };
+              try {
+                fs.writeFileSync('/app/git-status.json', JSON.stringify(status));
+              } catch(e) {
+                fs.writeFileSync('/root/mailhaven/data/git-status.json', JSON.stringify(status));
+              }
+            });
+          });
+        });
+      });
     });
-  }, 30 * 60 * 1000);
-  // Check iniziale dopo 10 secondi
-  setTimeout(() => {
-    const { exec } = require('child_process');
-    exec('bash /root/mailhaven/check-update.sh', () => {});
-  }, 10000);
+  };
+  setInterval(runCheckUpdate, 30 * 60 * 1000);
+  setTimeout(runCheckUpdate, 10000);
 
   // First sync after 30 seconds
   setTimeout(() => syncAllMailboxes(), 30000);
