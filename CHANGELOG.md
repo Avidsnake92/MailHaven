@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.26] - 2026-05-07
+### Fixed
+- Settings: indicatore visivo "● salvata" accanto al campo password SMTP se già configurata
+- Settings: placeholder password diverso se salvata o meno
+- Settings: GET /settings non ritorna mai smtp_pass in chiaro, ritorna smtp_pass_saved
+- SMTP test: messaggio errore chiaro se password mancante
+
 ## [0.0.25] - 2026-05-07
 ### Fixed
 - do-update.sh: aggiunto --no-cache al docker compose build per evitare layer cachati sul frontend

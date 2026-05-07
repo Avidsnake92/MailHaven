@@ -560,7 +560,14 @@ router.get('/settings', async (req, res) => {
   try {
     const result = await db.query('SELECT key, value FROM settings');
     const settings = {};
-    result.rows.forEach(r => settings[r.key] = r.value);
+    result.rows.forEach(r => {
+      // Non ritornare mai la password in chiaro
+      if (r.key === 'smtp_pass') {
+        settings['smtp_pass_saved'] = r.value ? 'true' : 'false';
+      } else {
+        settings[r.key] = r.value;
+      }
+    });
     res.json(settings);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
@@ -606,7 +613,7 @@ router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
 
     if (!cfg.host) return res.status(400).json({ error: 'Server SMTP non configurato' });
     if (!cfg.user) return res.status(400).json({ error: 'Username SMTP non configurato' });
-    if (!cfg.pass) return res.status(400).json({ error: 'Password SMTP non configurata — salva le impostazioni prima di testare' });
+    if (!cfg.pass) return res.status(400).json({ error: 'Password SMTP mancante — inserisci la password nel campo e salva prima di testare' });
 
     const transporter = getTransport(cfg);
     await transporter.verify();
