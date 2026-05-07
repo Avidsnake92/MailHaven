@@ -35,6 +35,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/package.json:/app/package.json
       - ./data:/app/data
+      - ./check-update.sh:/root/mailhaven/check-update.sh
       - ./version.json:/app/version.json
       - ./CHANGELOG.md:/app/CHANGELOG.md
 
