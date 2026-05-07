@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
         try {
           const admins = await db.query("SELECT email FROM users WHERE role = 'superadmin' AND active = true");
           for (const admin of admins.rows) {
-            await sendAccountBlocked(admin.email, user, ip);
+            await sendAccountBlocked(admin.email, user, ip, db);
           }
         } catch (e) { console.error('Mail notification error:', e.message); }
 

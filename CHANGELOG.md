@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.23] - 2026-05-07
+### Fixed
+- SMTP: configurazione letta dal DB invece che solo dal .env (niente più riavvio container)
+- SMTP test: usa credenziali salvate nel DB, nessuna password richiesta se già salvata
+- mailer.js: getSmtpConfig() legge dal DB con fallback su .env
+
 ## [0.0.22] - 2026-05-07
 ### Fixed
 - Settings: campo password SMTP perde focus ad ogni tasto (Field definita dentro componente causava re-mount)

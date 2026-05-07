@@ -589,29 +589,30 @@ router.post('/av/update', requireRole('superadmin'), async (req, res) => {
 
 // ---- SMTP TEST ----
 router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
-  const nodemailer = require('nodemailer');
-  const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, use_saved_pass } = req.body;
-  if (!smtp_host) return res.status(400).json({ error: 'Server SMTP non configurato' });
-  if (!smtp_user) return res.status(400).json({ error: 'Utente SMTP non configurato' });
-
-  // Se non è stata inserita una nuova password, usa quella salvata nel .env
-  let finalPass = smtp_pass;
-  if (!finalPass && use_saved_pass) {
-    finalPass = process.env.SMTP_PASS;
-  }
-  if (!finalPass) return res.status(400).json({ error: 'Password SMTP non configurata' });
+  const { getSmtpConfig, getTransport } = require('../services/mailer');
+  const db = req.app.locals.db;
+  const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: smtp_host, port: parseInt(smtp_port) || 465,
-      secure: smtp_secure === true || smtp_secure === 'true',
-      auth: { user: smtp_user, pass: finalPass },
-      tls: { rejectUnauthorized: false },
-    });
+    // Legge config dal DB, sovrascrive con i valori del form se presenti
+    const saved = await getSmtpConfig(db);
+    const cfg = {
+      host: smtp_host || saved.host,
+      port: parseInt(smtp_port) || saved.port || 465,
+      secure: smtp_secure !== undefined ? (smtp_secure === true || smtp_secure === 'true') : saved.secure,
+      user: smtp_user || saved.user,
+      pass: smtp_pass || saved.pass,
+    };
+
+    if (!cfg.host) return res.status(400).json({ error: 'Server SMTP non configurato' });
+    if (!cfg.user) return res.status(400).json({ error: 'Username SMTP non configurato' });
+    if (!cfg.pass) return res.status(400).json({ error: 'Password SMTP non configurata — salva le impostazioni prima di testare' });
+
+    const transporter = getTransport(cfg);
     await transporter.verify();
     await transporter.sendMail({
-      from: smtp_user,
-      to: smtp_user,
+      from: cfg.user,
+      to: cfg.user,
       subject: 'MailHaven — Test SMTP',
       text: 'Configurazione SMTP funzionante!',
     });
