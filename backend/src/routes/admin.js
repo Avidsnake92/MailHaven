@@ -218,11 +218,8 @@ router.put('/mailboxes/:id', async (req, res) => {
 router.delete('/mailboxes/:id', async (req, res) => {
   const db = req.app.locals.db;
   try {
-    // Elimina prima i dati collegati
-    await db.query('DELETE FROM spam_cache WHERE mailbox_id=$1', [req.params.id]);
-    await db.query('DELETE FROM sync_log WHERE mailbox_id=$1', [req.params.id]);
-    await db.query('DELETE FROM user_mailboxes WHERE mailbox_id=$1', [req.params.id]);
-    await db.query('DELETE FROM archived_emails WHERE mailbox_id=$1', [req.params.id]);
+    // CASCADE gestisce automaticamente le tabelle collegate
+    await db.query('DELETE FROM spam_cache WHERE email_id IN (SELECT id::text FROM archived_emails WHERE mailbox_id=$1)', [req.params.id]);
     await db.query('DELETE FROM mailboxes WHERE id=$1', [req.params.id]);
     res.json({ message: 'Casella eliminata' });
   } catch (err) {
