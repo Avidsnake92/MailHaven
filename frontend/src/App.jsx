@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { BrandingProvider } from './context/BrandingContext'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
 import Dashboard from './pages/Dashboard'
@@ -12,9 +12,9 @@ import Logs from './pages/Logs'
 import Security from './pages/Security'
 import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
-import Restarting from './pages/Restarting'
 import Layout from './components/Layout'
 import UpdateNotification from './components/UpdateNotification'
+import UpdateOverlay from './components/UpdateOverlay'
 import api from './services/api'
 
 const ProtectedRoute = ({ children, roles }) => {
@@ -27,11 +27,17 @@ const ProtectedRoute = ({ children, roles }) => {
 function AppContent() {
   const { user } = useAuth()
   const [setupDone, setSetupDone] = useState(null)
+  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
     api.get('/setup/status')
       .then(res => setSetupDone(res.data.setup_done))
       .catch(() => setSetupDone(true))
+  }, [])
+
+  const handleUpdateComplete = useCallback(() => {
+    setUpdating(false)
+    window.location.href = '/login'
   }, [])
 
   if (setupDone === null) return (
@@ -44,12 +50,16 @@ function AppContent() {
 
   return (
     <>
-      {/* Notifica aggiornamenti — solo per superadmin loggati */}
-      {user && user.role === 'superadmin' && <UpdateNotification user={user} />}
+      {/* Overlay aggiornamento — blocca tutta l'app */}
+      {updating && <UpdateOverlay onComplete={handleUpdateComplete} />}
+
+      {/* Notifica aggiornamenti — solo superadmin, solo se non stiamo già aggiornando */}
+      {user && user.role === 'superadmin' && !updating && (
+        <UpdateNotification user={user} onUpdateStart={() => setUpdating(true)} />
+      )}
 
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/restarting" element={<Restarting />} />
         <Route path="/" element={
           <ProtectedRoute>
             <Layout />

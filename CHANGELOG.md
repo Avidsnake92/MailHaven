@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.19] - 2026-05-07
+### Changed
+- Aggiornamento sistema: overlay globale invece di pagina /restarting separata
+- Blocco completo UI durante aggiornamento (impossibile navigare o bypassare)
+- Doppia conferma prima di avviare aggiornamento (sia modal che banner patch)
+- Rimossa route /restarting — UpdateOverlay gestisce tutto in-app
+
 ## [0.0.18] - 2026-05-07
 ### Fixed
 - update.js: sostituito bash con sh per lanciare do-update.sh (bash non disponibile nel container alpine)
