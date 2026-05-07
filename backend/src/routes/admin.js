@@ -617,7 +617,12 @@ router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    let msg = err.message;
+    if (msg.includes('Missing credentials') || msg.includes('PLAIN')) msg = 'Credenziali SMTP mancanti o errate';
+    if (msg.includes('ECONNREFUSED')) msg = 'Connessione rifiutata — verifica host e porta SMTP';
+    if (msg.includes('ETIMEDOUT')) msg = 'Timeout connessione — verifica host e porta SMTP';
+    if (msg.includes('Invalid login') || msg.includes('535')) msg = 'Username o password SMTP errati';
+    res.status(400).json({ error: msg });
   }
 });
 

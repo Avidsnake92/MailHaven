@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.22] - 2026-05-07
+### Fixed
+- Settings: campo password SMTP perde focus ad ogni tasto (Field definita dentro componente causava re-mount)
+- SMTP test: messaggi errore leggibili invece di errori tecnici nodemailer
+
 ## [0.0.21] - 2026-05-07
 ### Fixed
 - SMTP test: fix password non trasmessa (defaultValue → value in Settings)
