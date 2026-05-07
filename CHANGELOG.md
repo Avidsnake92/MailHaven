@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.0.25] - 2026-05-07
+### Fixed
+- do-update.sh: aggiunto --no-cache al docker compose build per evitare layer cachati sul frontend
+
 ## [0.0.24] - 2026-05-07
 ### Fixed
 - Settings: campo password SMTP usa ref invece di state (fix perdita focus ad ogni carattere)
