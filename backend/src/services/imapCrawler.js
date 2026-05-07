@@ -184,7 +184,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       JSON.stringify(parseRecipients(parsed.to)),
                       JSON.stringify(parseRecipients(parsed.cc)),
                       JSON.stringify(parseRecipients(parsed.bcc)),
-                      parsed.date || null,
+                      parsed.date || (headers['date'] ? new Date(headers['date']) : null) || null,
                       folderPath,
                       attachments.length > 0,
                       JSON.stringify(attachments),
