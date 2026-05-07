@@ -37,7 +37,6 @@ services:
       - ./data:/app/data
       - ./version.json:/app/version.json
       - ./CHANGELOG.md:/app/CHANGELOG.md
-      - ./data/git-status.json:/app/git-status.json	
 
   mailhaven-frontend:
     build: ./frontend
