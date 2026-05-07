@@ -67,10 +67,10 @@ ENCRYPTION_KEY=$(generate_key)
 # ── Configurazione interattiva ──
 echo ""
 echo -e "${BOLD}── Configurazione database ──${NC}"
-read -p "Nome database [mailvault]: " DB_NAME
-DB_NAME=${DB_NAME:-mailvault}
-read -p "Utente database [mailvault]: " DB_USER
-DB_USER=${DB_USER:-mailvault}
+read -p "Nome database [mailhaven]: " DB_NAME
+DB_NAME=${DB_NAME:-mailhaven}
+read -p "Utente database [mailhaven]: " DB_USER
+DB_USER=${DB_USER:-mailhaven}
 read -s -p "Password database [genera casuale]: " DB_PASSWORD
 echo ""
 DB_PASSWORD=${DB_PASSWORD:-$(generate_key | cut -c1-24)}
