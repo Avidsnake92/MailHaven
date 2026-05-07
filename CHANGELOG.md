@@ -1,21 +1,22 @@
 # Changelog
 
+## [0.0.11] - 2026-05-07
+### Fixed
+- Missing columns in init.sql for fresh installations (compressed_size_bytes, is_deleted, is_restored, av_status)
+- Copy button works on HTTP (not only HTTPS)
+- Installer default mode with automatic configuration
+- Installer creates Docker volumes before startup
+
 ## [0.0.10] - 2026-05-06
 ### Added
 - Password strength indicator (weak/medium/strong bar)
 - Automatic password generator button
 - Show/hide password toggle
 - Password policy validation (min 8 chars, uppercase, number, special char)
-- Backend validation for password on user create and update
 
 ## [0.0.9] - 2026-05-06
 ### Added
 - Block UI during update to prevent navigation and crashes
-- Redirect to restart page immediately when update starts
 - Automatic check-update every 30 minutes in background
-
-## [0.0.8] - 2026-05-06
 ### Fixed
-- Antispam uuid cast fix
-- Post-update git-status alignment
-- 30s delay before check-update after restart
+- Post-update git-status alignment with 30s delay
