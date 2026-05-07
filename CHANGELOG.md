@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.21] - 2026-05-07
+### Fixed
+- SMTP test: fix password non trasmessa (defaultValue → value in Settings)
+- SMTP test: se password non modificata usa quella salvata nel .env (use_saved_pass)
+
 ## [0.0.20] - 2026-05-07
 ### Fixed
 - SMTP test: validazione credenziali prima di tentare invio (evita errore "Missing credentials for PLAIN")

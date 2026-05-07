@@ -590,15 +590,22 @@ router.post('/av/update', requireRole('superadmin'), async (req, res) => {
 // ---- SMTP TEST ----
 router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
   const nodemailer = require('nodemailer');
-  const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
+  const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, use_saved_pass } = req.body;
   if (!smtp_host) return res.status(400).json({ error: 'Server SMTP non configurato' });
   if (!smtp_user) return res.status(400).json({ error: 'Utente SMTP non configurato' });
-  if (!smtp_pass) return res.status(400).json({ error: 'Password SMTP non configurata' });
+
+  // Se non è stata inserita una nuova password, usa quella salvata nel .env
+  let finalPass = smtp_pass;
+  if (!finalPass && use_saved_pass) {
+    finalPass = process.env.SMTP_PASS;
+  }
+  if (!finalPass) return res.status(400).json({ error: 'Password SMTP non configurata' });
+
   try {
     const transporter = nodemailer.createTransport({
       host: smtp_host, port: parseInt(smtp_port) || 465,
       secure: smtp_secure === true || smtp_secure === 'true',
-      auth: { user: smtp_user, pass: smtp_pass },
+      auth: { user: smtp_user, pass: finalPass },
       tls: { rejectUnauthorized: false },
     });
     await transporter.verify();
