@@ -25,6 +25,6 @@ CRON_JOB="*/30 * * * * bash /root/mailhaven/check-update.sh >> /root/mailhaven/d
 (crontab -l 2>/dev/null | grep -v 'check-update.sh'; echo "$CRON_JOB") | crontab -
 
 echo "[Update] Ricostruzione e riavvio container..."
-docker compose up -d --build --no-cache mailhaven-backend mailhaven-frontend
+docker compose up -d --build mailhaven-backend mailhaven-frontend
 
 echo "[Update] Completato!"
