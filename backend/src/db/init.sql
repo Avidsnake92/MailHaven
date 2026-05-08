@@ -217,7 +217,7 @@ ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_restored BOOLEAN DEFAULT
 -- Plugin tokens (longevi, per Outlook/Thunderbird add-in)
 CREATE TABLE IF NOT EXISTS plugin_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(100) NOT NULL DEFAULT 'Plugin Token',
   client_type VARCHAR(50) DEFAULT 'generic',
