@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 const STEPS = [
-  { id: 'wait',    label: 'Avvio aggiornamento in corso',  duration: 60000 },
+  { id: 'wait',    label: 'Avvio aggiornamento in corso',  duration: 65000 },
   { id: 'fetch',   label: 'Download e applicazione patch', duration: 15000 },
   { id: 'build',   label: 'Build frontend',                duration: 30000 },
   { id: 'restart', label: 'Ricostruzione container',       duration: 30000 },
@@ -16,12 +16,14 @@ export default function UpdateOverlay({ onComplete }) {
   const [stepProgress, setStepProgress] = useState(0)
   const [serverReady, setServerReady] = useState(false)
   const [dots, setDots] = useState('')
+  const startVersionRef = useRef(null)
 
   useEffect(() => {
     const t = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 500)
     return () => clearInterval(t)
   }, [])
 
+  // Animazione progress bar
   useEffect(() => {
     let elapsed = 0
     let stepIndex = 0
@@ -41,41 +43,45 @@ export default function UpdateOverlay({ onComplete }) {
     return () => clearInterval(timer)
   }, [])
 
-  // Polling: aspetta che il server vada GIU' poi che torni SU'
+  // Leggi versione attuale all'avvio, poi aspetta che cambi
   useEffect(() => {
-    let serverWentDown = false
+    const getCurrentVersion = async () => {
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store' })
+        const data = await res.json()
+        return data.version || null
+      } catch { return null }
+    }
 
-    // Aspetta 60s (cron parte al minuto successivo) poi inizia a monitorare
+    // Salva versione di partenza
+    getCurrentVersion().then(v => {
+      startVersionRef.current = v
+    })
+
+    // Dopo 60s inizia a fare polling sulla versione
     const startDelay = setTimeout(() => {
-      const downPoll = setInterval(async () => {
+      const poll = setInterval(async () => {
         try {
-          await fetch('/api/health', { cache: 'no-store' })
-          // Server ancora su, continua ad aspettare
-        } catch {
-          // Server giù — ora aspetta che torni su
-          serverWentDown = true
-          clearInterval(downPoll)
-          const upPoll = setInterval(async () => {
-            try {
-              const res = await fetch('/api/health', { cache: 'no-store' })
-              if (res.ok) {
-                setServerReady(true)
-                setProgress(100)
-                setCurrentStep(STEPS.length - 1)
-                setStepProgress(100)
-                clearInterval(upPoll)
-                setTimeout(() => onComplete(), 2000)
-              }
-            } catch {}
-          }, 3000)
-        }
-      }, 3000)
+          const newVersion = await getCurrentVersion()
+          // Se la versione è cambiata O se non risponde più e poi risponde di nuovo
+          if (newVersion && startVersionRef.current && newVersion !== startVersionRef.current) {
+            clearInterval(poll)
+            setServerReady(true)
+            setProgress(100)
+            setCurrentStep(STEPS.length - 1)
+            setStepProgress(100)
+            setTimeout(() => onComplete(), 2000)
+          }
+        } catch {}
+      }, 5000)
 
       // Timeout massimo 10 minuti
-      setTimeout(() => {
-        if (!serverWentDown) onComplete()
+      const timeout = setTimeout(() => {
+        clearInterval(poll)
+        onComplete()
       }, 10 * 60 * 1000)
 
+      return () => { clearInterval(poll); clearTimeout(timeout) }
     }, 60000)
 
     return () => clearTimeout(startDelay)
@@ -185,7 +191,7 @@ export default function UpdateOverlay({ onComplete }) {
         </div>
 
         <p style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '28px' }}>
-          MailHaven · Verifica automatica ogni 3 secondi
+          MailHaven · Verifica automatica ogni 5 secondi
         </p>
       </div>
     </div>
