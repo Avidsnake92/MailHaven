@@ -87,6 +87,14 @@ if ! command -v docker &> /dev/null; then
   curl -fsSL https://get.docker.com | sh -s -- -q
   systemctl enable docker -q
   systemctl start docker
+  sleep 3
+  # Assicura che docker sia nel PATH nella sessione corrente
+  export PATH=$PATH:/usr/bin:/usr/local/bin
+  hash -r
+  if ! command -v docker &> /dev/null; then
+    err "Docker installato ma non nel PATH. Riavvia la sessione e rilancia install.sh"
+    exit 1
+  fi
   ok "Docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
 else
   ok "Docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
@@ -283,8 +291,8 @@ done_step
 # ── Step 5: Volumi Docker ──
 step "Preparazione Docker"
 
-docker volume create mailhaven_mailhaven-db-data -q 2>/dev/null && ok "Volume DB creato" || ok "Volume DB già esistente"
-docker volume create mailhaven_mailhaven-clamav-db -q 2>/dev/null && ok "Volume ClamAV creato" || ok "Volume ClamAV già esistente"
+docker volume create mailhaven_mailhaven-db-data 2>/dev/null && ok "Volume DB creato" || ok "Volume DB già esistente"
+docker volume create mailhaven_mailhaven-clamav-db 2>/dev/null && ok "Volume ClamAV creato" || ok "Volume ClamAV già esistente"
 
 done_step
 
@@ -309,7 +317,15 @@ info "Build e avvio container in corso (potrebbe richiedere qualche minuto)..."
 echo ""
 docker compose up -d --build
 echo ""
-ok "Container avviati"
+
+# Verifica che i container siano partiti
+sleep 5
+RUNNING=$(docker compose ps --status running 2>/dev/null | grep -c "running" || echo "0")
+if [ "$RUNNING" -ge 3 ]; then
+  ok "Container avviati ($RUNNING/3)"
+else
+  warn "Alcuni container potrebbero non essere partiti — verifica con: docker compose ps"
+fi
 
 # Aggiorna git-status
 bash "$INSTALL_DIR/check-update.sh" 2>/dev/null
