@@ -16,11 +16,11 @@ const formatDate = (d) => {
   return new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16']
+const COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#4338ca', '#0ea5e9', '#7c3aed']
 
-const StatCard = ({ icon: Icon, label, value, sub, color = '#3b82f6' }) => (
+const StatCard = ({ icon: Icon, label, value, sub, color = '#1d4ed8', bg = '#eff6ff' }) => (
   <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-start gap-4">
-    <div style={{ background: color + '15' }} className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+    <div style={{ background: bg }} className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
       <Icon size={18} style={{ color }} />
     </div>
     <div>
@@ -96,10 +96,10 @@ export default function Statistics() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Mail} label="Email archiviate" value={parseInt(totals.email_count).toLocaleString('it-IT')} sub="totale" color="#3b82f6" />
-        <StatCard icon={Inbox} label="Caselle attive" value={totals.mailbox_count} sub="monitorate" color="#10b981" />
-        <StatCard icon={HardDrive} label="Spazio utilizzato" value={formatBytes(parseInt(totals.total_size))} sub="archivio totale" color="#f59e0b" />
-        <StatCard icon={TrendingUp} label="Ultimi 30 giorni" value={parseInt(totals.last_30_days).toLocaleString('it-IT')} sub={`+${parseInt(totals.last_7_days).toLocaleString('it-IT')} ultima settimana`} color="#8b5cf6" />
+        <StatCard icon={Mail} label="Email archiviate" value={parseInt(totals.email_count).toLocaleString('it-IT')} sub="totale" color="#1d4ed8" bg="#eff6ff" />
+        <StatCard icon={Inbox} label="Caselle attive" value={totals.mailbox_count} sub="monitorate" color="#15803d" bg="#f0fdf4" />
+        <StatCard icon={HardDrive} label="Spazio utilizzato" value={formatBytes(parseInt(totals.total_size))} sub="archivio totale" color="#7e22ce" bg="#faf5ff" />
+        <StatCard icon={TrendingUp} label="Ultimi 30 giorni" value={parseInt(totals.last_30_days).toLocaleString('it-IT')} sub={`+${parseInt(totals.last_7_days).toLocaleString('it-IT')} ultima settimana`} color="#4338ca" bg="#eef2ff" />
       </div>
 
       {/* Timeline Chart */}
@@ -172,7 +172,7 @@ export default function Statistics() {
                 <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
                 <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
                   formatter={(v, n, p) => [v.toLocaleString('it-IT'), p.payload.email]} />
-                <Bar dataKey="count" name="Spam" fill="#f97316" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" name="Spam" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
