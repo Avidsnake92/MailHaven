@@ -46,6 +46,13 @@ const pool = new Pool({
 // Make pool available globally
 app.locals.db = pool;
 
+// Esegui migration automatica all'avvio
+const migrate = require('./db/migrate');
+pool.connect().then(client => {
+  client.release();
+  return migrate(pool);
+}).catch(e => console.error('[Migration] Errore:', e.message));
+
 // Middleware
 app.use(cors({
   origin: '*',
