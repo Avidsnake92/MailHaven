@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Mail, HardDrive, TrendingUp, ShieldAlert, RefreshCw, Inbox, Clock } from 'lucide-react'
 import api from '../services/api'
 
@@ -17,6 +17,7 @@ const formatDate = (d) => {
 }
 
 const COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#4338ca', '#0ea5e9', '#7c3aed']
+const COLORS_ALPHA = ['rgba(59,130,246,0.65)', 'rgba(99,102,241,0.65)', 'rgba(139,92,246,0.65)', 'rgba(6,182,212,0.65)', 'rgba(16,185,129,0.65)', 'rgba(67,56,202,0.65)', 'rgba(14,165,233,0.65)', 'rgba(124,58,237,0.65)']
 
 const StatCard = ({ icon: Icon, label, value, sub, color = '#1d4ed8', bg = '#eff6ff' }) => (
   <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-start gap-4">
@@ -123,7 +124,7 @@ export default function Statistics() {
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               {timeline.mailboxes.map((mailbox, i) => (
                 <Line key={mailbox} type="monotone" dataKey={mailbox}
-                  stroke={COLORS[i % COLORS.length]} strokeWidth={2}
+                  stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeOpacity={0.8}
                   dot={false} name={mailbox} />
               ))}
             </LineChart>
@@ -148,7 +149,7 @@ export default function Statistics() {
                   formatter={(v, n, p) => [v.toLocaleString('it-IT'), p.payload.email]} />
                 <Bar dataKey="count" name="Email" radius={[4, 4, 0, 0]}>
                   {byMailbox.map((_, i) => (
-                    <rect key={i} fill={COLORS[i % COLORS.length]} />
+                    <Cell key={i} fill={COLORS_ALPHA[i % COLORS_ALPHA.length]} stroke={COLORS[i % COLORS.length]} strokeWidth={1} />
                   ))}
                 </Bar>
               </BarChart>
@@ -172,7 +173,7 @@ export default function Statistics() {
                 <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
                 <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
                   formatter={(v, n, p) => [v.toLocaleString('it-IT'), p.payload.email]} />
-                <Bar dataKey="count" name="Spam" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" name="Spam" fill="rgba(16,185,129,0.65)" stroke="#10b981" strokeWidth={1} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
