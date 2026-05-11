@@ -13,6 +13,7 @@ import Security from './pages/Security'
 import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
 import Layout from './components/Layout'
+import AuditLog from './pages/AuditLog'
 import UpdateNotification from './components/UpdateNotification'
 import UpdateOverlay from './components/UpdateOverlay'
 import api from './services/api'
@@ -35,6 +36,12 @@ function AppContent() {
       .catch(() => setSetupDone(true))
   }, [])
 
+  useEffect(() => {
+    const handler = () => setUpdating(true)
+    window.addEventListener('mailhaven:update-started', handler)
+    return () => window.removeEventListener('mailhaven:update-started', handler)
+  }, [])
+
   const handleUpdateComplete = useCallback(() => {
     setUpdating(false)
     window.location.href = '/login'
@@ -50,43 +57,32 @@ function AppContent() {
 
   return (
     <>
-      {/* Overlay aggiornamento — blocca tutta l'app */}
       {updating && <UpdateOverlay onComplete={handleUpdateComplete} />}
-
-      {/* Notifica aggiornamenti — solo superadmin, solo se non stiamo già aggiornando */}
       {user && user.role === 'superadmin' && !updating && (
-        <UpdateNotification user={user} onUpdateStart={() => setUpdating(true)} />
+        <UpdateNotification user={user} />
       )}
-
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
+          <ProtectedRoute><Layout /></ProtectedRoute>
         }>
           <Route index element={<Dashboard />} />
           <Route path="email/:id" element={<EmailView />} />
           <Route path="antispam" element={<Antispam />} />
           <Route path="backup" element={
-            <ProtectedRoute roles={['superadmin']}>
-              <Backup />
-            </ProtectedRoute>
+            <ProtectedRoute roles={['superadmin']}><Backup /></ProtectedRoute>
           } />
           <Route path="admin" element={
-            <ProtectedRoute roles={['admin', 'superadmin']}>
-              <Admin />
-            </ProtectedRoute>
+            <ProtectedRoute roles={['admin', 'superadmin']}><Admin /></ProtectedRoute>
           } />
           <Route path="logs" element={
-            <ProtectedRoute roles={['admin', 'superadmin']}>
-              <Logs />
-            </ProtectedRoute>
+            <ProtectedRoute roles={['admin', 'superadmin']}><Logs /></ProtectedRoute>
+          } />
+          <Route path="audit" element={
+            <ProtectedRoute roles={['superadmin']}><AuditLog /></ProtectedRoute>
           } />
           <Route path="settings" element={
-            <ProtectedRoute roles={['superadmin']}>
-              <Settings />
-            </ProtectedRoute>
+            <ProtectedRoute roles={['superadmin']}><Settings /></ProtectedRoute>
           } />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

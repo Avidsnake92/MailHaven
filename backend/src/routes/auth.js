@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
         try {
           const admins = await db.query("SELECT email FROM users WHERE role = 'superadmin' AND active = true");
           for (const admin of admins.rows) {
-            await sendAccountBlocked(admin.email, user, ip, db);
+            await sendAccountBlocked(admin.email, user, ip);
           }
         } catch (e) { console.error('Mail notification error:', e.message); }
 
@@ -100,6 +100,29 @@ router.post('/login', async (req, res) => {
     // Reset failed attempts on success
     await db.query('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1', [user.id]);
     await log(db, user.id, 'LOGIN', { email, totp: user.totp_enabled }, ip);
+
+    // Suspicious IP check — notifica se IP mai visto per questo utente
+    try {
+      const recentIps = await db.query(
+        `SELECT DISTINCT ip_address FROM activity_log 
+         WHERE user_id = $1 AND action = 'LOGIN' AND ip_address != $2
+         AND created_at > NOW() - INTERVAL '30 days'
+         ORDER BY ip_address`,
+        [user.id, ip]
+      );
+      const knownIps = recentIps.rows.map(r => r.ip_address);
+      const isNewIp = knownIps.length > 0 && !knownIps.includes(ip);
+      if (isNewIp) {
+        await log(db, user.id, 'SUSPICIOUS_IP', { email, ip, known_ips: knownIps }, ip);
+        // Notifica superadmin
+        const { sendSuspiciousIp } = require('../services/mailer');
+        const admins = await db.query("SELECT email FROM users WHERE role = 'superadmin' AND active = true");
+        for (const admin of admins.rows) {
+          await sendSuspiciousIp(admin.email, user, ip, knownIps).catch(() => {});
+        }
+      }
+    } catch (e) { console.error('Suspicious IP check error:', e.message); }
+
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, client_id: user.client_id, full_name: user.full_name, sessionStart: Date.now() },

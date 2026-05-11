@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Mail, Settings, Users, LogOut, Archive, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert } from 'lucide-react'
+import { Mail, Settings, Users, LogOut, Archive, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, ClipboardList } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -49,6 +49,11 @@ export default function Layout() {
       {(user?.role === 'admin' || user?.role === 'superadmin') && (
         <NavLink to="/logs" className={navClass}>
           <Activity size={17} /> Log Attività
+        </NavLink>
+      )}
+      {user?.role === 'superadmin' && (
+        <NavLink to="/audit" className={navClass}>
+          <ClipboardList size={17} /> Audit Log
         </NavLink>
       )}
       {user?.role === 'superadmin' && (

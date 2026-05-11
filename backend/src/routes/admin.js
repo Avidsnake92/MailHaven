@@ -588,33 +588,41 @@ router.post('/av/update', requireRole('superadmin'), async (req, res) => {
 });
 
 
-// POST /admin/fix-dates — corregge email con data 1970 usando headers salvati
-router.post('/fix-dates', requireRole('superadmin'), async (req, res) => {
+// ── AUDIT LOG ──
+router.get('/audit-log', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
+  const { page = 1, limit = 50, user_id, action, ip, from, to } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
   try {
-    const result = await db.query(`
-      SELECT id, headers FROM archived_emails 
-      WHERE sent_at < '1971-01-01' OR sent_at IS NULL
-      LIMIT 1000
-    `);
-    let fixed = 0;
-    for (const row of result.rows) {
-      try {
-        const headers = typeof row.headers === 'string' ? JSON.parse(row.headers) : row.headers;
-        const dateStr = headers?.date || headers?.Date;
-        if (dateStr) {
-          const d = new Date(dateStr);
-          if (d && !isNaN(d.getTime()) && d.getFullYear() > 1990) {
-            await db.query('UPDATE archived_emails SET sent_at=$1 WHERE id=$2', [d, row.id]);
-            fixed++;
-          }
-        }
-      } catch {}
-    }
-    res.json({ fixed, total: result.rows.length });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    let where = [];
+    let params = [];
+    let i = 1;
+    if (user_id) { where.push(`al.user_id = $${i++}`); params.push(user_id); }
+    if (action) { where.push(`al.action ILIKE $${i++}`); params.push('%' + action + '%'); }
+    if (ip) { where.push(`al.ip_address ILIKE $${i++}`); params.push('%' + ip + '%'); }
+    if (from) { where.push(`al.created_at >= $${i++}`); params.push(from); }
+    if (to) { where.push(`al.created_at <= $${i++}`); params.push(to); }
+    const whereStr = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const [logs, count] = await Promise.all([
+      db.query(
+        `SELECT al.id, al.action, al.details, al.ip_address, al.created_at,
+                u.email as user_email, u.full_name as user_name, u.role as user_role
+         FROM activity_log al
+         LEFT JOIN users u ON al.user_id = u.id
+         ${whereStr}
+         ORDER BY al.created_at DESC
+         LIMIT $${i++} OFFSET $${i++}`,
+        [...params, parseInt(limit), offset]
+      ),
+      db.query(`SELECT COUNT(*) FROM activity_log al ${whereStr}`, params)
+    ]);
+    res.json({
+      logs: logs.rows,
+      total: parseInt(count.rows[0].count),
+      page: parseInt(page),
+      pages: Math.ceil(parseInt(count.rows[0].count) / parseInt(limit))
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ---- SMTP TEST ----
