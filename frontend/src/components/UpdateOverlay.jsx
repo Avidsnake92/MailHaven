@@ -73,7 +73,7 @@ export default function UpdateOverlay({ onComplete }) {
             setTimeout(() => onComplete(), 2000)
           }
         } catch {}
-      }, 5000)
+      }, 10000)
 
       // Timeout massimo 10 minuti
       const timeout = setTimeout(() => {

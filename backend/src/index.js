@@ -21,7 +21,7 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minuti
   max: 200,
   message: { error: 'Troppe richieste, riprova tra poco' },
-  skip: (req) => req.path.startsWith('/plugin/') || req.path === '/health',
+  skip: (req) => req.path.startsWith('/plugin/') || req.path === '/health' || req.path === '/update/status',
 });
 app.use('/api/', limiter);
 
