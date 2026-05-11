@@ -638,8 +638,8 @@ router.get('/stats/overview', authMiddleware, async (req, res) => {
           COUNT(DISTINCT m.id) as mailbox_count,
           COUNT(ae.id) as email_count,
           COALESCE(SUM(ae.size_bytes), 0) as total_size,
-          COUNT(CASE WHEN ae.created_at > NOW() - INTERVAL '7 days' THEN 1 END) as last_7_days,
-          COUNT(CASE WHEN ae.created_at > NOW() - INTERVAL '30 days' THEN 1 END) as last_30_days
+          COUNT(CASE WHEN ae.sent_at > NOW() - INTERVAL '7 days' THEN 1 END) as last_7_days,
+          COUNT(CASE WHEN ae.sent_at > NOW() - INTERVAL '30 days' THEN 1 END) as last_30_days
         FROM mailboxes m
         LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
         ${clientWhere}
@@ -650,8 +650,8 @@ router.get('/stats/overview', authMiddleware, async (req, res) => {
           m.id, m.email, m.display_name,
           COUNT(ae.id) as email_count,
           COALESCE(SUM(ae.size_bytes), 0) as total_size,
-          MAX(ae.created_at) as last_sync,
-          COUNT(CASE WHEN ae.created_at > NOW() - INTERVAL '30 days' THEN 1 END) as last_30_days
+          MAX(ae.sent_at) as last_sync,
+          COUNT(CASE WHEN ae.sent_at > NOW() - INTERVAL '30 days' THEN 1 END) as last_30_days
         FROM mailboxes m
         LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
         ${clientWhere}
@@ -661,20 +661,20 @@ router.get('/stats/overview', authMiddleware, async (req, res) => {
 
       db.query(`
         SELECT 
-          TO_CHAR(ae.created_at, 'YYYY-MM-DD') as date,
+          TO_CHAR(ae.sent_at, 'YYYY-MM-DD') as date,
           m.email as mailbox,
           COUNT(*) as count
         FROM archived_emails ae
         JOIN mailboxes m ON ae.mailbox_id = m.id
-        ${isSuperadmin ? 'WHERE' : 'WHERE m.client_id = $1 AND'} ae.created_at > NOW() - INTERVAL '90 days'
-        GROUP BY TO_CHAR(ae.created_at, 'YYYY-MM-DD'), m.email
+        ${isSuperadmin ? 'WHERE' : 'WHERE m.client_id = $1 AND'} ae.sent_at > NOW() - INTERVAL '90 days'
+        GROUP BY TO_CHAR(ae.sent_at, 'YYYY-MM-DD'), m.email
         ORDER BY date ASC
       `, params),
 
       db.query(`
         SELECT 
           m.email,
-          COUNT(sc.id) as spam_count
+          COUNT(sc.email_id) as spam_count
         FROM mailboxes m
         LEFT JOIN spam_cache sc ON sc.mailbox_id = m.id
         ${clientWhere}
