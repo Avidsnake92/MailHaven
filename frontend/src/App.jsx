@@ -4,7 +4,7 @@ import { BrandingProvider } from './context/BrandingContext'
 import { useState, useEffect, useCallback } from 'react'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
-import Dashboard from './pages/Dashboard'
+import EmailArchive from './pages/Dashboard'
 import EmailView from './pages/EmailView'
 import Admin from './pages/Admin'
 import Settings from './pages/Settings'
@@ -15,6 +15,7 @@ import Antispam from './pages/Antispam'
 import Layout from './components/Layout'
 import AuditLog from './pages/AuditLog'
 import Statistics from './pages/Statistics'
+import Dashboard from './pages/Statistics'
 import UpdateNotification from './components/UpdateNotification'
 import UpdateOverlay from './components/UpdateOverlay'
 import api from './services/api'
@@ -67,7 +68,8 @@ function AppContent() {
         <Route path="/" element={
           <ProtectedRoute><Layout /></ProtectedRoute>
         }>
-          <Route index element={<Dashboard />} />
+          <Route index element={<EmailArchive />} />
+          <Route path="dashboard" element={<Statistics />} />
           <Route path="email/:id" element={<EmailView />} />
           <Route path="antispam" element={<Antispam />} />
           <Route path="backup" element={
