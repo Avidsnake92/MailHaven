@@ -3,6 +3,31 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gzip = promisify(zlib.gzip);
 const { simpleParser } = require('mailparser');
+// Rimuove byte null e caratteri invalidi per PostgreSQL UTF8
+const sanitizeText = (str) => {
+  if (!str) return null;
+  return str
+    .replace(/\x00/g, '')
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\uFFFD/g, '');
+};
+
+// Valida e corregge la data email — scarta date epoch/invalide
+const parseEmailDate = (parsed, headers) => {
+  const candidates = [
+    parsed.date,
+    headers['date'] ? new Date(headers['date']) : null,
+    headers['received'] ? new Date(String(headers['received']).split(';').pop()?.trim()) : null,
+  ];
+  for (const d of candidates) {
+    if (d && d instanceof Date && !isNaN(d.getTime()) && d.getFullYear() > 1990) {
+      return d;
+    }
+  }
+  return null;
+};
+
+
 const { decrypt, encryptBuffer } = require('./crypto');
 
 const parseRecipients = (addr) => {
@@ -178,19 +203,19 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                     [
                       mailbox.id, uid,
                       parsed.messageId || null,
-                      parsed.subject || null,
-                      parsed.from?.value?.[0]?.name || null,
+                      sanitizeText(parsed.subject),
+                      sanitizeText(parsed.from?.value?.[0]?.name),
                       parsed.from?.value?.[0]?.address || null,
                       JSON.stringify(parseRecipients(parsed.to)),
                       JSON.stringify(parseRecipients(parsed.cc)),
                       JSON.stringify(parseRecipients(parsed.bcc)),
-                      parsed.date || (headers['date'] ? new Date(headers['date']) : null) || null,
+                      parseEmailDate(parsed, headers),
                       folderPath,
                       attachments.length > 0,
                       JSON.stringify(attachments),
                       raw,
-                      parsed.html || null,
-                      parsed.text || null,
+                      sanitizeText(parsed.html),
+                      sanitizeText(parsed.text),
                       JSON.stringify(headers),
                       spamScore,
                       raw.length,

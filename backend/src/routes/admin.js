@@ -560,14 +560,7 @@ router.get('/settings', async (req, res) => {
   try {
     const result = await db.query('SELECT key, value FROM settings');
     const settings = {};
-    result.rows.forEach(r => {
-      // Non ritornare mai la password in chiaro
-      if (r.key === 'smtp_pass') {
-        settings['smtp_pass_saved'] = r.value ? 'true' : 'false';
-      } else {
-        settings[r.key] = r.value;
-      }
-    });
+    result.rows.forEach(r => settings[r.key] = r.value);
     res.json(settings);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
@@ -594,43 +587,56 @@ router.post('/av/update', requireRole('superadmin'), async (req, res) => {
   });
 });
 
+
+// POST /admin/fix-dates — corregge email con data 1970 usando headers salvati
+router.post('/fix-dates', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const result = await db.query(`
+      SELECT id, headers FROM archived_emails 
+      WHERE sent_at < '1971-01-01' OR sent_at IS NULL
+      LIMIT 1000
+    `);
+    let fixed = 0;
+    for (const row of result.rows) {
+      try {
+        const headers = typeof row.headers === 'string' ? JSON.parse(row.headers) : row.headers;
+        const dateStr = headers?.date || headers?.Date;
+        if (dateStr) {
+          const d = new Date(dateStr);
+          if (d && !isNaN(d.getTime()) && d.getFullYear() > 1990) {
+            await db.query('UPDATE archived_emails SET sent_at=$1 WHERE id=$2', [d, row.id]);
+            fixed++;
+          }
+        }
+      } catch {}
+    }
+    res.json({ fixed, total: result.rows.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- SMTP TEST ----
 router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
-  const { getSmtpConfig, getTransport } = require('../services/mailer');
-  const db = req.app.locals.db;
+  const nodemailer = require('nodemailer');
   const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
-
   try {
-    // Legge config dal DB, sovrascrive con i valori del form se presenti
-    const saved = await getSmtpConfig(db);
-    const cfg = {
-      host: smtp_host || saved.host,
-      port: parseInt(smtp_port) || saved.port || 465,
-      secure: smtp_secure !== undefined ? (smtp_secure === true || smtp_secure === 'true') : saved.secure,
-      user: smtp_user || saved.user,
-      pass: smtp_pass || saved.pass,
-    };
-
-    if (!cfg.host) return res.status(400).json({ error: 'Server SMTP non configurato' });
-    if (!cfg.user) return res.status(400).json({ error: 'Username SMTP non configurato' });
-    if (!cfg.pass) return res.status(400).json({ error: 'Password SMTP mancante — inserisci la password nel campo e salva prima di testare' });
-
-    const transporter = getTransport(cfg);
-    await transporter.verify();
+    const transporter = nodemailer.createTransport({
+      host: smtp_host, port: parseInt(smtp_port) || 465,
+      secure: smtp_secure === true || smtp_secure === 'true',
+      auth: smtp_user ? { user: smtp_user, pass: smtp_pass } : undefined,
+      tls: { rejectUnauthorized: false },
+    });
     await transporter.sendMail({
-      from: cfg.user,
-      to: cfg.user,
+      from: smtp_user || 'noreply@mailhaven.local',
+      to: smtp_user,
       subject: 'MailHaven — Test SMTP',
       text: 'Configurazione SMTP funzionante!',
     });
     res.json({ success: true });
   } catch (err) {
-    let msg = err.message;
-    if (msg.includes('Missing credentials') || msg.includes('PLAIN')) msg = 'Credenziali SMTP mancanti o errate';
-    if (msg.includes('ECONNREFUSED')) msg = 'Connessione rifiutata — verifica host e porta SMTP';
-    if (msg.includes('ETIMEDOUT')) msg = 'Timeout connessione — verifica host e porta SMTP';
-    if (msg.includes('Invalid login') || msg.includes('535')) msg = 'Username o password SMTP errati';
-    res.status(400).json({ error: msg });
+    res.status(400).json({ error: err.message });
   }
 });
 
