@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
+import { useSearchParams } from "react-router-dom"
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle } from 'lucide-react'
@@ -277,6 +278,7 @@ const handleUpdate = async () => {
     startProgressAnimation()
     try {
       await api.post('/update/run')
+      setTimeout(() => { window.dispatchEvent(new CustomEvent('mailhaven:update-started')) }, 500)
       // Redirect immediato a pagina riavvio � blocca navigazione
       setTimeout(() => {
         window.location.href = '/restarting'
@@ -569,16 +571,11 @@ const handleUpdate = async () => {
 // ═══════════════════════════════════════════════════════
 // Settings principale
 // ═══════════════════════════════════════════════════════
-const Field = ({ label, children }) => (
-  <div className="w-full">
-    <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-    {children}
-  </div>
-)
-
 export default function Settings() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('sync')
+  const [searchParams] = useSearchParams()
+  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [])
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState('ok')
@@ -594,8 +591,7 @@ export default function Settings() {
   const [smtpPort, setSmtpPort] = useState('465')
   const [smtpSecure, setSmtpSecure] = useState(true)
   const [smtpUser, setSmtpUser] = useState('')
-  const [smtpPassSaved, setSmtpPassSaved] = useState(false)
-  const smtpPassRef = useRef('')
+  const [smtpPass, setSmtpPass] = useState('')
   const [testingSmtp, setTestingSmtp] = useState(false)
   const [pluginTokens, setPluginTokens] = useState([])
   const [loadingTokens, setLoadingTokens] = useState(false)
@@ -646,7 +642,6 @@ export default function Settings() {
       if (s.smtp_port) setSmtpPort(s.smtp_port)
       if (s.smtp_secure !== undefined) setSmtpSecure(s.smtp_secure === 'true')
       if (s.smtp_user) setSmtpUser(s.smtp_user)
-      if (s.smtp_pass_saved === 'true') setSmtpPassSaved(true)
     }).catch(() => {})
   }, [])
 
@@ -663,7 +658,7 @@ export default function Settings() {
         av_update_hours: avUpdateSchedule, av_update_time: avUpdateTime,
         av_scan_on_open: String(avScanOnOpen), av_notify_on_infection: String(avNotifyOnInfection),
         smtp_host: smtpHost, smtp_port: smtpPort, smtp_secure: String(smtpSecure), smtp_user: smtpUser,
-        ...(smtpPassRef.current ? { smtp_pass: smtpPassRef.current } : {}),
+        ...(smtpPass ? { smtp_pass: smtpPass } : {}),
       })
       api.post('/admin/av/restart-scheduler').catch(() => {})
       showMsg('Impostazioni salvate!')
@@ -681,7 +676,7 @@ export default function Settings() {
   const testSmtp = async () => {
     setTestingSmtp(true)
     try {
-      await api.post('/admin/smtp/test', { smtp_host: smtpHost, smtp_port: smtpPort, smtp_secure: smtpSecure, smtp_user: smtpUser, smtp_pass: smtpPassRef.current })
+      await api.post('/admin/smtp/test', { smtp_host: smtpHost, smtp_port: smtpPort, smtp_secure: smtpSecure, smtp_user: smtpUser, smtp_pass: smtpPass })
       showMsg('Email di test inviata!')
     } catch (e) { showMsg(e.response?.data?.error || 'Errore SMTP', 'error') }
     finally { setTestingSmtp(false) }
@@ -702,7 +697,12 @@ export default function Settings() {
     </label>
   )
 
-  // Field definita fuori dal componente
+  const Field = ({ label, children }) => (
+    <div className="w-full">
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      {children}
+    </div>
+  )
 
   const selectClass = "text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
   const inputClass  = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -882,18 +882,12 @@ export default function Settings() {
                 placeholder="notifiche@tuodominio.it" className={inputClass} />
             </Field>
             <Field label="Password">
-              {smtpPassSaved && (
-                <p style={{fontSize:'12px', color:'#16a34a', marginBottom:'6px'}}>
-                  ✓ Password già configurata — lascia vuoto per mantenerla
-                </p>
-              )}
-              <input type="password" onChange={e => { smtpPassRef.current = e.target.value }}
-                placeholder={smtpPassSaved ? "Lascia vuoto per mantenere la password salvata" : "Inserisci la password SMTP"}
-                className={inputClass} autoComplete="new-password" />
+              <input type="password" defaultValue={smtpPass} onChange={e => setSmtpPass(e.target.value)}
+                placeholder="••••••••" className={inputClass} autoComplete="new-password" />
             </Field>
             <Toggle checked={smtpSecure} onChange={setSmtpSecure} label="SSL/TLS" description="Usa connessione sicura (porta 465)" />
             {smtpHost && (
-              <button onClick={testSmtp} disabled={testingSmtp || !smtpHost || !smtpUser || (!smtpPassRef.current && !smtpPassSaved)}
+              <button onClick={testSmtp} disabled={testingSmtp}
                 className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-60 transition-colors">
                 {testingSmtp ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
                 {testingSmtp ? 'Invio...' : 'Invia email di test'}

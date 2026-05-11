@@ -462,7 +462,6 @@ router.get('/storage/vm', requireRole('superadmin'), async (req, res) => {
 });
 
 module.exports = router;
-
 // ---- ACTIVITY LOG ----
 router.get('/logs', async (req, res) => {
   const db = req.app.locals.db;
@@ -587,44 +586,6 @@ router.post('/av/update', requireRole('superadmin'), async (req, res) => {
   });
 });
 
-
-// ── AUDIT LOG ──
-router.get('/audit-log', requireRole('superadmin'), async (req, res) => {
-  const db = req.app.locals.db;
-  const { page = 1, limit = 50, user_id, action, ip, from, to } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  try {
-    let where = [];
-    let params = [];
-    let i = 1;
-    if (user_id) { where.push(`al.user_id = $${i++}`); params.push(user_id); }
-    if (action) { where.push(`al.action ILIKE $${i++}`); params.push('%' + action + '%'); }
-    if (ip) { where.push(`al.ip_address ILIKE $${i++}`); params.push('%' + ip + '%'); }
-    if (from) { where.push(`al.created_at >= $${i++}`); params.push(from); }
-    if (to) { where.push(`al.created_at <= $${i++}`); params.push(to); }
-    const whereStr = where.length ? 'WHERE ' + where.join(' AND ') : '';
-    const [logs, count] = await Promise.all([
-      db.query(
-        `SELECT al.id, al.action, al.details, al.ip_address, al.created_at,
-                u.email as user_email, u.full_name as user_name, u.role as user_role
-         FROM activity_log al
-         LEFT JOIN users u ON al.user_id = u.id
-         ${whereStr}
-         ORDER BY al.created_at DESC
-         LIMIT $${i++} OFFSET $${i++}`,
-        [...params, parseInt(limit), offset]
-      ),
-      db.query(`SELECT COUNT(*) FROM activity_log al ${whereStr}`, params)
-    ]);
-    res.json({
-      logs: logs.rows,
-      total: parseInt(count.rows[0].count),
-      page: parseInt(page),
-      pages: Math.ceil(parseInt(count.rows[0].count) / parseInt(limit))
-    });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 // ---- SMTP TEST ----
 router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
   const nodemailer = require('nodemailer');
@@ -660,3 +621,76 @@ router.post('/av/restart-scheduler', requireRole('superadmin'), async (req, res)
     res.status(500).json({ error: err.message });
   }
 });
+
+// ── STATISTICHE ──
+router.get('/stats/overview', authMiddleware, async (req, res) => {
+  const db = req.app.locals.db;
+  const user = req.user;
+  try {
+    const isSuperadmin = user.role === 'superadmin';
+    const params = isSuperadmin ? [] : [user.client_id];
+    const clientWhere = isSuperadmin ? '' : 'WHERE m.client_id = $1';
+    const clientWhereAe = isSuperadmin ? '' : 'WHERE m.client_id = $1';
+
+    const [totals, byMailbox, timeline, spamStats] = await Promise.all([
+      db.query(`
+        SELECT 
+          COUNT(DISTINCT m.id) as mailbox_count,
+          COUNT(ae.id) as email_count,
+          COALESCE(SUM(ae.size_bytes), 0) as total_size,
+          COUNT(CASE WHEN ae.created_at > NOW() - INTERVAL '7 days' THEN 1 END) as last_7_days,
+          COUNT(CASE WHEN ae.created_at > NOW() - INTERVAL '30 days' THEN 1 END) as last_30_days
+        FROM mailboxes m
+        LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
+        ${clientWhere}
+      `, params),
+
+      db.query(`
+        SELECT 
+          m.id, m.email, m.display_name,
+          COUNT(ae.id) as email_count,
+          COALESCE(SUM(ae.size_bytes), 0) as total_size,
+          MAX(ae.created_at) as last_sync,
+          COUNT(CASE WHEN ae.created_at > NOW() - INTERVAL '30 days' THEN 1 END) as last_30_days
+        FROM mailboxes m
+        LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
+        ${clientWhere}
+        GROUP BY m.id, m.email, m.display_name
+        ORDER BY email_count DESC
+      `, params),
+
+      db.query(`
+        SELECT 
+          TO_CHAR(ae.created_at, 'YYYY-MM-DD') as date,
+          m.email as mailbox,
+          COUNT(*) as count
+        FROM archived_emails ae
+        JOIN mailboxes m ON ae.mailbox_id = m.id
+        ${isSuperadmin ? 'WHERE' : 'WHERE m.client_id = $1 AND'} ae.created_at > NOW() - INTERVAL '90 days'
+        GROUP BY TO_CHAR(ae.created_at, 'YYYY-MM-DD'), m.email
+        ORDER BY date ASC
+      `, params),
+
+      db.query(`
+        SELECT 
+          m.email,
+          COUNT(sc.id) as spam_count
+        FROM mailboxes m
+        LEFT JOIN spam_cache sc ON sc.mailbox_id = m.id
+        ${clientWhere}
+        GROUP BY m.email
+        ORDER BY spam_count DESC
+      `, params),
+    ]);
+
+    res.json({
+      totals: totals.rows[0],
+      byMailbox: byMailbox.rows,
+      timeline: timeline.rows,
+      spamStats: spamStats.rows,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+module.exports = router;

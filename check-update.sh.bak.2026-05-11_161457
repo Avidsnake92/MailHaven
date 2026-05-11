@@ -1,5 +1,4 @@
 #!/bin/bash
-mkdir -p /root/mailhaven/data
 cd /root/mailhaven
 git fetch origin main --quiet 2>/dev/null
 CURRENT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")

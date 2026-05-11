@@ -63,7 +63,4 @@ const sendSuspiciousIp = async (to, user, newIp, knownIps) => {
   });
 };
 
-module.exports = {
-  sendAccountBlocked,
-  sendSuspiciousIp
-};
+module.exports = { sendAccountBlocked, sendSuspiciousIp, getSmtpConfig, getTransport };

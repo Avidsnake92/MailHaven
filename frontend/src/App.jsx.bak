@@ -14,7 +14,6 @@ import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
 import Layout from './components/Layout'
 import AuditLog from './pages/AuditLog'
-import Statistics from './pages/Statistics'
 import UpdateNotification from './components/UpdateNotification'
 import UpdateOverlay from './components/UpdateOverlay'
 import api from './services/api'
@@ -81,9 +80,6 @@ function AppContent() {
           } />
           <Route path="audit" element={
             <ProtectedRoute roles={['superadmin']}><AuditLog /></ProtectedRoute>
-          } />
-          <Route path="statistics" element={
-            <ProtectedRoute roles={['admin', 'superadmin']}><Statistics /></ProtectedRoute>
           } />
           <Route path="settings" element={
             <ProtectedRoute roles={['superadmin']}><Settings /></ProtectedRoute>
