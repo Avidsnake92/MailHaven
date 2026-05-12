@@ -4,7 +4,7 @@ import { BrandingProvider } from './context/BrandingContext'
 import { useState, useEffect, useCallback } from 'react'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
-import EmailArchive from './pages/Dashboard'
+import Dashboard from './pages/Dashboard'
 import EmailView from './pages/EmailView'
 import Admin from './pages/Admin'
 import Settings from './pages/Settings'
@@ -13,11 +13,7 @@ import Security from './pages/Security'
 import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
 import Layout from './components/Layout'
-import AuditLog from './pages/AuditLog'
-import Statistics from './pages/Statistics'
-import Dashboard from './pages/Statistics'
 import UpdateNotification from './components/UpdateNotification'
-import UpdateOverlay from './components/UpdateOverlay'
 import api from './services/api'
 
 const ProtectedRoute = ({ children, roles }) => {
@@ -30,7 +26,6 @@ const ProtectedRoute = ({ children, roles }) => {
 function AppContent() {
   const { user } = useAuth()
   const [setupDone, setSetupDone] = useState(null)
-  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
     api.get('/setup/status')
@@ -59,7 +54,6 @@ function AppContent() {
 
   return (
     <>
-      {updating && <UpdateOverlay onComplete={handleUpdateComplete} />}
       {user && user.role === 'superadmin' && !updating && (
         <UpdateNotification user={user} />
       )}
@@ -68,8 +62,7 @@ function AppContent() {
         <Route path="/" element={
           <ProtectedRoute><Layout /></ProtectedRoute>
         }>
-          <Route index element={<EmailArchive />} />
-          <Route path="dashboard" element={<Statistics />} />
+          <Route index element={<Dashboard />} />
           <Route path="email/:id" element={<EmailView />} />
           <Route path="antispam" element={<Antispam />} />
           <Route path="backup" element={
@@ -80,12 +73,6 @@ function AppContent() {
           } />
           <Route path="logs" element={
             <ProtectedRoute roles={['admin', 'superadmin']}><Logs /></ProtectedRoute>
-          } />
-          <Route path="audit" element={
-            <ProtectedRoute roles={['superadmin']}><AuditLog /></ProtectedRoute>
-          } />
-          <Route path="statistics" element={
-            <ProtectedRoute roles={['admin', 'superadmin']}><Statistics /></ProtectedRoute>
           } />
           <Route path="settings" element={
             <ProtectedRoute roles={['superadmin']}><Settings /></ProtectedRoute>

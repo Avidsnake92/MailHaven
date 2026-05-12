@@ -215,346 +215,141 @@ const UPDATE_STEPS = [
 function UpdateTab() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [phase, setPhase] = useState('idle') // idle | confirm | updating | done | error
-  const [currentStep, setCurrentStep] = useState(0)
-  const [progress, setProgress] = useState(0)
   const [error, setError] = useState('')
-  const [showChangelog, setShowChangelog] = useState(false)
+  const [started, setStarted] = useState(false)
   const [backupConfirmed, setBackupConfirmed] = useState(false)
-  const progressTimer = useRef(null)
+  const [confirming, setConfirming] = useState(false)
 
-const loadStatus = async () => {
+  const loadStatus = async () => {
     setLoading(true); setError('')
     try {
-      const [res] = await Promise.all([
-        api.get('/update/status'),
-        new Promise(resolve => setTimeout(resolve, 1500))
-      ])
+      const res = await api.get('/update/status')
       setStatus(res.data)
     } catch (err) {
       setError('Impossibile verificare aggiornamenti: ' + (err.response?.data?.error || err.message))
     }
     setLoading(false)
   }
+
   useEffect(() => { loadStatus() }, [])
 
-  // Simula progresso animato durante l'aggiornamento
-  const startProgressAnimation = () => {
-    setCurrentStep(0)
-    setProgress(0)
-    let step = 0
-    let prog = 0
-
-    // Durata totale stimata: ~3 minuti = 180 sec
-    // Step timing: fetch 20s, install 40s, build 60s, restart 30s, done 10s
-    const stepDurations = [20000, 40000, 60000, 30000, 10000]
-    const totalDuration = stepDurations.reduce((a, b) => a + b, 0)
-
-    const tick = () => {
-      prog += 0.5
-      if (prog > 100) prog = 99 // non arriva mai a 100 automaticamente
-
-      // Calcola in quale step siamo
-      let elapsed = (prog / 100) * totalDuration
-      let acc = 0
-      let newStep = 0
-      for (let i = 0; i < stepDurations.length; i++) {
-        acc += stepDurations[i]
-        if (elapsed < acc) { newStep = i; break }
-        newStep = i
-      }
-      setCurrentStep(newStep)
-      setProgress(Math.round(prog))
-      progressTimer.current = setTimeout(tick, 900)
-    }
-
-    progressTimer.current = setTimeout(tick, 900)
-  }
-
-const handleUpdate = async () => {
+  const handleUpdate = async () => {
     if (!backupConfirmed) return
-    setError('')
     try {
       await api.post('/update/run')
-      setTimeout(() => { window.dispatchEvent(new CustomEvent('mailhaven:update-started')) }, 300)
+      setStarted(true)
+      setConfirming(false)
     } catch (err) {
-      setError('Errore durante l\'aggiornamento: ' + (err.response?.data?.error || err.message))
-      setPhase('error')
+      setError('Errore: ' + (err.response?.data?.error || err.message))
     }
   }
 
-  const parseChangelog = (text) => {
-    if (!text) return []
-    const sections = text.split(/^## /m).filter(Boolean)
-    return sections.slice(0, 3).map(s => {
-      const lines = s.trim().split('\n')
-      return { title: lines[0].trim(), body: lines.slice(1).join('\n').trim() }
-    })
-  }
-
-  // ── FASE: aggiornamento in corso ──
-  if (phase === 'updating') {
+  if (started) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 space-y-8">
-        <style>{`
-          @keyframes pulse-ring {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59,130,246,0.5); }
-            70% { transform: scale(1); box-shadow: 0 0 0 16px rgba(59,130,246,0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59,130,246,0); }
-          }
-          @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-          .pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
-          .spin-slow { animation: spin-slow 3s linear infinite; }
-        `}</style>
-
-        {/* Icona animata */}
-        <div className="relative">
-          <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center pulse-ring">
-            <RefreshCw size={36} className="text-blue-600 spin-slow" />
-          </div>
+      <div className="flex flex-col items-center justify-center py-12 space-y-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
+          <RefreshCw size={28} className="text-blue-600 animate-spin" />
         </div>
-
-        <div className="text-center">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">Aggiornamento in corso...</h2>
-          <p className="text-sm text-gray-500">Non chiudere questa finestra. Il server si riavvierà automaticamente.</p>
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Aggiornamento avviato!</h2>
+          <p className="text-sm text-gray-500 max-w-sm mx-auto">
+            Il server si riavvierà automaticamente nei prossimi 2-3 minuti.
+            <br /><br />
+            Ricarica la pagina manualmente dopo qualche minuto per accedere alla nuova versione.
+          </p>
         </div>
-
-        {/* Barra progresso */}
-        <div className="w-full max-w-md">
-          <div className="flex justify-between text-xs text-gray-500 mb-2">
-            <span>{UPDATE_STEPS[currentStep]?.label}</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-            <div
-              className="h-3 rounded-full transition-all duration-700 ease-out"
-              style={{
-                width: `${progress}%`,
-                background: 'linear-gradient(90deg, #3b82f6, #6366f1)'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Steps */}
-        <div className="w-full max-w-md space-y-2">
-          {UPDATE_STEPS.map((s, i) => {
-            const isDone = i < currentStep
-            const isActive = i === currentStep
-            return (
-              <div key={s.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
-                isActive ? 'bg-blue-50 border border-blue-200' :
-                isDone ? 'bg-green-50 border border-green-100' :
-                'bg-gray-50 border border-gray-100 opacity-40'
-              }`}>
-                <span className="text-lg">{isDone ? '✅' : s.icon}</span>
-                <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : isDone ? 'text-green-700' : 'text-gray-500'}`}>
-                  {s.label}
-                </span>
-                {isActive && <Loader2 size={14} className="ml-auto text-blue-500 animate-spin" />}
-                {isDone && <Check size={14} className="ml-auto text-green-500" />}
-              </div>
-            )
-          })}
-        </div>
+        <button onClick={() => window.location.reload()}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
+          <RefreshCw size={14} /> Ricarica pagina
+        </button>
       </div>
     )
   }
 
-  // ── FASE: completato ──
-  if (phase === 'done') {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-6">
-        <style>{`
-          @keyframes pop { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
-          .pop { animation: pop 0.5s ease-out forwards; }
-        `}</style>
-        <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center pop">
-          <CheckCircle2 size={40} className="text-green-500" />
-        </div>
-        <div className="text-center">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">Aggiornamento completato!</h2>
-          <p className="text-sm text-gray-500 mb-4">Ricarica la pagina per vedere la nuova versione.</p>
-          <button onClick={() => window.location.reload()}
-            className="flex items-center gap-2 mx-auto px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-            <RefreshCw size={15} /> Ricarica pagina
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── FASE: errore ──
-  if (phase === 'error') {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
-          <AlertCircle size={40} className="text-red-500" />
-        </div>
-        <div className="text-center">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">Errore durante l'aggiornamento</h2>
-          <p className="text-sm text-red-600 mb-4">{error}</p>
-          <button onClick={() => setPhase('idle')}
-            className="px-5 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50">
-            Torna indietro
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── FASE: conferma backup (modale) ──
-  if (phase === 'confirm') {
-    return (
-      <div className="space-y-6">
-        <div className="bg-red-50 border-2 border-red-400 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 bg-red-500">
-            <AlertTriangle size={20} className="text-white" />
-            <h2 className="font-bold text-white text-lg">⚠️ Attenzione — Backup obbligatorio</h2>
-          </div>
-          <div className="p-6 space-y-4">
-            <p className="text-red-800 font-medium">Prima di procedere con l'aggiornamento devi assicurarti di aver eseguito un backup!</p>
-            <ul className="text-sm text-red-700 space-y-1 list-disc list-inside">
-              <li>Il server si riavvierà durante l'aggiornamento</li>
-              <li>In caso di errore potresti perdere dati non salvati</li>
-              <li>L'operazione dura circa 3-5 minuti</li>
-            </ul>
-
-            <div className="bg-white border border-red-200 rounded-lg p-4">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)}
-                  className="w-5 h-5 mt-0.5 rounded border-red-300 text-red-600" />
-                <span className="text-sm font-semibold text-red-800">
-                  Confermo di aver eseguito un backup recente dalla sezione Backup e voglio procedere con l'aggiornamento
-                </span>
-              </label>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleUpdate}
-                disabled={!backupConfirmed}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: backupConfirmed ? '#dc2626' : '#9ca3af' }}>
-                <ArrowDownCircle size={16} />
-                {backupConfirmed ? 'Sì, aggiorna ora' : 'Conferma il backup prima'}
-              </button>
-              <button onClick={() => { setPhase('idle'); setBackupConfirmed(false) }}
-                className="px-5 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50">
-                Annulla
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ── FASE: idle (vista principale) ──
   return (
     <div className="space-y-6">
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
-
-      {/* Banner aggiornamento disponibile (in cima) */}
-      {status?.hasUpdate && (
-        <div className="relative overflow-hidden rounded-xl border-2 border-blue-400 bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-5">
-          <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
-            <ArrowDownCircle size={128} />
+      {/* Stato corrente */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+        {loading ? (
+          <div className="flex items-center gap-3 text-gray-500">
+            <Loader2 size={18} className="animate-spin" /> Verifica aggiornamenti...
           </div>
-          <div className="flex items-start gap-4 relative z-10">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-              <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-lg">🚀 Aggiornamento disponibile!</p>
-              <p className="text-blue-100 text-sm mt-0.5">
-                {status.commitsBehind} commit in ritardo · Nuova versione pronta
-              </p>
-              {status.latestCommits?.length > 0 && (
-                <div className="mt-3 space-y-1">
-                  {status.latestCommits.slice(0, 3).map(c => (
-                    <div key={c.hash} className="flex items-start gap-2 text-sm">
-                      <span className="font-mono text-xs text-blue-200 mt-0.5 shrink-0">{c.hash}</span>
-                      <span className="text-blue-50">{c.message}</span>
-                    </div>
-                  ))}
-                </div>
+        ) : error ? (
+          <div className="flex items-center gap-3 text-red-600">
+            <AlertCircle size={18} /> {error}
+          </div>
+        ) : status ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Versione installata</p>
+                <p className="text-xs text-gray-500 font-mono">{status.current?.version} — {status.currentCommit}</p>
+              </div>
+              {status.hasUpdate ? (
+                <span className="text-xs font-semibold px-3 py-1 bg-blue-50 text-blue-700 rounded-full">
+                  {status.commitsBehind} aggiornamenti disponibili
+                </span>
+              ) : (
+                <span className="text-xs font-semibold px-3 py-1 bg-green-50 text-green-700 rounded-full flex items-center gap-1">
+                  <Check size={12} /> Aggiornato
+                </span>
               )}
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Versione installata */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-          <RefreshCw size={18} className="text-gray-500" />
-          <h2 className="font-semibold text-gray-900">Versione installata</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 mb-1">Versione</p>
-              <p className="font-mono font-bold text-gray-900">{status?.current?.version || '—'}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 mb-1">Build</p>
-              <p className="font-mono font-bold text-gray-900">{status?.current?.build || '—'}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 mb-1">Commit corrente</p>
-              <p className="font-mono text-sm text-gray-700">{status?.currentCommit || '—'}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 mb-1">Commit remoto</p>
-              <p className="font-mono text-sm text-gray-700">{status?.remoteCommit || '—'}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={loadStatus} disabled={loading}
-              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 disabled:opacity-50">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              Verifica aggiornamenti
-            </button>
-            {status?.hasUpdate && (
-              <button onClick={() => setPhase('confirm')}
-                className="flex items-center gap-2 text-sm font-bold px-5 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm">
-                <ArrowDownCircle size={15} /> Aggiorna ora
-              </button>
+            {status.hasUpdate && status.latestCommits?.length > 0 && (
+              <div className="border-t border-gray-100 pt-3 space-y-1.5">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Novità</p>
+                {status.latestCommits.slice(0, 5).map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="font-mono text-gray-400 shrink-0">{c.hash}</span>
+                    <span className="text-gray-600">{c.message}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-        </div>
+        ) : null}
+
+        <button onClick={loadStatus} disabled={loading}
+          className="mt-4 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Verifica aggiornamenti
+        </button>
       </div>
 
-      {/* Changelog */}
-      {status?.changelog && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <button onClick={() => setShowChangelog(s => !s)}
-            className="w-full flex items-center gap-3 px-6 py-4 hover:bg-gray-50 transition-colors">
-            <Database size={18} className="text-gray-500" />
-            <span className="font-semibold text-gray-900">Changelog</span>
-            <ChevronDown size={16} className={`ml-auto text-gray-400 transition-transform ${showChangelog ? 'rotate-180' : ''}`} />
-          </button>
-          {showChangelog && (
-            <div className="px-6 pb-6 space-y-4 max-h-72 overflow-y-auto">
-              {parseChangelog(status.changelog).map((s, i) => (
-                <div key={i} className="border-l-2 border-blue-200 pl-4">
-                  <p className="font-semibold text-gray-900 text-sm mb-1">{s.title}</p>
-                  <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans">{s.body}</pre>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Bottone aggiorna */}
+      {status?.hasUpdate && !confirming && (
+        <button onClick={() => setConfirming(true)}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700">
+          <ArrowDownCircle size={16} /> Aggiorna ora
+        </button>
       )}
 
-      {/* Sistema aggiornato */}
-      {status && !status.hasUpdate && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center gap-4">
-          <ShieldCheck size={24} className="text-green-500 shrink-0" />
-          <div>
-            <p className="font-semibold text-green-900">MailHaven è aggiornato</p>
-            <p className="text-sm text-green-700 mt-0.5">Stai usando l'ultima versione disponibile.</p>
+      {/* Conferma */}
+      {confirming && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} className="text-amber-600" />
+            <p className="font-semibold text-amber-800">Attenzione — il server si riavvierà</p>
+          </div>
+          <ul className="text-sm text-amber-700 space-y-1 list-disc list-inside">
+            <li>L'aggiornamento dura circa 2-3 minuti</li>
+            <li>Il servizio sarà temporaneamente non disponibile</li>
+            <li>Assicurati di aver fatto un backup recente</li>
+          </ul>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={backupConfirmed} onChange={e => setBackupConfirmed(e.target.checked)}
+              className="w-4 h-4 rounded border-amber-300" />
+            <span className="text-sm font-medium text-amber-800">Ho eseguito un backup recente</span>
+          </label>
+          <div className="flex gap-2">
+            <button onClick={handleUpdate} disabled={!backupConfirmed}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 disabled:opacity-40">
+              <ArrowDownCircle size={14} /> Conferma aggiornamento
+            </button>
+            <button onClick={() => { setConfirming(false); setBackupConfirmed(false) }}
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+              Annulla
+            </button>
           </div>
         </div>
       )}
@@ -562,9 +357,7 @@ const handleUpdate = async () => {
   )
 }
 
-// ═══════════════════════════════════════════════════════
-// Settings principale
-// ═══════════════════════════════════════════════════════
+
 export default function Settings() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('sync')

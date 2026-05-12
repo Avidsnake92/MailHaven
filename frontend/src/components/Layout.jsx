@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, ChevronDown, ChevronRight, LayoutDashboard } from 'lucide-react'
+import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, ChevronDown, ChevronRight, LayoutDashboard, Flag } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -58,6 +58,7 @@ export default function Layout() {
         {sectionLabel('Sistema')}
         <NavLink to="/backup" className={navClass}><HardDrive size={17} /> Backup</NavLink>
         <NavLink to="/settings" className={navClass}><Settings size={17} /> Impostazioni</NavLink>
+        <NavLink to="/reports" className={navClass}><Flag size={17} /> Segnalazioni</NavLink>
       </>)}
     </>
   )
