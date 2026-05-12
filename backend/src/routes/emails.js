@@ -180,7 +180,7 @@ router.get('/', async (req, res) => {
       db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${where}`, params),
       db.query(
         `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email,
-                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status, ae.is_deleted,
+                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status, ae.is_deleted, ae.is_pec, ae.pec_type,
                 ae.mailbox_id, m.email as mailbox_email
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
@@ -200,6 +200,8 @@ router.get('/', async (req, res) => {
       sentAt: e.sent_at,
       path: e.path,
       hasAttachments: e.has_attachments,
+      isPec: e.is_pec,
+      pecType: e.pec_type,
       avStatus: e.av_status,
       isRestored: e.is_restored,
       isDeleted: e.is_deleted,

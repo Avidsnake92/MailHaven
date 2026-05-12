@@ -3,31 +3,6 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gzip = promisify(zlib.gzip);
 const { simpleParser } = require('mailparser');
-// Rimuove byte null e caratteri invalidi per PostgreSQL UTF8
-const sanitizeText = (str) => {
-  if (!str) return null;
-  return str
-    .replace(/\x00/g, '')
-    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    .replace(/\uFFFD/g, '');
-};
-
-// Valida e corregge la data email — scarta date epoch/invalide
-const parseEmailDate = (parsed, headers) => {
-  const candidates = [
-    parsed.date,
-    headers['date'] ? new Date(headers['date']) : null,
-    headers['received'] ? new Date(String(headers['received']).split(';').pop()?.trim()) : null,
-  ];
-  for (const d of candidates) {
-    if (d && d instanceof Date && !isNaN(d.getTime()) && d.getFullYear() > 1990) {
-      return d;
-    }
-  }
-  return null;
-};
-
-
 const { decrypt, encryptBuffer } = require('./crypto');
 
 const parseRecipients = (addr) => {
@@ -58,6 +33,56 @@ const LEGACY_PROVIDERS = {
   'live.com':      { host: 'outlook.office365.com', port: 993, tls: true,  legacy: false },
   'yahoo.com':     { host: 'imap.mail.yahoo.com',   port: 993, tls: true,  legacy: false },
   'yahoo.it':      { host: 'imap.mail.yahoo.com',   port: 993, tls: true,  legacy: false },
+  // Provider PEC italiani
+  'pec.aruba.it':     { host: 'imaps.pec.aruba.it',    port: 993, tls: true, legacy: false, isPec: true },
+  'arubapec.it':      { host: 'imaps.pec.aruba.it',    port: 993, tls: true, legacy: false, isPec: true },
+  'legalmail.it':     { host: 'imap.legalmail.it',      port: 993, tls: true, legacy: false, isPec: true },
+  'peclib.it':        { host: 'imap.peclib.it',         port: 993, tls: true, legacy: false, isPec: true },
+  'pec.namirial.com': { host: 'imap.pec.namirial.com', port: 993, tls: true, legacy: false, isPec: true },
+  'pec.it':           { host: 'imap.pec.it',            port: 993, tls: true, legacy: false, isPec: true },
+  'pec.poste.it':     { host: 'imap.pec.poste.it',     port: 993, tls: true, legacy: false, isPec: true },
+  'postecert.it':     { host: 'imap.pec.poste.it',     port: 993, tls: true, legacy: false, isPec: true },
+  'pec.tim.it':       { host: 'imap.pec.tim.it',       port: 993, tls: true, legacy: false, isPec: true },
+  'registerpec.it':   { host: 'imap.registerpec.it',   port: 993, tls: true, legacy: false, isPec: true },
+};
+
+
+// Rileva se un'email è PEC e il tipo di ricevuta
+const detectPec = (headers, emailDomain, providerIsPec) => {
+  const h = (key) => {
+    const v = headers[key] || headers[key.toLowerCase()];
+    return v ? String(Array.isArray(v) ? v[0] : v).toLowerCase() : '';
+  };
+  
+  // Controlla header specifici PEC
+  const xRicevuta = h('x-ricevuta');
+  const xTipoRicevuta = h('x-tiporicevuta');
+  const xVerifica = h('x-verificasicurezza');
+  const xTrasporto = h('x-trasporto');
+  const xPec = h('x-pec');
+  
+  const hasPecHeaders = !!(xRicevuta || xTipoRicevuta || xVerifica || xTrasporto || xPec);
+  
+  // Controlla dominio mittente/destinatario
+  const domainIsPec = providerIsPec || 
+    (emailDomain && (emailDomain.includes('pec') || emailDomain.includes('cert') || emailDomain.includes('legalmail')));
+  
+  if (!hasPecHeaders && !domainIsPec) return { isPec: false, pecType: null };
+  
+  // Determina tipo ricevuta
+  let pecType = 'normale';
+  if (xTipoRicevuta) {
+    if (xTipoRicevuta.includes('accettazione')) pecType = 'accettazione';
+    else if (xTipoRicevuta.includes('consegna')) pecType = 'consegna';
+    else if (xTipoRicevuta.includes('errore')) pecType = 'errore';
+    else if (xTipoRicevuta.includes('avanzamento')) pecType = 'avanzamento';
+    else if (xTipoRicevuta.includes('presa_in_carico')) pecType = 'presa_in_carico';
+    else pecType = xTipoRicevuta;
+  } else if (xRicevuta) {
+    pecType = xRicevuta;
+  }
+  
+  return { isPec: true, pecType };
 };
 
 const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) => {
@@ -197,8 +222,9 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                     `INSERT INTO archived_emails 
                      (mailbox_id, uid, message_id, subject, sender_name, sender_email,
                       recipients, cc, bcc, sent_at, path, has_attachments, attachments,
-                      raw, body_html, body_text, headers, spam_score, size_bytes, is_restored, compressed_size_bytes)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+                      raw, body_html, body_text, headers, spam_score, size_bytes, is_restored, compressed_size_bytes,
+                      is_pec, pec_type)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
                      ON CONFLICT (mailbox_id, uid, path) DO NOTHING`,
                     [
                       mailbox.id, uid,
@@ -221,6 +247,8 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       raw.length,
                       isRestored,
                       compressedSize,
+                      isPec,
+                      pecType,
                     ]
                   );
                   processed++;

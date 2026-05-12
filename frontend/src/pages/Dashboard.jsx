@@ -677,6 +677,11 @@ export default function Dashboard() {
                           {email.tags?.includes('spam') && (
                             <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-600">SPAM</span>
                           )}
+                          {email.isPec && (
+                            <span className="shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
+                              PEC{email.pecType && email.pecType !== 'normale' ? ` · ${email.pecType}` : ''}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-gray-400 truncate sm:hidden mt-0.5">{email.senderEmail || email.senderName}</p>
                       </td>
