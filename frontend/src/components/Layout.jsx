@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, ChevronDown, ChevronRight, LayoutDashboard, Flag } from 'lucide-react'
+import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -50,8 +50,9 @@ export default function Layout() {
           {logsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
         {logsOpen && <div className="space-y-0.5">
-          <NavLink to="/logs" className={subNavClass}><Activity size={15} /> Attività</NavLink>
-          {user?.role === 'superadmin' && <NavLink to="/audit" className={subNavClass}><ClipboardList size={15} /> Audit Log</NavLink>}
+          <NavLink to="/logs?tab=activity" className={({ isActive }) => subNavClass({ isActive: isActive && (location.search === '?tab=activity' || location.search === '') })}><Activity size={15} /> Attività</NavLink>
+          <NavLink to="/logs?tab=sync" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=sync' })}><RefreshCw size={15} /> Sync</NavLink>
+          <NavLink to="/logs?tab=av" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=av' })}><Shield size={15} /> Antivirus</NavLink>
         </div>}
       </>)}
       {user?.role === 'superadmin' && (<>

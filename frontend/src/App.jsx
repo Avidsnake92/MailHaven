@@ -4,7 +4,10 @@ import { BrandingProvider } from './context/BrandingContext'
 import { useState, useEffect, useCallback } from 'react'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
-import Dashboard from './pages/Dashboard'
+import EmailArchive from './pages/Dashboard'
+import Statistics from './pages/Statistics'
+import AuditLog from './pages/AuditLog'
+import Reports from './pages/Reports'
 import EmailView from './pages/EmailView'
 import Admin from './pages/Admin'
 import Settings from './pages/Settings'
@@ -54,7 +57,7 @@ function AppContent() {
 
   return (
     <>
-      {user && user.role === 'superadmin' && !updating && (
+      {user && user.role === 'superadmin' && (
         <UpdateNotification user={user} />
       )}
       <Routes>
@@ -62,7 +65,10 @@ function AppContent() {
         <Route path="/" element={
           <ProtectedRoute><Layout /></ProtectedRoute>
         }>
-          <Route index element={<Dashboard />} />
+          <Route index element={<EmailArchive />} />
+          <Route path="dashboard" element={<Statistics />} />
+          <Route path="audit" element={<ProtectedRoute roles={['superadmin']}><AuditLog /></ProtectedRoute>} />
+          <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="email/:id" element={<EmailView />} />
           <Route path="antispam" element={<Antispam />} />
           <Route path="backup" element={
