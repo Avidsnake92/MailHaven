@@ -212,6 +212,94 @@ const UPDATE_STEPS = [
   { id: 'done',    label: 'Aggiornamento completato',   icon: '✅' },
 ]
 
+
+const UPDATE_STEPS = [
+  { label: 'Download aggiornamento',  duration: 20 },
+  { label: 'Build frontend',          duration: 60 },
+  { label: 'Ricostruzione container', duration: 40 },
+  { label: 'Avvio servizi',           duration: 20 },
+  { label: 'Sistema pronto',          duration: 10 },
+]
+const TOTAL_DURATION = UPDATE_STEPS.reduce((a, s) => a + s.duration, 0)
+
+function UpdateProgress({ startVersion }) {
+  const [progress, setProgress] = useState(0)
+  const [stepIndex, setStepIndex] = useState(0)
+  const [done, setDone] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    const start = Date.now()
+    const timer = setInterval(() => {
+      const secs = Math.floor((Date.now() - start) / 1000)
+      setElapsed(secs)
+      setProgress(Math.min(Math.round((secs / TOTAL_DURATION) * 100), 99))
+      let acc = 0
+      for (let i = 0; i < UPDATE_STEPS.length; i++) {
+        acc += UPDATE_STEPS[i].duration
+        if (secs < acc) { setStepIndex(i); break }
+        setStepIndex(UPDATE_STEPS.length - 1)
+      }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store' })
+        const data = await res.json()
+        if (startVersion && data.version && data.version !== startVersion) {
+          setDone(true); setProgress(100)
+          clearInterval(poll)
+          setTimeout(() => window.location.reload(), 1500)
+        }
+      } catch {}
+    }, 10000)
+    const timeout = setTimeout(() => { clearInterval(poll); window.location.reload() }, 5 * 60 * 1000)
+    return () => { clearInterval(poll); clearTimeout(timeout) }
+  }, [startVersion])
+
+  const remaining = Math.max(0, TOTAL_DURATION - elapsed)
+
+  return (
+    <div className="space-y-5 py-2">
+      <div className="text-center">
+        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">
+          {done ? <CheckCircle2 size={22} className="text-green-600" /> : <RefreshCw size={22} className="text-blue-600 animate-spin" />}
+        </div>
+        <h2 className="text-base font-bold text-gray-900">{done ? 'Completato! Ricarico...' : 'Aggiornamento in corso...'}</h2>
+        {!done && <p className="text-xs text-gray-400 mt-1">Rimanente: ~{Math.floor(remaining/60)}m {remaining%60}s</p>}
+      </div>
+      <div>
+        <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <span>{done ? 'Completato' : UPDATE_STEPS[stepIndex]?.label}</span>
+          <span className="font-semibold" style={{color: done ? '#16a34a' : '#2563eb'}}>{progress}%</span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-1000" style={{
+            width: `${progress}%`,
+            background: done ? 'linear-gradient(90deg,#16a34a,#22c55e)' : 'linear-gradient(90deg,#2563eb,#6366f1)'
+          }} />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        {UPDATE_STEPS.map((step, i) => {
+          const isDone = i < stepIndex || done
+          const isActive = i === stepIndex && !done
+          return (
+            <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${isDone ? 'bg-green-50 border-green-100' : isActive ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100 opacity-40'}`}>
+              {isDone ? <CheckCircle2 size={14} className="text-green-500 shrink-0" /> : isActive ? <Loader2 size={14} className="text-blue-500 animate-spin shrink-0" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 shrink-0" />}
+              <span className={`text-xs font-medium ${isDone ? 'text-green-700' : isActive ? 'text-blue-700' : 'text-gray-400'}`}>{step.label}</span>
+            </div>
+          )
+        })}
+      </div>
+      <p className="text-center text-xs text-gray-400">Ricarica automatica al completamento</p>
+    </div>
+  )
+}
+
 function UpdateTab() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -245,25 +333,7 @@ function UpdateTab() {
   }
 
   if (started) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
-          <RefreshCw size={28} className="text-blue-600 animate-spin" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Aggiornamento avviato!</h2>
-          <p className="text-sm text-gray-500 max-w-sm mx-auto">
-            Il server si riavvierà automaticamente nei prossimi 2-3 minuti.
-            <br /><br />
-            Ricarica la pagina manualmente dopo qualche minuto per accedere alla nuova versione.
-          </p>
-        </div>
-        <button onClick={() => window.location.reload()}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
-          <RefreshCw size={14} /> Ricarica pagina
-        </button>
-      </div>
-    )
+    return <UpdateProgress startVersion={status?.current?.version} />
   }
 
   return (
