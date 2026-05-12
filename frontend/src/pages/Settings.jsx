@@ -425,7 +425,7 @@ export default function Settings() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('sync')
   const [searchParams] = useSearchParams()
-  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [])
+  useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState('ok')
@@ -566,17 +566,7 @@ export default function Settings() {
         <p className="text-sm text-gray-500 mt-0.5">Configurazione del sistema MailHaven</p>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}>
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
-      </div>
+
 
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         {activeTab === 'sync' && (
