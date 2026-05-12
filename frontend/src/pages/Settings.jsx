@@ -213,14 +213,7 @@ const UPDATE_STEPS = [
 ]
 
 
-const UPDATE_STEPS = [
-  { label: 'Download aggiornamento',  duration: 20 },
-  { label: 'Build frontend',          duration: 60 },
-  { label: 'Ricostruzione container', duration: 40 },
-  { label: 'Avvio servizi',           duration: 20 },
-  { label: 'Sistema pronto',          duration: 10 },
-]
-const TOTAL_DURATION = UPDATE_STEPS.reduce((a, s) => a + s.duration, 0)
+
 
 function UpdateProgress({ startVersion }) {
   const [progress, setProgress] = useState(0)

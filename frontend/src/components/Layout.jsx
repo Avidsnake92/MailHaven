@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight } from 'lucide-react'
+import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -13,10 +13,12 @@ export default function Layout() {
   const [logsOpen, setLogsOpen] = useState(
     location.pathname === '/logs' || location.pathname === '/audit'
   )
+  const [settingsOpen, setSettingsOpen] = useState(location.pathname === '/settings')
 
   useEffect(() => { setSidebarOpen(false) }, [location.pathname])
   useEffect(() => {
     if (location.pathname === '/logs' || location.pathname === '/audit') setLogsOpen(true)
+    if (location.pathname === '/settings') setSettingsOpen(true)
   }, [location.pathname])
   useEffect(() => {
     if (!sidebarOpen) return
@@ -58,7 +60,19 @@ export default function Layout() {
       {user?.role === 'superadmin' && (<>
         {sectionLabel('Sistema')}
         <NavLink to="/backup" className={navClass}><HardDrive size={17} /> Backup</NavLink>
-        <NavLink to="/settings" className={navClass}><Settings size={17} /> Impostazioni</NavLink>
+        <button onClick={() => setSettingsOpen(o => !o)}
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium w-full text-left text-gray-600 hover:bg-gray-100 transition-all">
+          <Settings size={17} /><span className="flex-1">Impostazioni</span>
+          {settingsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {settingsOpen && <div className="space-y-0.5">
+          <NavLink to="/settings?tab=sync" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=sync' })}><Database size={15} /> Sincronizzazione</NavLink>
+          <NavLink to="/settings?tab=av" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=av' })}><Shield size={15} /> Antivirus</NavLink>
+          <NavLink to="/settings?tab=smtp" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=smtp' })}><Mail size={15} /> Notifiche Email</NavLink>
+          <NavLink to="/settings?tab=plugin" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=plugin' })}><Puzzle size={15} /> Plugin Client</NavLink>
+          <NavLink to="/settings?tab=security" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=security' })}><ShieldCheck size={15} /> Sicurezza</NavLink>
+          <NavLink to="/settings?tab=update" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=update' })}><RefreshCw size={15} /> Aggiornamento</NavLink>
+        </div>}
         <NavLink to="/reports" className={navClass}><Flag size={17} /> Segnalazioni</NavLink>
       </>)}
     </>
