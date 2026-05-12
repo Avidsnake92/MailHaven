@@ -273,17 +273,11 @@ const loadStatus = async () => {
 
 const handleUpdate = async () => {
     if (!backupConfirmed) return
-    setPhase('updating')
     setError('')
-    startProgressAnimation()
     try {
       await api.post('/update/run')
-      setTimeout(() => { window.dispatchEvent(new CustomEvent('mailhaven:update-started')) }, 500)
-      // Redirect immediato a pagina riavvio � blocca navigazione
-      setTimeout(() => {
-        window.location.href = '/restarting'
-      }, 1500)    } catch (err) {
-      clearTimeout(progressTimer.current)
+      setTimeout(() => { window.dispatchEvent(new CustomEvent('mailhaven:update-started')) }, 300)
+    } catch (err) {
       setError('Errore durante l\'aggiornamento: ' + (err.response?.data?.error || err.message))
       setPhase('error')
     }
