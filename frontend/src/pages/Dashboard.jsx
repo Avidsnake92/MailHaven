@@ -119,6 +119,14 @@ export default function Dashboard() {
   const [syncing, setSyncing] = useState(false)
   const [actionMsg, setActionMsg] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sortBy, setSortBy] = useState('sent_at')
+  const [sortDir, setSortDir] = useState('desc')
+
+  const handleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortBy(col); setSortDir('desc') }
+    setPage(1)
+  }
   const [restoreTarget, setRestoreTarget] = useState('')
   const [showRestoreModal, setShowRestoreModal] = useState(false)
   const restoredMailboxId = savedState.selectedMailboxId || null
@@ -178,13 +186,15 @@ export default function Dashboard() {
       if (fromDate) params.from_date = fromDate
       if (toDate) params.to_date = toDate
       if (selectedFolder) params.path = selectedFolder
+      params.sort_by = sortBy
+      params.sort_dir = sortDir
       const res = await api.get('/emails', { params })
       setEmails(res.data.items || [])
       setTotal(res.data.total || 0)
       setTotalPages(res.data.totalPages || 1)
     } catch { setEmails([]) }
     finally { setLoading(false) }
-  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder])
+  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, sortBy, sortDir])
 
   useEffect(() => { fetchEmails() }, [fetchEmails])
 
@@ -246,7 +256,7 @@ export default function Dashboard() {
     if (!selectedMailbox) return
     setSyncing(true)
     try {
-      await api.post('/emails/sync', { mailbox_id: selectedMailbox.id })
+      await api.post('/emails/sync/' + selectedMailbox.id)
       await fetchEmails()
       setActionMsg('Sincronizzazione completata')
     } catch { setActionMsg('Errore sync') }
@@ -411,9 +421,15 @@ export default function Dashboard() {
                       {selected.length === emails.length ? <CheckSquare size={15} className="text-blue-600" /> : <Square size={15} className="text-gray-400" />}
                     </button>
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Oggetto</th>
-                  <th className="hidden sm:table-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Mittente</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-gray-700 select-none" onClick={() => handleSort('sent_at')}>
+                    Data {sortBy === 'sent_at' ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-gray-700 select-none" onClick={() => handleSort('subject')}>
+                    Oggetto {sortBy === 'subject' ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+                  </th>
+                  <th className="hidden sm:table-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer hover:text-gray-700 select-none" onClick={() => handleSort('sender_email')}>
+                    Mittente {sortBy === 'sender_email' ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+                  </th>
                   <th className="hidden md:table-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Info</th>
                   <th className="w-10 px-2 py-2.5"></th>
                 </tr>

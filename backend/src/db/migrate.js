@@ -10,9 +10,6 @@ const migrate = async (db) => {
     `ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS pec_type VARCHAR(50) DEFAULT NULL`,
     `ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS search_vector tsvector`,
     `ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS sync_paused BOOLEAN DEFAULT false`,
-    `ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS archive_policy JSONB DEFAULT NULL`,
-    `ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS archive_policy JSONB DEFAULT NULL`,
-    `ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS archive_policy JSONB DEFAULT NULL`,
     `ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_provider VARCHAR(50)`,
     `ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_access_token TEXT`,
     `ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_refresh_token TEXT`,
@@ -54,6 +51,23 @@ const migrate = async (db) => {
     `CREATE INDEX IF NOT EXISTS idx_report_messages_report_id ON report_messages(report_id)`,
   ];
 
+
+    `CREATE OR REPLACE FUNCTION deduplicate_by_message_id()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      IF NEW.message_id IS NOT NULL THEN
+        DELETE FROM archived_emails
+        WHERE mailbox_id = NEW.mailbox_id
+          AND message_id = NEW.message_id
+          AND id != NEW.id;
+      END IF;
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql`,
+    `DROP TRIGGER IF EXISTS trig_deduplicate_email ON archived_emails`,
+    `CREATE TRIGGER trig_deduplicate_email
+      AFTER INSERT ON archived_emails
+      FOR EACH ROW EXECUTE FUNCTION deduplicate_by_message_id()`,
   let ok = 0;
   let skip = 0;
   for (const sql of migrations) {

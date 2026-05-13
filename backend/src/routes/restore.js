@@ -119,7 +119,7 @@ router.post('/imap', async (req, res) => {
           continue;
         }
         const emlBuffer = Buffer.isBuffer(email.raw) ? email.raw : Buffer.from(email.raw);
-        const folder = target_folder || email.path || 'INBOX';
+        const folder = target_folder || 'INBOX';
         await uploadToImap(imapConfig, folder, emlBuffer);
         // Marca l'originale come sorgente di un restore
         await db.query('UPDATE archived_emails SET is_restored=false WHERE id=$1', [id]);

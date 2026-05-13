@@ -134,7 +134,10 @@ router.get('/storage', async (req, res) => {
 // GET /emails — list emails with filters
 router.get('/', async (req, res) => {
   const db = req.app.locals.db;
-  const { mailbox_id, path, search, date_from, date_to, page = 1, limit = 50, show_restored = 'false', show_deleted = 'false', fulltext = 'false' } = req.query;
+  const { mailbox_id, path, search, date_from, date_to, page = 1, limit = 50, show_restored = 'false', show_deleted = 'false', fulltext = 'false', sort_by = 'sent_at', sort_dir = 'desc' } = req.query;
+  const ALLOWED_SORT = ['sent_at', 'subject', 'sender_email'];
+  const safeSortBy = ALLOWED_SORT.includes(sort_by) ? `ae.${sort_by}` : 'ae.sent_at';
+  const safeSortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
@@ -158,7 +161,7 @@ router.get('/', async (req, res) => {
     }
     // Nascondi email eliminate di default
     if (show_deleted !== 'true') {
-      // show_deleted gestito dal frontend — non filtrare qui di default
+      conditions.push('(ae.is_deleted = false OR ae.is_deleted IS NULL)');
     }
 
     if (path && path !== 'ALL') {
@@ -463,6 +466,5 @@ router.post('/undelete', authMiddleware, async (req, res) => {
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 
 module.exports = router;
