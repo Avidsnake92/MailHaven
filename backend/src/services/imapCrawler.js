@@ -19,6 +19,26 @@ const getSpamScore = (headers) => {
 };
 
 // Provider noti con SSL datato o configurazione specifica
+
+// Rimuove byte null e caratteri invalidi per PostgreSQL UTF8
+const sanitizeText = (str) => {
+  if (str == null) return null;
+  return str.replace(/\x00/g, '').replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/\uFFFD/g, '');
+};
+
+// Valida e corregge la data email
+const parseEmailDate = (parsed, headers) => {
+  const candidates = [
+    parsed.date,
+    headers['date'] ? new Date(headers['date']) : null,
+  ];
+  for (const d of candidates) {
+    if (d && d instanceof Date && !Number.isNaN(d.getTime()) && d.getFullYear() > 1990) return d;
+  }
+  return null;
+};
+
+
 const LEGACY_PROVIDERS = {
   'tiscali.it':    { host: 'imap.tiscali.it',      port: 993, tls: true,  legacy: true  },
   'libero.it':     { host: 'imapmail.libero.it',    port: 993, tls: true,  legacy: true  },
@@ -208,6 +228,9 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                   });
 
                   const spamScore = getSpamScore(parsed.headers);
+                  const emailDomain = (mailbox.email||'').split('@')[1]?.toLowerCase();
+                  const providerIsPec = !!(LEGACY_PROVIDERS[emailDomain]?.isPec)||(mailbox.imap_host||'').toLowerCase().includes('pec');
+                  const { isPec, pecType } = detectPec(headers, emailDomain, providerIsPec);
 
                   let isRestored = false;
                   if (parsed.messageId) {

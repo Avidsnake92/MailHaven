@@ -5,13 +5,11 @@ import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight, CheckSquare, Square, Calendar, Inbox, ChevronDown, Folder, FolderOpen, Users, Building2, Paperclip, HardDrive, Database, Shield, ShieldCheck, ShieldAlert, HelpCircle, Trash2, X, RefreshCw } from 'lucide-react'
+import { Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight, Calendar, Inbox, ChevronDown, Folder, FolderOpen, Building2, Paperclip, Shield, ShieldCheck, ShieldAlert, HelpCircle, Trash2, X, RefreshCw, CheckSquare, Square } from 'lucide-react'
 
 // Folder tree component
 function FolderTree({ folders, selectedFolder, onSelect }) {
   const [expanded, setExpanded] = useState({})
-
-  // Build tree structure from flat paths
   const buildTree = (folders) => {
     const tree = {}
     folders.forEach(f => {
@@ -24,49 +22,31 @@ function FolderTree({ folders, selectedFolder, onSelect }) {
     })
     return tree
   }
-
   const renderTree = (node, depth = 0) => {
     return Object.entries(node).map(([name, data]) => {
       const hasChildren = Object.keys(data._children).length > 0
       const isSelected = selectedFolder === data._path
       const isExpanded = expanded[data._path]
-
       return (
         <div key={data._path}>
-          <div
-            className={`flex items-center w-full rounded-lg transition-colors text-left ${
-              isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-            style={{ paddingLeft: `${12 + depth * 16}px` }}
-          >
-            <button
-              onClick={() => onSelect(isSelected ? null : data._path)}
-              className="flex items-center gap-2 flex-1 py-1.5 text-sm text-left"
-            >
-              {hasChildren ? (
-                isExpanded ? <FolderOpen size={14} className="shrink-0" /> : <Folder size={14} className="shrink-0" />
-              ) : (
-                <Inbox size={14} className="shrink-0" />
-              )}
+          <div className={`flex items-center w-full rounded-lg transition-colors text-left ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+            style={{ paddingLeft: `${12 + depth * 16}px` }}>
+            <button onClick={() => onSelect(isSelected ? null : data._path)}
+              className="flex items-center gap-2 flex-1 py-1.5 text-sm text-left">
+              {hasChildren ? (isExpanded ? <FolderOpen size={14} className="shrink-0" /> : <Folder size={14} className="shrink-0" />) : (<Inbox size={14} className="shrink-0" />)}
               <span className="truncate">{name}</span>
             </button>
             {hasChildren && (
-              <button
-                onClick={() => setExpanded(e => ({ ...e, [data._path]: !e[data._path] }))}
-                className="px-2 py-1.5"
-              >
-                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              <button onClick={() => setExpanded(e => ({ ...e, [data._path]: !e[data._path] }))} className="px-2 py-1.5">
+                {isExpanded ? <ChevronDown size={12} /> : <ChevronDown size={12} className="rotate-[-90deg]" />}
               </button>
             )}
           </div>
-          {hasChildren && isExpanded && (
-            <div>{renderTree(data._children, depth + 1)}</div>
-          )}
+          {hasChildren && isExpanded && <div>{renderTree(data._children, depth + 1)}</div>}
         </div>
       )
     })
   }
-
   const tree = buildTree(folders)
   return <div className="space-y-0.5">{renderTree(tree)}</div>
 }
@@ -79,8 +59,6 @@ const formatBytes = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-
-// Highlight search terms
 const Highlight = ({ text, query }) => {
   if (!query || !text) return <span>{text || ''}</span>
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -89,51 +67,28 @@ const Highlight = ({ text, query }) => {
     <span>
       {parts.map((part, i) =>
         part.toLowerCase() === query.toLowerCase()
-          ? <mark key={i} className="bg-yellow-200 text-yellow-900 rounded px-0.5 not-italic">{part}</mark>
+          ? <mark key={i} className="bg-yellow-200 text-yellow-900 rounded px-0.5">{part}</mark>
           : <span key={i}>{part}</span>
       )}
     </span>
   )
 }
 
-// Shield AV component
 const AvShield = ({ emailId, hasAttachments, avStatus: initialStatus }) => {
   const [status, setStatus] = React.useState(initialStatus || null)
-
-  if (!hasAttachments) return (
-    <span title="Nessun allegato" className="text-gray-200">
-      <Shield size={14} />
-    </span>
-  )
-
+  if (!hasAttachments) return <span title="Nessun allegato" className="text-gray-200"><Shield size={14} /></span>
   const scan = async (e) => {
     e.stopPropagation()
     setStatus('loading')
     try {
       const res = await api.get(`/emails/${emailId}/scan`)
       setStatus(res.data.allClean ? 'clean' : 'infected')
-    } catch {
-      setStatus('error')
-    }
+    } catch { setStatus('error') }
   }
-
   if (status === 'loading') return <Loader2 size={14} className="animate-spin text-blue-400" />
-  if (status === 'clean') return (
-    <span title="Allegati puliti — nessun virus rilevato" className="text-green-500">
-      <ShieldCheck size={14} />
-    </span>
-  )
-  if (status === 'infected') return (
-    <span title="⚠️ Virus rilevato negli allegati!" className="text-red-500 animate-pulse">
-      <ShieldAlert size={14} />
-    </span>
-  )
-  // null o error = non ancora scansionato, mostra bottone
-  return (
-    <button onClick={scan} title="Allegati non scansionati — clicca per scansionare" className="text-gray-300 hover:text-blue-500 transition-colors">
-      <HelpCircle size={14} />
-    </button>
-  )
+  if (status === 'clean') return <span title="Allegati puliti" className="text-green-500"><ShieldCheck size={14} /></span>
+  if (status === 'infected') return <span title="Virus rilevato!" className="text-red-500 animate-pulse"><ShieldAlert size={14} /></span>
+  return <button onClick={scan} title="Clicca per scansionare" className="text-gray-300 hover:text-blue-500 transition-colors"><HelpCircle size={14} /></button>
 }
 
 export default function Dashboard() {
@@ -141,10 +96,8 @@ export default function Dashboard() {
   const { branding } = useBranding()
   const navigate = useNavigate()
 
-  // Restore state from sessionStorage
   const savedState = (() => { try { return JSON.parse(sessionStorage.getItem('mv_dashboard_state') || '{}') } catch { return {} } })()
 
-  // State
   const [clients, setClients] = useState([])
   const [selectedClient, setSelectedClient] = useState(savedState.selectedClient || null)
   const [mailboxes, setMailboxes] = useState([])
@@ -158,47 +111,36 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState([])
   const [search, setSearch] = useState(savedState.search || '')
-  const [showRestored, setShowRestored] = useState(false)
-  const [showDeleted, setShowDeleted] = useState(false)
-  const [fullTextSearch, setFullTextSearch] = useState(false)
-  const [storageStats, setStorageStats] = useState(null)
   const [fromDate, setFromDate] = useState(savedState.fromDate || '')
   const [toDate, setToDate] = useState(savedState.toDate || '')
   const [showFilters, setShowFilters] = useState(false)
-  const [restoreTarget, setRestoreTarget] = useState('')
   const [restoreLoading, setRestoreLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [actionMsg, setActionMsg] = useState('')
-  const [restoredMailboxId] = useState(savedState.selectedMailboxId || null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [restoreTarget, setRestoreTarget] = useState('')
+  const [showRestoreModal, setShowRestoreModal] = useState(false)
+  const restoredMailboxId = savedState.selectedMailboxId || null
 
-  // Save state to sessionStorage whenever it changes
   useEffect(() => {
     sessionStorage.setItem('mv_dashboard_state', JSON.stringify({
-      selectedClient,
-      selectedMailboxId: selectedMailbox?.id || null,
-      selectedFolder,
-      page,
-      search,
-      fromDate,
-      toDate,
+      selectedClient, selectedMailboxId: selectedMailbox?.id || null,
+      selectedFolder, page, search, fromDate, toDate,
     }))
   }, [selectedClient, selectedMailbox, selectedFolder, page, search, fromDate, toDate])
 
-  // Load clients (superadmin only)
   useEffect(() => {
     if (user?.role === 'superadmin' || user?.role === 'admin') {
       api.get('/admin/clients').then(r => setClients(r.data)).catch(() => {})
     }
   }, [user])
 
-  // Load mailboxes when client selected
   useEffect(() => {
     if (user?.role === 'superadmin' && selectedClient) {
       api.get('/emails/mailboxes/list').then(r => {
         const filtered = r.data.filter(m => m.client_id == selectedClient)
         setMailboxes(filtered)
-        // Restore previously selected mailbox
         if (restoredMailboxId) {
           const restored = filtered.find(m => m.id == restoredMailboxId)
           if (restored) setSelectedMailbox(restored)
@@ -207,94 +149,60 @@ export default function Dashboard() {
     } else if (user?.role !== 'superadmin') {
       api.get('/emails/mailboxes/list').then(r => {
         setMailboxes(r.data)
-        // Restore previously selected mailbox
         if (restoredMailboxId) {
           const restored = r.data.find(m => m.id == restoredMailboxId)
           if (restored) setSelectedMailbox(restored)
-        } else if (r.data.length === 1) {
-          setSelectedMailbox(r.data[0])
-        }
+        } else if (r.data.length === 1) setSelectedMailbox(r.data[0])
       }).catch(() => {})
     }
   }, [selectedClient, user])
 
-  // Load folders when mailbox selected
   useEffect(() => {
     if (selectedMailbox) {
-      api.get('/emails/storage', { params: { mailbox_id: selectedMailbox.id } }).then(r => {
-        setStorageStats(r.data)
-      }).catch(() => {})
       api.get('/emails/folders', { params: { mailbox_id: selectedMailbox.id } }).then(r => {
-        setFolders(r.data)
-        setSelectedFolder(null)
+        setFolders(r.data); setSelectedFolder(null)
       }).catch(() => setFolders([]))
     }
   }, [selectedMailbox])
 
-  // Fetch emails
   const fetchEmails = useCallback(async () => {
     if (!selectedMailbox) return
     setLoading(true)
     try {
-      const params = { page, limit: 50, mailbox_id: selectedMailbox.id }
-      if (search) params.search = search
+      const params = {
+        page, limit: 50, mailbox_id: selectedMailbox.id,
+        show_deleted: 'true',  // sempre visibili
+        show_restored: 'true', // sempre visibili
+      }
+      if (search) { params.search = search; params.fulltext = 'true' } // full-text sempre attivo
       if (fromDate) params.from_date = fromDate
       if (toDate) params.to_date = toDate
       if (selectedFolder) params.path = selectedFolder
-      if (showRestored) params.show_restored = 'true'
-      if (showDeleted) params.show_deleted = 'true'
-      if (fullTextSearch && search) params.fulltext = 'true'
       const res = await api.get('/emails', { params })
       setEmails(res.data.items || [])
       setTotal(res.data.total || 0)
       setTotalPages(res.data.totalPages || 1)
-    } catch {
-      setEmails([])
-    } finally {
-      setLoading(false)
-    }
-  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, showRestored, showDeleted, fullTextSearch])
+    } catch { setEmails([]) }
+    finally { setLoading(false) }
+  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder])
 
   useEffect(() => { fetchEmails() }, [fetchEmails])
 
   const toggleSelect = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
   const toggleAll = () => selected.length === emails.length ? setSelected([]) : setSelected(emails.map(e => e.id))
 
-  const [showExportMenu, setShowExportMenu] = useState(false)
-
-  const handleExport = async (format = 'zip') => {
+  const handleDeleteSelected = async () => {
     if (!selected.length) return
-    setShowExportMenu(false)
-    setExportLoading(true)
     try {
-      const endpoint = format === 'mbox' ? '/restore/export/mbox' : '/restore/export/zip'
-      const ext = format === 'mbox' ? 'mbox' : 'zip'
-      const res = await api.post(endpoint, { email_ids: selected }, { responseType: 'blob' })
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url
-      a.download = `export_${format(new Date(), 'yyyyMMdd_HHmm')}.${ext}`
-      a.click(); URL.revokeObjectURL(url)
-      setActionMsg(`${selected.length} email esportate`)
-    } catch { setActionMsg('Errore durante export') }
-    finally { setExportLoading(false); setTimeout(() => setActionMsg(''), 3000) }
+      await api.post('/emails/delete', { email_ids: selected })
+      setActionMsg(`${selected.length} email eliminate`)
+      setSelected([])
+      fetchEmails()
+    } catch { setActionMsg('Errore durante eliminazione') }
+    setTimeout(() => setActionMsg(''), 3000)
   }
 
-  const handleExportMailbox = async (format = 'zip') => {
-    if (!selectedMailbox) return
-    setShowExportMenu(false)
-    setExportLoading(true)
-    try {
-      const res = await api.post('/restore/export/mailbox', { mailbox_id: selectedMailbox.id }, { responseType: 'blob' })
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url
-      a.download = `${selectedMailbox.email}_${format(new Date(), 'yyyyMMdd')}.zip`
-      a.click(); URL.revokeObjectURL(url)
-      setActionMsg('Casella esportata')
-    } catch { setActionMsg('Errore durante export casella') }
-    finally { setExportLoading(false); setTimeout(() => setActionMsg(''), 3000) }
-  }
-
-  const handleRestore = async () => {
+  const handleRestoreSelected = async () => {
     if (!selected.length || !restoreTarget) return
     setRestoreLoading(true)
     try {
@@ -302,26 +210,52 @@ export default function Dashboard() {
       const ok = res.data.results?.filter(r => r.success).length || selected.length
       setActionMsg(`${ok}/${selected.length} email ripristinate`)
       setSelected([])
+      setShowRestoreModal(false)
+      fetchEmails()
     } catch { setActionMsg('Errore durante restore') }
     finally { setRestoreLoading(false); setTimeout(() => setActionMsg(''), 4000) }
   }
 
-  const handleRestoreFolder = async () => {
-    if (!restoreTarget || !selectedFolder || !selectedMailbox) return
-    setRestoreLoading(true)
+  const handleToggleDelete = async (email, e) => {
+    e.stopPropagation()
     try {
-      const allIds = emails.map(e => e.id)
-      const res = await api.post('/restore/imap', { email_ids: allIds, target_mailbox: restoreTarget, target_folder: selectedFolder })
-      setActionMsg(`Cartella ${selectedFolder} ripristinata`)
-    } catch { setActionMsg('Errore durante restore cartella') }
-    finally { setRestoreLoading(false); setTimeout(() => setActionMsg(''), 4000) }
+      if (email.isDeleted) {
+        await api.post('/emails/undelete', { email_ids: [email.id] })
+      } else {
+        await api.post('/emails/delete', { email_ids: [email.id] })
+      }
+      fetchEmails()
+    } catch {}
+  }
+
+  const handleExport = async () => {
+    if (!selected.length) return
+    setExportLoading(true)
+    try {
+      const res = await api.post('/restore/export/zip', { email_ids: selected }, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url
+      a.download = `export_${format(new Date(), 'yyyyMMdd_HHmm')}.zip`
+      a.click(); URL.revokeObjectURL(url)
+      setActionMsg(`${selected.length} email esportate`)
+    } catch { setActionMsg('Errore export') }
+    finally { setExportLoading(false); setTimeout(() => setActionMsg(''), 3000) }
+  }
+
+  const handleSync = async () => {
+    if (!selectedMailbox) return
+    setSyncing(true)
+    try {
+      await api.post('/emails/sync', { mailbox_id: selectedMailbox.id })
+      await fetchEmails()
+      setActionMsg('Sincronizzazione completata')
+    } catch { setActionMsg('Errore sync') }
+    finally { setSyncing(false); setTimeout(() => setActionMsg(''), 3000) }
   }
 
   const formatDate = (d) => {
     try { return format(new Date(d), 'dd MMM yy, HH:mm', { locale: it }) } catch { return d }
   }
-
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="flex min-h-screen md:h-screen relative">
@@ -332,400 +266,260 @@ export default function Dashboard() {
         {sidebarOpen ? <X size={20} /> : <Filter size={20} />}
       </button>
 
-      {/* Sidebar overlay on mobile */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <div className={`
-        fixed md:relative inset-y-0 left-0 z-40 md:z-auto
-        w-72 md:w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 overflow-y-auto
-        transform transition-transform duration-300 md:transform-none
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-      `}>
+      <div className={`fixed md:relative inset-y-0 left-0 z-40 md:z-auto w-72 md:w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 overflow-y-auto transform transition-transform duration-300 md:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">Archivio Email</h2>
-
-          {/* Client selector (superadmin) */}
           {(user?.role === 'superadmin' || user?.role === 'admin') && clients.length > 0 && (
             <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                <Building2 size={11} className="inline mr-1" />Cliente
-              </label>
-              <select value={selectedClient || ''} onChange={e => { setSelectedClient(e.target.value || null); setSelectedMailbox(null); setFolders([]); }}
+              <label className="block text-xs font-medium text-gray-500 mb-1.5"><Building2 size={11} className="inline mr-1" />Cliente</label>
+              <select value={selectedClient || ''} onChange={e => { setSelectedClient(e.target.value || null); setSelectedMailbox(null); setFolders([]) }}
                 className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
-                <option value="">— Seleziona —</option>
+                <option value="">Seleziona</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.company ? `(${c.company})` : ''}</option>)}
               </select>
             </div>
           )}
-
-          {/* Mailbox selector */}
           {mailboxes.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                <Inbox size={11} className="inline mr-1" />Casella
-              </label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5"><Inbox size={11} className="inline mr-1" />Casella</label>
               <select value={selectedMailbox?.id || ''} onChange={e => {
                 const m = mailboxes.find(x => x.id == e.target.value)
-                setSelectedMailbox(m || null)
-                setSelected([])
-                setPage(1)
-              }}
-                className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
-                <option value="">— Seleziona —</option>
+                setSelectedMailbox(m || null); setSelected([]); setPage(1)
+              }} className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1">
+                <option value="">Seleziona</option>
                 {mailboxes.map(m => <option key={m.id} value={m.id}>{m.email}</option>)}
               </select>
             </div>
           )}
         </div>
 
-        {/* Folder tree */}
         {folders.length > 0 && (
           <div className="p-3 flex-1">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">Cartelle</p>
-            <button
-              onClick={() => { setSelectedFolder(null); setPage(1); setSelected([]) }}
-              className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-lg transition-colors mb-1 ${
-                !selectedFolder ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
-              }`}>
+            <button onClick={() => { setSelectedFolder(null); setPage(1); setSelected([]) }}
+              className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm rounded-lg transition-colors mb-1 ${!selectedFolder ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
               <Inbox size={14} /> Tutte le email
             </button>
-            <FolderTree
-              folders={folders}
-              selectedFolder={selectedFolder}
-              onSelect={(f) => { setSelectedFolder(f); setPage(1); setSelected([]) }}
-            />
-          </div>
-        )}
-
-        {/* Storage stats widget */}
-        {storageStats && selectedMailbox && (
-          <div className="p-3 mt-auto border-t border-gray-100">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">Spazio archivio</p>
-            <div className="bg-gray-50 rounded-xl p-3 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Email archiviate</span>
-                <span className="text-xs font-semibold text-gray-800">{storageStats.email_count?.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Dimensione originale</span>
-                <span className="text-xs font-semibold text-gray-800">{formatBytes(storageStats.original_bytes)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-500">Spazio occupato</span>
-                <span className="text-xs font-semibold text-blue-600">{formatBytes(storageStats.compressed_bytes)}</span>
-              </div>
-              {storageStats.compression_ratio > 0 && (
-                <>
-                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                    <div className="bg-blue-500 h-1.5 rounded-full" style={{width: `${100 - storageStats.compression_ratio}%`}} />
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-green-600 font-medium">💾 Risparmiato {storageStats.compression_ratio}%</span>
-                    <span className="text-xs text-gray-400">{formatBytes(storageStats.saved_bytes)}</span>
-                  </div>
-                </>
-              )}
-            </div>
+            <FolderTree folders={folders} selectedFolder={selectedFolder} onSelect={(p) => { setSelectedFolder(p); setPage(1); setSelected([]) }} />
           </div>
         )}
       </div>
 
-      {/* Main content */}
+      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-6 flex-1 overflow-y-auto">
-
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                {selectedFolder ? selectedFolder.split('.').pop() : 'Email Archiviate'}
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-4 py-3 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Titolo */}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-sm font-semibold text-gray-900 truncate">
+                {selectedFolder || 'INBOX'} {selectedMailbox && <span className="text-gray-400 font-normal">· {selectedMailbox.email}</span>}
               </h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {selectedMailbox ? selectedMailbox.email : 'Seleziona una casella'}
-                {total > 0 && ` · ${total} email`}
-              </p>
+              {total > 0 && <p className="text-xs text-gray-400">{total.toLocaleString('it-IT')} email</p>}
             </div>
 
-            {/* Action bar */}
+            {/* Azioni bulk */}
             {selected.length > 0 && (
-              <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm">
-                <span className="text-sm font-medium text-gray-700">{selected.length} selezionate</span>
-                <div className="w-px h-4 bg-gray-200" />
-                {/* Export dropdown */}
-                <div className="relative">
-                  <button onClick={() => setShowExportMenu(m => !m)} disabled={exportLoading}
-                    className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 disabled:opacity-50">
-                    {exportLoading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                    Esporta
-                    <ChevronDown size={12} />
-                  </button>
-                  {showExportMenu && (
-                    <div className="absolute top-8 left-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-44 py-1">
-                      <button onClick={() => handleExport('zip')}
-                        className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                        <Download size={13} className="text-blue-500" />
-                        ZIP con EML
-                        <span className="ml-auto text-xs text-gray-400">Outlook, Thunderbird</span>
-                      </button>
-                      <button onClick={() => handleExport('mbox')}
-                        className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                        <Download size={13} className="text-purple-500" />
-                        MBOX
-                        <span className="ml-auto text-xs text-gray-400">Thunderbird, Gmail</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="w-px h-4 bg-gray-200" />
-                <div className="flex items-center gap-2">
-                  <input type="email" placeholder="Email destinazione..."
-                    value={restoreTarget} onChange={e => setRestoreTarget(e.target.value)}
-                    className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none w-44" />
-                  <button onClick={handleRestore} disabled={restoreLoading || !restoreTarget}
-                    className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
-                    style={{ background: branding.primary_color || '#2563eb' }}>
-                    {restoreLoading ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                    Ripristina
-                  </button>
-                </div>
-                <button onClick={() => setSelected([])} className="text-gray-400 hover:text-gray-600">
-                  <X size={16} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">{selected.length} selezionate</span>
+                <button onClick={() => setShowRestoreModal(true)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100">
+                  <RotateCcw size={12} /> Ripristina
+                </button>
+                <button onClick={handleDeleteSelected}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100">
+                  <Trash2 size={12} /> Elimina
+                </button>
+                <button onClick={handleExport} disabled={exportLoading}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100">
+                  {exportLoading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Esporta
                 </button>
               </div>
             )}
 
-            {/* Restore folder / Export mailbox buttons */}
-            {selected.length === 0 && selectedMailbox && (
-              <div className="flex items-center gap-2">
-                {/* Sync mailbox */}
-                <button onClick={async () => {
-                  setSyncing(true)
-                  try {
-                    await api.post(`/admin/mailboxes/${selectedMailbox.id}/sync`)
-                    setTimeout(() => { fetchEmails(); setSyncing(false) }, 3000)
-                  } catch { setSyncing(false) }
-                }} disabled={syncing}
-                  className={`flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg border transition-colors ${syncing ? 'border-orange-300 bg-orange-50 text-orange-600' : 'border-orange-300 text-orange-600 hover:bg-orange-50'}`}>
-                  <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-                  {syncing ? 'Sync in corso...' : 'Sync'}
-                </button>
-                {/* Export entire mailbox */}                <div className="relative">
-                  <button onClick={() => setShowExportMenu(m => !m)} disabled={exportLoading}
-                    className="flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
-                    {exportLoading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                    Esporta casella
-                    <ChevronDown size={12} />
-                  </button>
-                  {showExportMenu && (
-                    <div className="absolute top-10 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-48 py-1">
-                      <button onClick={handleExportMailbox}
-                        className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                        <Download size={13} className="text-blue-500" />
-                        ZIP con EML
-                        <span className="ml-auto text-xs text-gray-400">Consigliato</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Restore folder */}
-                {selectedFolder && emails.length > 0 && (
-                  <>
-                    <input type="email" placeholder="Email per ripristino cartella..."
-                      value={restoreTarget} onChange={e => setRestoreTarget(e.target.value)}
-                      className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none w-52" />
-                    <button onClick={handleRestoreFolder} disabled={restoreLoading || !restoreTarget}
-                      className="flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg text-white disabled:opacity-50"
-                      style={{ background: branding.primary_color || '#2563eb' }}>
-                      {restoreLoading ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                      Ripristina cartella
-                    </button>
-                  </>
-                )}
-              </div>
+            {/* Sync */}
+            {selectedMailbox && (
+              <button onClick={handleSync} disabled={syncing}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> Sync
+              </button>
             )}
           </div>
 
-          {/* Action message */}
-          {actionMsg && (
-            <div className={`mb-4 text-sm px-4 py-3 rounded-lg border ${actionMsg.includes('Errore') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
-              {actionMsg}
+          {/* Barra ricerca */}
+          <div className="flex items-center gap-2 mt-2">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+                placeholder="Cerca oggetto, mittente, testo..." onKeyDown={e => e.key === 'Escape' && setSearch('')}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+              {search && <button onClick={() => { setSearch(''); setPage(1) }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={13} /></button>}
             </div>
-          )}
+            <button onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border transition-colors ${showFilters || fromDate || toDate ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              <Filter size={14} /> Filtri
+            </button>
+          </div>
 
-          {/* No mailbox selected */}
-          {!selectedMailbox && (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <Inbox size={48} className="text-gray-300 mb-4" />
-              <p className="text-gray-500 font-medium">Seleziona una casella email</p>
-              <p className="text-gray-400 text-sm mt-1">
-                {(user?.role === 'superadmin' || user?.role === 'admin') ? 'Scegli prima il cliente e poi la casella' : 'Scegli la casella dalla sidebar'}
-              </p>
-            </div>
-          )}
-
-          {selectedMailbox && (
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              {/* Search and filters */}
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-                <div className="relative flex-1 max-w-md">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" placeholder="Cerca oggetto, mittente..."
-                    value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
-                </div>
-                <button onClick={() => setShowFilters(!showFilters)}
-                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${showFilters || fromDate || toDate ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                  <Filter size={14} /> Filtri {(fromDate || toDate) ? '·' : ''}
-                </button>
-                <button onClick={() => { setFullTextSearch(f => !f); setPage(1) }}
-                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${fullTextSearch ? 'bg-purple-50 border-purple-200 text-purple-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                  title="Ricerca nel corpo delle email">
-                  <Search size={14} /> {fullTextSearch ? 'Full-text ON' : 'Full-text'}
-                </button>
-                <button onClick={() => { setShowRestored(r => !r); setPage(1) }}
-                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${showRestored ? 'bg-green-50 border-green-200 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                  title="Mostra email ripristinate">
-                  <RotateCcw size={14} /> {showRestored ? 'Restore ON' : 'Restore'}
-                </button>
-                <button onClick={() => { setShowDeleted(d => !d); setPage(1) }}
-                  className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-colors ${showDeleted ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                  title="Mostra email eliminate dalla casella">
-                  <Trash2 size={14} /> {showDeleted ? 'Eliminate ON' : 'Eliminate'}
-                </button>
+          {/* Filtri data */}
+          {showFilters && (
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <Calendar size={13} className="text-gray-400" />
+                <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1) }}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1" />
+                <span className="text-xs text-gray-400">→</span>
+                <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1) }}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1" />
               </div>
-
-              {showFilters && (
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-gray-400" />
-                    <span className="text-sm text-gray-600">Da:</span>
-                    <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1) }}
-                      className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">A:</span>
-                    <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1) }}
-                      className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none" />
-                  </div>
-                  {(fromDate || toDate) && (
-                    <button onClick={() => { setFromDate(''); setToDate(''); setPage(1) }}
-                      className="text-sm text-red-500 flex items-center gap-1">
-                      <X size={13} /> Cancella
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Table */}
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="px-4 py-3 w-10">
-                      <button onClick={toggleAll} className="text-gray-400 hover:text-gray-600">
-                        {selected.length === emails.length && emails.length > 0
-                          ? <CheckSquare size={16} className="text-blue-600" />
-                          : <Square size={16} />}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Oggetto</th>
-                    <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mittente</th>
-                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Cartella</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td colSpan={5} className="text-center py-16">
-                      <Loader2 size={24} className="animate-spin text-gray-400 mx-auto" />
-                    </td></tr>
-                  ) : emails.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center py-16">
-                      <Mail size={32} className="text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500 text-sm">Nessuna email trovata</p>
-                    </td></tr>
-                  ) : emails.map(email => (
-                    <tr key={email.id}
-                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${selected.includes(email.id) ? 'bg-blue-50' : email.isRestored ? 'bg-emerald-50 hover:bg-emerald-100' : email.isDeleted ? 'bg-amber-50 hover:bg-amber-100' : ''}`}>
-                      <td className="px-4 py-3" onClick={e => { e.stopPropagation(); toggleSelect(email.id) }}>
-                        {selected.includes(email.id)
-                          ? <CheckSquare size={16} className="text-blue-600" />
-                          : <Square size={16} className="text-gray-300" />}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap mono text-xs"
-                        onClick={() => navigate(`/email/${email.id}`)}>
-                        {formatDate(email.sentAt)}
-                      </td>
-                      <td className="px-4 py-3 max-w-xs" onClick={() => navigate(`/email/${email.id}`)}>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-2">
-                            <Highlight text={email.subject || '(Nessun oggetto)'} query={search} />
-                            {email.isRestored && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">
-                                <RotateCcw size={10} />
-                                Ripristinata
-                              </span>
-                            )}
-                            {email.isDeleted && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
-                                <Trash2 size={10} />
-                                Eliminata
-                              </span>
-                            )}
-                          </p>
-                          {email.tags?.includes('spam') && (
-                            <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-600">SPAM</span>
-                          )}
-                          {email.isPec && (
-                            <span className="shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
-                              PEC{email.pecType && email.pecType !== 'normale' ? ` · ${email.pecType}` : ''}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 truncate sm:hidden mt-0.5">{email.senderEmail || email.senderName}</p>
-                      </td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-600 truncate max-w-xs"
-                        onClick={() => navigate(`/email/${email.id}`)}>
-                        {email.senderEmail || email.senderName}
-                      </td>
-                      <td className="hidden md:table-cell px-4 py-3" onClick={() => navigate(`/email/${email.id}`)}>
-                        <div className="flex items-center gap-1.5">
-                          <AvShield emailId={email.id} hasAttachments={email.hasAttachments} avStatus={email.avStatus} />
-                          {email.hasAttachments && (
-                            <Paperclip size={13} className="text-gray-400 shrink-0" />
-                          )}
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
-                            <Inbox size={10} />
-                            {email.path || 'INBOX'}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-                  <p className="text-sm text-gray-500">Pagina {page} di {totalPages}</p>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                      className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">
-                      <ChevronLeft size={15} />
-                    </button>
-                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                      className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">
-                      <ChevronRight size={15} />
-                    </button>
-                  </div>
-                </div>
+              {(fromDate || toDate) && (
+                <button onClick={() => { setFromDate(''); setToDate(''); setPage(1) }} className="text-xs text-red-500 hover:underline">Reset date</button>
               )}
             </div>
+          )}
+
+          {actionMsg && (
+            <div className="mt-2 text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg">{actionMsg}</div>
           )}
         </div>
+
+        {/* Lista email */}
+        <div className="flex-1 overflow-y-auto">
+          {!selectedMailbox ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <Mail size={40} className="mb-3 opacity-30" />
+              <p className="text-sm">Seleziona una casella email</p>
+            </div>
+          ) : loading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 size={24} className="animate-spin text-blue-500" />
+            </div>
+          ) : emails.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <Mail size={40} className="mb-3 opacity-30" />
+              <p className="text-sm">Nessuna email trovata</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                <tr>
+                  <th className="w-8 px-3 py-2.5">
+                    <button onClick={toggleAll}>
+                      {selected.length === emails.length ? <CheckSquare size={15} className="text-blue-600" /> : <Square size={15} className="text-gray-400" />}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Oggetto</th>
+                  <th className="hidden sm:table-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Mittente</th>
+                  <th className="hidden md:table-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Info</th>
+                  <th className="w-10 px-2 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {emails.map(email => (
+                  <tr key={email.id}
+                    className={`hover:bg-gray-50 transition-colors cursor-pointer ${selected.includes(email.id) ? 'bg-blue-50' : email.isDeleted ? 'opacity-60' : ''}`}>
+                    <td className="w-8 px-3 py-3" onClick={e => { e.stopPropagation(); toggleSelect(email.id) }}>
+                      {selected.includes(email.id) ? <CheckSquare size={15} className="text-blue-600" /> : <Square size={15} className="text-gray-300" />}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap" onClick={() => navigate(`/email/${email.id}`)}>
+                      {formatDate(email.sentAt)}
+                    </td>
+                    <td className="px-4 py-3" onClick={() => navigate(`/email/${email.id}`)}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-gray-900 truncate max-w-xs">
+                          <Highlight text={email.subject || '(nessun oggetto)'} query={search} />
+                        </span>
+                        {email.isDeleted && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 shrink-0">
+                            <Trash2 size={9} /> Eliminata
+                          </span>
+                        )}
+                        {email.isRestored && !email.isDeleted && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 shrink-0">
+                            <RotateCcw size={9} /> Recuperata
+                          </span>
+                        )}
+                        {email.isPec && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700 shrink-0 border border-blue-200">
+                            PEC{email.pecType && email.pecType !== 'normale' ? ` · ${email.pecType}` : ''}
+                          </span>
+                        )}
+                        {email.tags?.includes('spam') && (
+                          <span className="shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">SPAM</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 truncate sm:hidden mt-0.5">{email.senderEmail || email.senderName}</p>
+                    </td>
+                    <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-500 truncate max-w-xs" onClick={() => navigate(`/email/${email.id}`)}>
+                      <Highlight text={email.senderEmail || email.senderName || ''} query={search} />
+                    </td>
+                    <td className="hidden md:table-cell px-4 py-3" onClick={() => navigate(`/email/${email.id}`)}>
+                      <div className="flex items-center gap-1.5">
+                        <AvShield emailId={email.id} hasAttachments={email.hasAttachments} avStatus={email.avStatus} />
+                        {email.hasAttachments && <Paperclip size={13} className="text-gray-400 shrink-0" />}
+                        <span className="text-xs text-gray-400 truncate max-w-[80px]">{email.path || 'INBOX'}</span>
+                      </div>
+                    </td>
+                    <td className="w-10 px-2 py-3">
+                      <button
+                        onClick={(e) => handleToggleDelete(email, e)}
+                        title={email.isDeleted ? 'Ripristina' : 'Elimina'}
+                        className={`p-1.5 rounded-lg transition-colors ${email.isDeleted ? 'text-green-600 hover:bg-green-50' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}>
+                        {email.isDeleted ? <RotateCcw size={13} /> : <Trash2 size={13} />}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Paginazione */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-white shrink-0">
+            <p className="text-sm text-gray-500">Pagina {page} di {totalPages} · {total.toLocaleString('it-IT')} email</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">
+                <ChevronLeft size={14} />
+              </button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Modal ripristino IMAP */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+            <h2 className="text-base font-bold text-gray-900 mb-2">Ripristina email nell'IMAP</h2>
+            <p className="text-sm text-gray-500 mb-4">{selected.length} email verranno reinserite nella casella IMAP indicata.</p>
+            <input value={restoreTarget} onChange={e => setRestoreTarget(e.target.value)}
+              placeholder="Email destinazione (es. office@k2tech.it)"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" />
+            <div className="flex gap-2">
+              <button onClick={handleRestoreSelected} disabled={restoreLoading || !restoreTarget}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-40">
+                {restoreLoading ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                Ripristina
+              </button>
+              <button onClick={() => setShowRestoreModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

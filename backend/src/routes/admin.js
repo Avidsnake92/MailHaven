@@ -622,6 +622,62 @@ router.post('/av/restart-scheduler', requireRole('superadmin'), async (req, res)
   }
 });
 
+
+// ── ARCHIVING POLICY ──
+router.get('/mailboxes/:id/policy', authMiddleware, async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const result = await db.query(
+      'SELECT archive_policy FROM mailboxes WHERE id = $1',
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Casella non trovata' });
+    res.json(result.rows[0].archive_policy || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/mailboxes/:id/policy', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  const policy = req.body;
+  try {
+    await db.query(
+      'UPDATE mailboxes SET archive_policy = $1 WHERE id = $2',
+      [JSON.stringify(policy), req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+router.get('/mailboxes/:id/policy', authMiddleware, async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query('SELECT archive_policy FROM mailboxes WHERE id=$1', [req.params.id]);
+    res.json(r.rows[0]?.archive_policy || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+router.put('/mailboxes/:id/policy', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    await db.query('UPDATE mailboxes SET archive_policy=$1 WHERE id=$2', [JSON.stringify(req.body), req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/mailboxes/:id/policy', authMiddleware, async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query('SELECT archive_policy FROM mailboxes WHERE id=$1', [req.params.id]);
+    res.json(r.rows[0]?.archive_policy || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+router.put('/mailboxes/:id/policy', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    await db.query('UPDATE mailboxes SET archive_policy=$1 WHERE id=$2', [JSON.stringify(req.body), req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 // ── STATISTICHE ──
 router.get('/stats/overview', authMiddleware, async (req, res) => {
   const db = req.app.locals.db;

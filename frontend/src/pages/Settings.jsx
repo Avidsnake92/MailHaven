@@ -214,7 +214,6 @@ const UPDATE_STEPS = [
 
 
 
-
 function UpdateProgress({ startVersion }) {
   const [progress, setProgress] = useState(0)
   const [stepIndex, setStepIndex] = useState(0)
@@ -432,6 +431,9 @@ export default function Settings() {
 
   const [syncInterval, setSyncInterval] = useState('15')
   const [syncEnabled, setSyncEnabled] = useState(true)
+  const [mailboxes, setMailboxes] = useState([])
+  const [policies, setPolicies] = useState({})
+  const [savingPolicy, setSavingPolicy] = useState(null)
   const [avUpdateSchedule, setAvUpdateSchedule] = useState('24')
   const [avUpdateTime, setAvUpdateTime] = useState('02:00')
   const [avScanOnOpen, setAvScanOnOpen] = useState(true)
@@ -492,6 +494,14 @@ export default function Settings() {
       if (s.smtp_port) setSmtpPort(s.smtp_port)
       if (s.smtp_secure !== undefined) setSmtpSecure(s.smtp_secure === 'true')
       if (s.smtp_user) setSmtpUser(s.smtp_user)
+    }).catch(() => {})
+    api.get('/admin/mailboxes').then(res => {
+      setMailboxes(res.data || [])
+      res.data?.forEach(m => {
+        api.get('/admin/mailboxes/' + m.id + '/policy').then(r => {
+          setPolicies(p => ({ ...p, [m.id]: r.data || {} }))
+        }).catch(() => {})
+      })
     }).catch(() => {})
   }, [])
 
@@ -567,7 +577,6 @@ export default function Settings() {
       </div>
 
 
-
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         {activeTab === 'sync' && (
           <div className="space-y-6">
@@ -586,6 +595,67 @@ export default function Settings() {
                 <option value="1440">Una volta al giorno</option>
               </select>
             </Field>
+
+            {mailboxes.length > 0 && (
+              <div className="border-t border-gray-100 pt-6">
+                <h3 className="text-sm font-semibold text-gray-800 mb-1">Policy di archiviazione</h3>
+                <p className="text-xs text-gray-500 mb-4">Configura per ogni casella quando eliminare le email dall'IMAP dopo l'archiviazione.</p>
+                <div className="space-y-3">
+                  {mailboxes.map(m => {
+                    const p = policies[m.id] || {}
+                    const save = async (np) => {
+                      setSavingPolicy(m.id)
+                      await api.put('/admin/mailboxes/' + m.id + '/policy', np).catch(() => {})
+                      setPolicies(prev => ({ ...prev, [m.id]: np }))
+                      setSavingPolicy(null)
+                    }
+                    return (
+                      <div key={m.id} className="border border-gray-200 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{m.display_name || m.email}</p>
+                            <p className="text-xs text-gray-400">{m.email}</p>
+                          </div>
+                          <div onClick={() => save({ ...p, delete_enabled: !p.delete_enabled })}
+                            className={"w-10 h-6 rounded-full cursor-pointer transition-colors " + (p.delete_enabled ? 'bg-blue-600' : 'bg-gray-200')}>
+                            <div className={"w-4 h-4 bg-white rounded-full shadow mt-1 transition-transform " + (p.delete_enabled ? 'translate-x-5' : 'translate-x-1')} />
+                          </div>
+                        </div>
+                        {p.delete_enabled && (
+                          <div className="space-y-2 pt-2 border-t border-gray-100">
+                            <select value={p.delete_mode || 'after_days'} onChange={e => save({ ...p, delete_mode: e.target.value })} className={selectClass}>
+                              <option value="never">Mai</option>
+                              <option value="immediately">Subito dopo l'archiviazione</option>
+                              <option value="after_days">Dopo X giorni dall'archiviazione</option>
+                              <option value="older_than">Messaggi piu vecchi di X giorni</option>
+                            </select>
+                            {p.delete_mode === 'after_days' && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-600">Elimina dopo</span>
+                                <input type="number" min="1" max="365" value={p.delete_after_days || 30}
+                                  onChange={e => save({ ...p, delete_after_days: parseInt(e.target.value) })}
+                                  className="w-20 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <span className="text-xs text-gray-600">giorni</span>
+                              </div>
+                            )}
+                            {p.delete_mode === 'older_than' && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-600">Piu vecchi di</span>
+                                <input type="number" min="1" max="3650" value={p.older_than_days || 90}
+                                  onChange={e => save({ ...p, older_than_days: parseInt(e.target.value) })}
+                                  className="w-20 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <span className="text-xs text-gray-600">giorni</span>
+                              </div>
+                            )}
+                            {savingPolicy === m.id && <p className="text-xs text-blue-500 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> Salvataggio...</p>}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

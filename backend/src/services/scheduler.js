@@ -28,6 +28,7 @@ const syncAllMailboxes = async () => {
 
       try {
         const synced = await syncMailbox(mailbox, db);
+        await applyArchivePolicy(mailbox, db).catch(e => console.error('[Policy]', e.message));
         await db.query(
           `UPDATE sync_log SET status='completed', emails_synced=$1, finished_at=NOW() WHERE id=$2`,
           [synced, logId]
@@ -70,6 +71,32 @@ const cleanupOldLogs = async () => {
   }
 };
 
+
+const applyArchivePolicy = async (mailbox, db) => {
+  const policy = mailbox.archive_policy;
+  if (!policy || !policy.delete_enabled) return;
+  const mode = policy.delete_mode || 'never';
+  if (mode === 'never') return;
+  let cutoffDate = null;
+  const now = new Date();
+  if (mode === 'immediately') cutoffDate = now;
+  else if (mode === 'after_days') cutoffDate = new Date(now - (parseInt(policy.delete_after_days) || 30) * 86400000);
+  else if (mode === 'older_than') cutoffDate = new Date(now - (parseInt(policy.older_than_days) || 90) * 86400000);
+  if (!cutoffDate) return;
+  try {
+    const emails = await db.query(
+      'SELECT id FROM archived_emails WHERE mailbox_id=$1 AND sent_at<$2 AND is_deleted=false LIMIT 100',
+      [mailbox.id, cutoffDate]
+    );
+    if (!emails.rows.length) return;
+    await db.query(
+      'UPDATE archived_emails SET is_deleted=true, deleted_at=NOW() WHERE id=ANY($1)',
+      [emails.rows.map(e => e.id)]
+    );
+    console.log(`[Policy] ${mailbox.email}: ${emails.rows.length} email eliminate`);
+  } catch (e) { console.error('[Policy]', e.message); }
+};
+
 const start = async (database) => {
   db = database;
 
@@ -86,8 +113,8 @@ const start = async (database) => {
   // Check aggiornamenti ogni 30 minuti (eseguito sull'host via check-update.sh)
   const runCheckUpdate = () => {
     const { exec } = require('child_process');
-    exec('sh /root/mailhaven/check-update.sh', (err) => {
-      if (err) console.log('[Scheduler] check-update skip: ' + err.message.split('\\n')[0]);
+    exec('bash /root/mailhaven/check-update.sh', (err) => {
+      if (err) console.log('[Scheduler] check-update skip: ' + err.message.split('\n')[0]);
     });
   };
   setInterval(runCheckUpdate, 30 * 60 * 1000);

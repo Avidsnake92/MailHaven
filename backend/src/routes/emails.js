@@ -158,7 +158,7 @@ router.get('/', async (req, res) => {
     }
     // Nascondi email eliminate di default
     if (show_deleted !== 'true') {
-      conditions.push('(ae.is_deleted = false OR ae.is_deleted IS NULL)');
+      // show_deleted gestito dal frontend — non filtrare qui di default
     }
 
     if (path && path !== 'ALL') {
@@ -180,7 +180,7 @@ router.get('/', async (req, res) => {
       db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${where}`, params),
       db.query(
         `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email,
-                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status, ae.is_deleted, ae.is_pec, ae.pec_type,
+                ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status, ae.is_deleted,
                 ae.mailbox_id, m.email as mailbox_email
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
@@ -200,8 +200,6 @@ router.get('/', async (req, res) => {
       sentAt: e.sent_at,
       path: e.path,
       hasAttachments: e.has_attachments,
-      isPec: e.is_pec,
-      pecType: e.pec_type,
       avStatus: e.av_status,
       isRestored: e.is_restored,
       isDeleted: e.is_deleted,
@@ -442,5 +440,29 @@ router.post('/sync/:mailbox_id', async (req, res) => {
     });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
+
+
+// POST /emails/delete
+router.post('/delete', authMiddleware, async (req, res) => {
+  const db = req.app.locals.db;
+  const { email_ids } = req.body;
+  if (!email_ids?.length) return res.status(400).json({ error: 'Nessuna email selezionata' });
+  try {
+    await db.query('UPDATE archived_emails SET is_deleted=true, deleted_at=NOW() WHERE id=ANY($1::uuid[])', [email_ids]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /emails/undelete
+router.post('/undelete', authMiddleware, async (req, res) => {
+  const db = req.app.locals.db;
+  const { email_ids } = req.body;
+  if (!email_ids?.length) return res.status(400).json({ error: 'Nessuna email selezionata' });
+  try {
+    await db.query('UPDATE archived_emails SET is_deleted=false, deleted_at=NULL, is_restored=true WHERE id=ANY($1::uuid[])', [email_ids]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 
 module.exports = router;

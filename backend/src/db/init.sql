@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS mailboxes (
   created_at TIMESTAMP DEFAULT NOW(),
   active BOOLEAN DEFAULT true,
   sync_paused BOOLEAN DEFAULT false,
+  archive_policy JSONB DEFAULT NULL,
   oauth_provider VARCHAR(50),
   oauth_access_token TEXT,
   oauth_refresh_token TEXT,
