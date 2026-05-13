@@ -228,9 +228,6 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                   });
 
                   const spamScore = getSpamScore(parsed.headers);
-                  const emailDomain = (mailbox.email||'').split('@')[1]?.toLowerCase();
-                  const providerIsPec = !!(LEGACY_PROVIDERS[emailDomain]?.isPec)||(mailbox.imap_host||'').toLowerCase().includes('pec');
-                  const { isPec, pecType } = detectPec(headers, emailDomain, providerIsPec);
 
                   let isRestored = false;
                   if (parsed.messageId) {
@@ -248,17 +245,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       raw, body_html, body_text, headers, spam_score, size_bytes, is_restored, compressed_size_bytes,
                       is_pec, pec_type)
                      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
-                     ON CONFLICT (mailbox_id, uid, path) DO NOTHING
-                     ON CONFLICT (mailbox_id, message_id) WHERE message_id IS NOT NULL DO UPDATE SET is_restored = EXCLUDED.is_restored;
-                      -- Se esiste già per message_id, non duplicare
-                      if (isPec !== undefined) {
-                        await db.query(
-                          `DELETE FROM archived_emails 
-                           WHERE mailbox_id = $1 AND message_id = $2 
-                           AND id != (SELECT id FROM archived_emails WHERE mailbox_id = $1 AND message_id = $2 ORDER BY uid DESC LIMIT 1)`,
-                          [mailbox.id, parsed.messageId]
-                        ).catch(() => {})
-                      }`,
+                     ON CONFLICT (mailbox_id, uid, path) DO NOTHING`,
                     [
                       mailbox.id, uid,
                       parsed.messageId || null,

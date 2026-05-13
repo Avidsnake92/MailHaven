@@ -117,6 +117,8 @@ export default function Dashboard() {
   const [restoreLoading, setRestoreLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [sortBy, setSortBy] = useState('sent_at')
+  const [sortDir, setSortDir] = useState('desc')
   const [actionMsg, setActionMsg] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [restoreTarget, setRestoreTarget] = useState('')
@@ -171,18 +173,21 @@ export default function Dashboard() {
     try {
       const params = {
         page, limit: 50, mailbox_id: selectedMailbox.id,
-        show_deleted: 'true',  // sempre visibili
-        show_restored: 'true', // sempre visibili
+        show_deleted: 'true',
+        show_restored: 'true',
+        sort_by: sortBy,
+        sort_dir: sortDir,
       }
-      if (search) { params.search = search; params.fulltext = 'true' } // full-text sempre attivo
+      if (search) { params.search = search; params.fulltext = 'true' }
       if (fromDate) params.from_date = fromDate
       if (toDate) params.to_date = toDate
       if (selectedFolder) params.path = selectedFolder
       const res = await api.get('/emails', { params })
+      // Aggiorna senza svuotare prima
       setEmails(res.data.items || [])
       setTotal(res.data.total || 0)
       setTotalPages(res.data.totalPages || 1)
-    } catch { setEmails([]) }
+    } catch (e) { console.error('fetchEmails error:', e) }
     finally { setLoading(false) }
   }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder])
 
@@ -243,13 +248,28 @@ export default function Dashboard() {
   }
 
   const handleSync = async () => {
-    if (!selectedMailbox) return
+    if (!selectedMailbox || syncing) return
     setSyncing(true)
     try {
-      await api.post('/emails/sync', { mailbox_id: selectedMailbox.id })
-      await fetchEmails()
+      await api.post('/emails/sync/' + selectedMailbox.id)
+      // Aspetta che la sync finisca
+      await new Promise(r => setTimeout(r, 5000))
+      // Aggiorna silenziosamente senza svuotare la lista
+      const params = {
+        page, limit: 50, mailbox_id: selectedMailbox.id,
+        show_deleted: 'true', show_restored: 'true',
+        sort_by: sortBy, sort_dir: sortDir,
+      }
+      if (search) { params.search = search; params.fulltext = 'true' }
+      if (fromDate) params.from_date = fromDate
+      if (toDate) params.to_date = toDate
+      if (selectedFolder) params.path = selectedFolder
+      const res = await api.get('/emails', { params })
+      setEmails(res.data.items || [])
+      setTotal(res.data.total || 0)
+      setTotalPages(res.data.totalPages || 1)
       setActionMsg('Sincronizzazione completata')
-    } catch { setActionMsg('Errore sync') }
+    } catch (e) { setActionMsg('Errore sync: ' + (e.response?.data?.error || e.message)) }
     finally { setSyncing(false); setTimeout(() => setActionMsg(''), 3000) }
   }
 
