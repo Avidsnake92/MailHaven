@@ -84,9 +84,10 @@ const applyArchivePolicy = async (mailbox, db) => {
   else if (mode === 'older_than') cutoffDate = new Date(now - (parseInt(policy.older_than_days) || 90) * 86400000);
   if (!cutoffDate) return;
   try {
+    const activatedAt = policy.activated_at ? new Date(policy.activated_at) : new Date(0);
     const emails = await db.query(
-      'SELECT id FROM archived_emails WHERE mailbox_id=$1 AND sent_at<$2 AND is_deleted=false LIMIT 100',
-      [mailbox.id, cutoffDate]
+      'SELECT id FROM archived_emails WHERE mailbox_id=$1 AND sent_at<$2 AND is_deleted=false AND received_at >= $3 LIMIT 100',
+      [mailbox.id, cutoffDate, activatedAt]
     );
     if (!emails.rows.length) return;
     await db.query(

@@ -211,6 +211,7 @@ const UPDATE_STEPS = [
   { id: 'restart', label: 'Riavvio servizi',            icon: '🔄' },
   { id: 'done',    label: 'Aggiornamento completato',   icon: '✅' },
 ]
+const TOTAL_DURATION = UPDATE_STEPS.reduce((a, s) => a + s.duration, 0)
 
 
 
