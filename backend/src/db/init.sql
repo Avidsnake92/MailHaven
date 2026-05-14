@@ -225,21 +225,3 @@ INSERT INTO settings (key, value) VALUES
   ('setup_completed', 'false')
 ON CONFLICT (key) DO NOTHING;
 
--- Trigger deduplicazione per message_id
-CREATE OR REPLACE FUNCTION deduplicate_by_message_id()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.message_id IS NOT NULL THEN
-    DELETE FROM archived_emails
-    WHERE mailbox_id = NEW.mailbox_id
-      AND message_id = NEW.message_id
-      AND id != NEW.id;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trig_deduplicate_email ON archived_emails;
-CREATE TRIGGER trig_deduplicate_email
-  AFTER INSERT ON archived_emails
-  FOR EACH ROW EXECUTE FUNCTION deduplicate_by_message_id();

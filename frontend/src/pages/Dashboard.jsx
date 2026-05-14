@@ -196,6 +196,8 @@ export default function Dashboard() {
   const toggleSelect = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
   const toggleAll = () => selected.length === emails.length ? setSelected([]) : setSelected(emails.map(e => e.id))
 
+  const [confirmBulk, setConfirmBulk] = useState(null) // 'delete' | 'restore'
+
   const handleDeleteSelected = async () => {
     if (!selected.length) return
     try {
@@ -204,7 +206,7 @@ export default function Dashboard() {
       setSelected([])
       fetchEmails()
     } catch { setActionMsg('Errore durante eliminazione') }
-    setTimeout(() => setActionMsg(''), 3000)
+    finally { setConfirmBulk(null); setTimeout(() => setActionMsg(''), 3000) }
   }
 
   const handleRestoreSelected = async () => {
@@ -225,12 +227,16 @@ export default function Dashboard() {
     e.stopPropagation()
     try {
       if (email.isDeleted) {
+        // Ripristina in INBOX + rimuovi badge
+        await api.post('/restore/imap', { email_ids: [email.id], target_mailbox: selectedMailbox.email })
         await api.post('/emails/undelete', { email_ids: [email.id] })
       } else {
+        // Elimina dall'IMAP fisicamente + badge Eliminata
+        await api.post('/emails/delete-imap', { email_ids: [email.id], mailbox_id: selectedMailbox.id })
         await api.post('/emails/delete', { email_ids: [email.id] })
       }
       fetchEmails()
-    } catch {}
+    } catch(err) { console.error('Toggle delete error:', err) }
   }
 
   const handleExport = async () => {
@@ -252,8 +258,6 @@ export default function Dashboard() {
     setSyncing(true)
     try {
       await api.post('/emails/sync/' + selectedMailbox.id)
-      // Aspetta che la sync finisca
-      await new Promise(r => setTimeout(r, 5000))
       // Aggiorna silenziosamente senza svuotare la lista
       const params = {
         page, limit: 50, mailbox_id: selectedMailbox.id,
@@ -269,7 +273,7 @@ export default function Dashboard() {
       setTotal(res.data.total || 0)
       setTotalPages(res.data.totalPages || 1)
       setActionMsg('Sincronizzazione completata')
-    } catch (e) { setActionMsg('Errore sync: ' + (e.response?.data?.error || e.message)) }
+    } catch { setActionMsg('Errore sync') }
     finally { setSyncing(false); setTimeout(() => setActionMsg(''), 3000) }
   }
 
@@ -345,11 +349,11 @@ export default function Dashboard() {
             {selected.length > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">{selected.length} selezionate</span>
-                <button onClick={() => setShowRestoreModal(true)}
+                <button onClick={() => setConfirmBulk('restore')}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100">
                   <RotateCcw size={12} /> Ripristina
                 </button>
-                <button onClick={handleDeleteSelected}
+                <button onClick={() => setConfirmBulk('delete')}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100">
                   <Trash2 size={12} /> Elimina
                 </button>
@@ -444,7 +448,6 @@ export default function Dashboard() {
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Oggetto</th>
                   <th className="hidden sm:table-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Mittente</th>
                   <th className="hidden md:table-cell px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Info</th>
-                  <th className="w-10 px-2 py-2.5"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -493,14 +496,7 @@ export default function Dashboard() {
                         <span className="text-xs text-gray-400 truncate max-w-[80px]">{email.path || 'INBOX'}</span>
                       </div>
                     </td>
-                    <td className="w-10 px-2 py-3">
-                      <button
-                        onClick={(e) => handleToggleDelete(email, e)}
-                        title={email.isDeleted ? 'Ripristina' : 'Elimina'}
-                        className={`p-2 rounded-lg transition-colors ${email.isDeleted ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}>
-                        {email.isDeleted ? <RotateCcw size={16} /> : <Trash2 size={16} />}
-                      </button>
-                    </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -525,6 +521,40 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Modal conferma bulk */}
+      {confirmBulk && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <h2 className="text-base font-bold text-gray-900 mb-2">
+              {confirmBulk === 'delete' ? `Elimina ${selected.length} email` : `Ripristina ${selected.length} email nell'IMAP`}
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {confirmBulk === 'delete'
+                ? 'Sei sicuro? Le email verranno marcate come eliminate ma resteranno visibili in archivio.'
+                : 'Le email selezionate verranno reinserite nella casella IMAP indicata.'}
+            </p>
+            {confirmBulk === 'restore' && (
+              <input value={restoreTarget} onChange={e => setRestoreTarget(e.target.value)}
+                placeholder="Email destinazione (es. office@k2tech.it)"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" />
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={confirmBulk === 'delete' ? handleDeleteSelected : () => { setShowRestoreModal(false); handleRestoreSelected() }}
+                disabled={confirmBulk === 'restore' && !restoreTarget}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-40 ${confirmBulk === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                {confirmBulk === 'delete' ? <Trash2 size={14} /> : <RotateCcw size={14} />}
+                Conferma
+              </button>
+              <button onClick={() => setConfirmBulk(null)}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal ripristino IMAP */}
       {showRestoreModal && (

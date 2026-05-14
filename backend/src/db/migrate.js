@@ -32,8 +32,6 @@ const migrate = async (db) => {
   await run(`CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)`);
   await run(`CREATE INDEX IF NOT EXISTS idx_report_messages_report_id ON report_messages(report_id)`);
   await run(`DROP TRIGGER IF EXISTS trig_deduplicate_email ON archived_emails`);
-  await run(`CREATE OR REPLACE FUNCTION deduplicate_by_message_id() RETURNS TRIGGER AS $func$ BEGIN IF NEW.message_id IS NOT NULL THEN DELETE FROM archived_emails WHERE mailbox_id = NEW.mailbox_id AND message_id = NEW.message_id AND id != NEW.id; END IF; RETURN NEW; END; $func$ LANGUAGE plpgsql`);
-  await run(`CREATE TRIGGER trig_deduplicate_email AFTER INSERT ON archived_emails FOR EACH ROW EXECUTE FUNCTION deduplicate_by_message_id()`);
 
   console.log('[Migration] Completata');
 };

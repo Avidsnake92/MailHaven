@@ -228,6 +228,9 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                   });
 
                   const spamScore = getSpamScore(parsed.headers);
+                  const emailDomain = (mailbox.email||'').split('@')[1]?.toLowerCase();
+                  const providerIsPec = !!(LEGACY_PROVIDERS[emailDomain]?.isPec)||(mailbox.imap_host||'').toLowerCase().includes('pec');
+                  const { isPec, pecType } = detectPec(headers, emailDomain, providerIsPec);
 
                   let isRestored = false;
                   if (parsed.messageId) {
