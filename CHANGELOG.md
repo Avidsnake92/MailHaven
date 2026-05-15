@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.68] - 2026-05-15
+### Added
+- Login: avviso arancione al 19° tentativo "Attenzione: ultimo tentativo prima del blocco"
+- Login: schermata blocco con minuti rimanenti allo sblocco automatico
+- Login: rate limiter ora restituisce minuti esatti nel messaggio di errore
+
+### Changed
+- Login: limite tentativi alzato da 10 a 20 in 15 minuti
+- Login: header X-RateLimit-Remaining letto dal frontend per mostrare avvisi progressivi
+- Login: messaggio blocco più chiaro con tempo rimanente invece di messaggio generico
+
+
 ## [0.0.67] - 2026-05-15
 ### Fixed
 - imapCrawler: fix loop infinito policy — email con badge_type=archived non vengono mai resuscitate dal crawler
