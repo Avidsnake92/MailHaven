@@ -1,18 +1,23 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+
+const CHECK_INTERVAL = 15 * 60 * 1000 // 15 minuti
+const INITIAL_DELAY  = 5000            // 5 secondi dopo il mount
 
 export default function UpdateNotification({ user }) {
   const [updateInfo, setUpdateInfo] = useState(null)
   const [dismissed, setDismissed] = useState(false)
   const navigate = useNavigate()
+  const timerRef = useRef(null)
+  const intervalRef = useRef(null)
 
   const checkUpdate = useCallback(async () => {
     if (!user || user.role !== 'superadmin') return
     try {
       const res = await api.get('/update/status')
       const data = res.data
-      if (!data?.hasUpdate) return
+      if (!data?.hasUpdate) { setUpdateInfo(null); return }
       setUpdateInfo({
         currentVersion: data.current?.version,
         commitsBehind: data.commitsBehind,
@@ -22,9 +27,20 @@ export default function UpdateNotification({ user }) {
   }, [user])
 
   useEffect(() => {
-    const timer = setTimeout(checkUpdate, 3000)
-    return () => clearTimeout(timer)
-  }, [checkUpdate])
+    if (!user || user.role !== 'superadmin') return
+
+    // Primo check dopo 5s
+    timerRef.current = setTimeout(() => {
+      checkUpdate()
+      // Poi ogni 15 minuti
+      intervalRef.current = setInterval(checkUpdate, CHECK_INTERVAL)
+    }, INITIAL_DELAY)
+
+    return () => {
+      clearTimeout(timerRef.current)
+      clearInterval(intervalRef.current)
+    }
+  }, [user, checkUpdate]) // non si riesegue al cambio pagina
 
   if (!updateInfo || dismissed) return null
 
