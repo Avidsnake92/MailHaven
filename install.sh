@@ -317,7 +317,8 @@ echo ""
 
 # Verifica che i container siano partiti
 sleep 5
-RUNNING=$(docker compose ps --status running 2>/dev/null | grep -c "running" || echo "0")
+RUNNING=$(docker compose ps --status running 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
+RUNNING=${RUNNING:-0}
 if [ "$RUNNING" -ge 3 ]; then
   ok "Container avviati ($RUNNING/3)"
 else
