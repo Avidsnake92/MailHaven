@@ -28,6 +28,9 @@
 - restore.js — codici errore MH e HTTP 207 per restore parziale
 - admin.js — DELETE /mailboxes/:id con AppError MH-1203 e verifica esistenza
 
+### Fixed (installer)
+- install.sh — controllo container avviati compatibile con Docker Compose v2 (fix "integer expression expected")
+
 
 ## [0.0.65] - 2026-05-15
 ### Added
@@ -56,6 +59,9 @@
 - migrate.js — migration automatica badge su installazioni esistenti
 - restore.js — codici errore MH e HTTP 207 per restore parziale
 - admin.js — DELETE /mailboxes/:id con AppError MH-1203 e verifica esistenza
+
+### Fixed (installer)
+- install.sh — controllo container avviati compatibile con Docker Compose v2 (fix "integer expression expected")
 
 
 ## [0.0.28] - 2026-05-07
