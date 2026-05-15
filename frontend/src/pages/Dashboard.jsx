@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { format, formatDistanceToNow } from 'date-fns'
+import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -9,9 +9,53 @@ import {
   Search, Filter, Download, RotateCcw, Loader2, Mail, ChevronLeft, ChevronRight,
   Calendar, Inbox, ChevronDown, ChevronUp, Folder, FolderOpen, Building2,
   Paperclip, Shield, ShieldCheck, ShieldAlert, HelpCircle, Trash2, X,
-  RefreshCw, CheckSquare, Square, ArrowUpDown, User, Clock, Tag,
-  AlertCircle, ExternalLink, Menu
+  RefreshCw, CheckSquare, Square, ArrowUpDown, User, Clock,
+  AlertCircle, ExternalLink, Menu, Database, Server
 } from 'lucide-react'
+
+// ─── Resizable divider hook ───────────────────────────────────────────────────
+function useResizable(initialWidth, min, max) {
+  const [width, setWidth] = useState(initialWidth)
+  const dragging = useRef(false)
+  const startX = useRef(0)
+  const startW = useRef(0)
+  const widthRef = useRef(initialWidth)
+
+  const onMouseDown = useCallback((e) => {
+    e.preventDefault()
+    dragging.current = true
+    startX.current = e.clientX
+    startW.current = widthRef.current
+    document.documentElement.style.setProperty('cursor', 'col-resize', 'important')
+    document.documentElement.style.setProperty('user-select', 'none', 'important')
+    document.documentElement.style.setProperty('pointer-events', 'none', 'important')
+  }, [])
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current) return
+      const delta = e.clientX - startX.current
+      const newW = Math.min(max, Math.max(min, startW.current + delta))
+      widthRef.current = newW
+      setWidth(newW)
+    }
+    const onUp = () => {
+      if (!dragging.current) return
+      dragging.current = false
+      document.documentElement.style.removeProperty('cursor')
+      document.documentElement.style.removeProperty('user-select')
+      document.documentElement.style.removeProperty('pointer-events')
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [min, max])
+
+  return [width, onMouseDown]
+}
 
 // ─── Folder tree ────────────────────────────────────────────────────────────
 function FolderTree({ folders, selectedFolder, onSelect }) {
@@ -94,6 +138,11 @@ function EmailBadges({ email, compact = false }) {
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
+      {badgeType === 'archived' && (
+        <span className={`inline-flex items-center gap-0.5 ${px} py-0.5 rounded-full ${size} font-bold tracking-wide bg-gray-100 text-gray-500 border border-gray-300 shrink-0`}>
+          <Folder size={ic} strokeWidth={2.5} /> ARCHIVIATA
+        </span>
+      )}
       {badgeType === 'deleted' && (
         <span className={`inline-flex items-center gap-0.5 ${px} py-0.5 rounded-full ${size} font-bold tracking-wide bg-red-100 text-red-600 border border-red-200 shrink-0`}>
           <Trash2 size={ic} strokeWidth={2.5} /> ELIMINATA
@@ -283,7 +332,9 @@ export default function Dashboard() {
   const [bulkLoading, setBulkLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [previewId, setPreviewId] = useState(null)
+  const [storage, setStorage] = useState(null)
   const restoredMailboxId = savedState.selectedMailboxId || null
+  const [listWidth, onDividerMouseDown] = useResizable(320, 220, 600)
 
   // Persist state
   useEffect(() => {
@@ -328,6 +379,11 @@ export default function Dashboard() {
       api.get('/emails/folders', { params: { mailbox_id: selectedMailbox.id } })
         .then(r => { setFolders(r.data); setSelectedFolder(null) })
         .catch(() => setFolders([]))
+      // Carica storage info
+      setStorage(null)
+      api.get('/emails/storage', { params: { mailbox_id: selectedMailbox.id } })
+        .then(r => setStorage(r.data))
+        .catch(() => {})
     }
   }, [selectedMailbox])
 
@@ -493,6 +549,43 @@ export default function Dashboard() {
             </>
           )}
         </div>
+
+        {/* Storage info — in fondo alla sidebar */}
+        {selectedMailbox && storage && (
+          <div className="px-3 py-2.5 border-t border-gray-100 bg-gray-50/60 shrink-0 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+              <Database size={10} className="text-gray-400 shrink-0" />
+              <span>Archivio</span>
+              <span className="font-semibold text-gray-700 ml-auto">{formatBytes(storage.compressed_bytes)}</span>
+              {storage.ratio > 0 && <span className="text-gray-400">-{storage.ratio}%</span>}
+            </div>
+            {storage.imap_quota && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                  <Server size={10} className="text-gray-400 shrink-0" />
+                  <span>IMAP</span>
+                  {storage.imap_quota.limit_bytes ? (
+                    <>
+                      <span className="font-semibold text-gray-700 ml-auto">{formatBytes(storage.imap_quota.used_bytes)}</span>
+                      <span className="text-gray-400">/ {formatBytes(storage.imap_quota.limit_bytes)}</span>
+                      <span className={`font-semibold ${storage.imap_quota.percent > 80 ? 'text-red-500' : 'text-gray-500'}`}>
+                        {storage.imap_quota.percent}%
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-semibold text-gray-700 ml-auto">{storage.imap_quota.messages_total} msg</span>
+                  )}
+                </div>
+                {storage.imap_quota.limit_bytes && (
+                  <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${storage.imap_quota.percent > 80 ? 'bg-red-400' : storage.imap_quota.percent > 60 ? 'bg-amber-400' : 'bg-blue-400'}`}
+                      style={{ width: `${storage.imap_quota.percent}%` }} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {sidebarOpen && (
@@ -500,7 +593,10 @@ export default function Dashboard() {
       )}
 
       {/* ── PANNELLO 2: Lista email ── */}
-      <div className={`flex flex-col border-r border-gray-200 shrink-0 bg-white transition-all duration-200 ${previewId ? 'w-80' : 'flex-1'}`}>
+      <div
+        className="flex flex-col border-r border-gray-200 shrink-0 bg-white"
+        style={{ width: previewId ? `${listWidth}px` : undefined, flex: previewId ? 'none' : '1' }}
+      >
 
         {/* Toolbar */}
         <div className="px-3 py-2 border-b border-gray-100 shrink-0 space-y-2">
@@ -640,7 +736,11 @@ export default function Dashboard() {
               {emails.map(email => {
                 const isSelected = selected.includes(email.id)
                 const isPreviewed = previewId === email.id
-                const isDeleted = email.badgeType === 'deleted' || (!email.badgeType && email.isDeleted)
+                const badgeType = email.badgeType ||
+                  (email.isDeleted ? 'deleted' : null) ||
+                  (!email.isDeleted && email.isRestored ? 'restored' : null)
+                const isDeleted = badgeType === 'deleted'
+                const isArchived = badgeType === 'archived'
                 return (
                   <div key={email.id}
                     onClick={() => setPreviewId(isPreviewed ? null : email.id)}
@@ -649,6 +749,8 @@ export default function Dashboard() {
                         ? 'bg-blue-50 border-l-2 border-l-blue-500'
                         : isSelected
                           ? 'bg-blue-50/60'
+                          : isArchived
+                            ? 'bg-gray-50/60 hover:bg-gray-100/60'
                           : isDeleted
                             ? 'bg-red-50/30 hover:bg-red-50/50'
                             : 'hover:bg-gray-50'
@@ -664,7 +766,7 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       {/* Mittente + data */}
                       <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <span className={`text-xs truncate font-medium ${isDeleted ? 'text-gray-400' : 'text-gray-800'}`}>
+                        <span className={`text-xs truncate font-medium ${isDeleted || isArchived ? 'text-gray-400' : 'text-gray-800'}`}>
                           <Highlight text={email.senderName || email.senderEmail || '—'} query={search} />
                         </span>
                         <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
@@ -672,7 +774,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                       {/* Oggetto */}
-                      <p className={`text-xs truncate mb-1 ${isDeleted ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <p className={`text-xs truncate mb-1 ${isDeleted || isArchived ? 'text-gray-400' : 'text-gray-600'}`}>
                         <Highlight text={email.subject || '(nessun oggetto)'} query={search} />
                       </p>
                       {/* Badge + allegati */}
@@ -713,7 +815,22 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── PANNELLO 3: Preview ── */}
+      {/* ── DIVISORE DRAGGABLE ── */}
+      {previewId && (
+        <div
+          onMouseDown={onDividerMouseDown}
+          style={{ width: '5px', cursor: 'col-resize', flexShrink: 0, position: 'relative', zIndex: 10 }}
+        >
+          <div style={{
+            position: 'absolute', inset: '0 -3px',
+            background: 'transparent',
+          }}
+            onMouseEnter={e => e.currentTarget.parentElement.style.background = '#93c5fd'}
+            onMouseLeave={e => e.currentTarget.parentElement.style.background = '#e5e7eb'}
+          />
+          <div style={{ width: '100%', height: '100%', background: '#e5e7eb' }} />
+        </div>
+      )}
       <div className="flex-1 overflow-hidden bg-white">
         <EmailPreview emailId={previewId} onClose={() => setPreviewId(null)} branding={branding} />
       </div>

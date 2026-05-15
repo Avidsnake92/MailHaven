@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Bug, Lightbulb, MessageCircle, Send, ChevronRight, Plus, ArrowLeft, RefreshCw, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Bug, Lightbulb, MessageCircle, Send, ChevronRight, Plus, ArrowLeft, RefreshCw, Clock, CheckCircle, AlertCircle, Loader2, AlertTriangle } from 'lucide-react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -52,7 +52,7 @@ function NewReportForm({ onCreated, onCancel }) {
       await api.post('/reports', { type, title: title || description.slice(0, 80), description, page_url: pageUrl })
       onCreated()
     } catch (e) {
-      setError(e.response?.data?.error || 'Errore invio')
+      setError(e.displayMessage || e.response?.data?.error || 'Errore invio')
     }
     setLoading(false)
   }
@@ -269,11 +269,16 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
 export default function Reports() {
   const { user } = useAuth()
   const isSuperadmin = user?.role === 'superadmin'
-  const [view, setView] = useState('list') // list | new | thread
+  const [view, setView] = useState('list')
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('')
+  const [smtpOk, setSmtpOk] = useState(null) // null=loading, true=ok, false=non configurato
+
+  useEffect(() => {
+    api.get('/reports/smtp-status').then(r => setSmtpOk(r.data.configured)).catch(() => setSmtpOk(false))
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -309,6 +314,18 @@ export default function Reports() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      {/* Banner SMTP non configurato */}
+      {smtpOk === false && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-500" />
+          <div>
+            <span className="font-semibold">Notifiche email disabilitate</span> — SMTP non configurato.
+            Le segnalazioni vengono salvate ma non arriveranno email di notifica.
+            {isSuperadmin && <a href="/settings?tab=smtp" className="ml-1 underline font-medium">Configura SMTP →</a>}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
