@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.67] - 2026-05-15
+### Fixed
+- imapCrawler: fix loop infinito policy — email con badge_type=archived non vengono mai resuscitate dal crawler
+- imapCrawler: fix deduplicazione message_id — non aggiorna più is_deleted=false su email eliminate da policy
+- imapCrawler: fix date 1970 — parser più robusto con 4 candidati (parsed.date, headers Date, Received, IMAP internal date)
+- imapCrawler: aggiunta data interna IMAP (attrs.date) come fallback affidabile per il parsing data
+- migrate.js: fix automatico date 1970 al riavvio — recupera data dagli header JSON salvati nel DB (max 5000 email per run)
+
+### Changed
+- imapCrawler: fetch IMAP ora include envelope:true per leggere attrs.date dal server
+- imapCrawler: query deduplicazione message_id include badge_type e is_deleted per decisioni più precise
+
+
 ## [0.0.65] - 2026-05-15
 ### Added
 - Sistema codici errore centralizzati — nuovo file errors.js con codici MH-1xxx

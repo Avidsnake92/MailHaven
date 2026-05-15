@@ -27,14 +27,39 @@ const sanitizeText = (str) => {
 };
 
 // Valida e corregge la data email
-const parseEmailDate = (parsed, headers) => {
-  const candidates = [
+const parseEmailDate = (parsed, headers, imapDate) => {
+  // Prova tutti i candidati in ordine di affidabilità
+  const rawDates = [
     parsed.date,
-    headers['date'] ? new Date(headers['date']) : null,
+    headers['date'],
+    headers['Date'],
+    headers['received'] ? extractDateFromReceived(headers['received']) : null,
+    imapDate, // data interna IMAP (sempre disponibile e affidabile)
   ];
-  for (const d of candidates) {
-    if (d && d instanceof Date && !Number.isNaN(d.getTime()) && d.getFullYear() > 1990) return d;
+
+  for (const raw of rawDates) {
+    if (!raw) continue;
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (d instanceof Date && !isNaN(d.getTime()) && d.getFullYear() > 1970 && d.getFullYear() < 2100) {
+      return d;
+    }
   }
+
+  // Fallback: data corrente (meglio che null o 1970)
+  console.warn('[Crawler] Data email non parsabile, uso data corrente');
+  return new Date();
+};
+
+// Estrae data dall'header Received (es: "... ; Thu, 12 May 2026 10:00:00 +0200")
+const extractDateFromReceived = (received) => {
+  try {
+    const str = Array.isArray(received) ? received[0] : received;
+    const match = str.match(/;\s*(.+)$/);
+    if (match) {
+      const d = new Date(match[1].trim());
+      if (!isNaN(d.getTime())) return d;
+    }
+  } catch {}
   return null;
 };
 
@@ -160,6 +185,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
         'SELECT uid FROM archived_emails WHERE mailbox_id=$1 AND path=$2',
         [mailbox.id, folderPath]
       );
+      // Includi anche gli UID già archiviati/eliminati — così non vengono re-scaricati dall'IMAP
       const existingUids = new Set(existing.rows.map(r => r.uid));
 
       // Leggi durata badge qui — siamo in contesto async
@@ -204,14 +230,19 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
         let processed = 0;
 
         const fetchBatch = (batchUids) => new Promise((bRes) => {
-          const fetch = imap.fetch(batchUids, { bodies: '', struct: true });
+          const fetch = imap.fetch(batchUids, { bodies: '', struct: true, envelope: true });
           const promises = [];
 
           fetch.on('message', (msg, seqno) => {
             let uid = null;
+            let imapDate = null;
             let rawChunks = [];
 
-            msg.on('attributes', (attrs) => { uid = attrs.uid; });
+            msg.on('attributes', (attrs) => {
+              uid = attrs.uid;
+              // Data interna IMAP — sempre affidabile, impostata dal server alla ricezione
+              imapDate = attrs.date || null;
+            });
             msg.on('body', (stream) => {
               stream.on('data', chunk => rawChunks.push(chunk));
             });
@@ -243,29 +274,33 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
 
                   let isRestored = false;
                   if (parsed.messageId) {
-                    const existing = await db.query(
+                    const dup = await db.query(
                       'SELECT id FROM archived_emails WHERE message_id=$1 AND mailbox_id=$2 LIMIT 1',
                       [parsed.messageId, mailbox.id]
                     );
-                    isRestored = existing.rows.length > 0;
+                    isRestored = dup.rows.length > 0;
                   }
 
-                  // Se message_id già archiviato, aggiorna path e stato
+                  // Se message_id già archiviato, non reinserire — soprattutto se eliminato da policy
                   if (parsed.messageId) {
                     const exists = await db.query(
-                      'SELECT id, path FROM archived_emails WHERE mailbox_id=$1 AND message_id=$2 LIMIT 1',
+                      'SELECT id, path, badge_type, is_deleted FROM archived_emails WHERE mailbox_id=$1 AND message_id=$2 LIMIT 1',
                       [mailbox.id, parsed.messageId]
                     );
                     if (exists.rows.length > 0) {
-                      const existing = exists.rows[0];
-                      if (existing.path !== folderPath) {
+                      const ex = exists.rows[0];
+                      // Se eliminata da policy (badge_type=archived) NON resuscitare mai
+                      if (ex.badge_type === 'archived') {
+                        processed++; return;
+                      }
+                      // Se path cambiato e non eliminata, aggiorna solo il path
+                      if (ex.path !== folderPath && !ex.is_deleted) {
                         await db.query(
-                          'UPDATE archived_emails SET path=$1, is_deleted=false, deleted_at=NULL WHERE id=$2',
-                          [folderPath, existing.id]
+                          'UPDATE archived_emails SET path=$1 WHERE id=$2',
+                          [folderPath, ex.id]
                         );
                       }
-                      processed++;
-                      return;
+                      processed++; return;
                     }
                   }
                   await db.query(
@@ -285,7 +320,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       JSON.stringify(parseRecipients(parsed.to)),
                       JSON.stringify(parseRecipients(parsed.cc)),
                       JSON.stringify(parseRecipients(parsed.bcc)),
-                      parseEmailDate(parsed, headers),
+                      parseEmailDate(parsed, headers, imapDate),
                       folderPath,
                       attachments.length > 0,
                       JSON.stringify(attachments),
