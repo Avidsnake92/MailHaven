@@ -162,6 +162,10 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
       );
       const existingUids = new Set(existing.rows.map(r => r.uid));
 
+      // Leggi durata badge qui — siamo in contesto async
+      const badgeSetting = await db.query(`SELECT value FROM settings WHERE key='badge_duration_days'`).catch(() => ({ rows: [] }));
+      const badgeDays = parseInt(badgeSetting.rows[0]?.value || '30');
+
       imap.search(['ALL'], (err, uids) => {
         if (err || !uids.length) return res(0);
 
@@ -174,9 +178,14 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
         if (deletedUids.length > 0) {
           updatePromises.push(
             db.query(
-              'UPDATE archived_emails SET is_deleted=true WHERE mailbox_id=$1 AND path=$2 AND uid=ANY($3) AND is_deleted=false',
-              [mailbox.id, folderPath, deletedUids]
-            ).then(() => console.log('[Crawler] ' + mailbox.email + ' ' + folderPath + ': ' + deletedUids.length + ' email eliminate'))
+              `UPDATE archived_emails
+               SET is_deleted=true,
+                   badge_type=CASE WHEN badge_type='archived' THEN 'archived' ELSE 'deleted' END,
+                   badge_expires_at=CASE WHEN badge_type='archived' THEN NULL
+                                         ELSE NOW() + ($4 || ' days')::interval END
+               WHERE mailbox_id=$1 AND path=$2 AND uid=ANY($3) AND is_deleted=false`,
+              [mailbox.id, folderPath, deletedUids, badgeDays]
+            ).then(() => console.log('[Crawler] ' + mailbox.email + ' ' + folderPath + ': ' + deletedUids.length + ' email eliminate esternamente'))
           );
         }
         if (restoredUids.length > 0) {
@@ -241,6 +250,24 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                     isRestored = existing.rows.length > 0;
                   }
 
+                  // Se message_id già archiviato, aggiorna path e stato
+                  if (parsed.messageId) {
+                    const exists = await db.query(
+                      'SELECT id, path FROM archived_emails WHERE mailbox_id=$1 AND message_id=$2 LIMIT 1',
+                      [mailbox.id, parsed.messageId]
+                    );
+                    if (exists.rows.length > 0) {
+                      const existing = exists.rows[0];
+                      if (existing.path !== folderPath) {
+                        await db.query(
+                          'UPDATE archived_emails SET path=$1, is_deleted=false, deleted_at=NULL WHERE id=$2',
+                          [folderPath, existing.id]
+                        );
+                      }
+                      processed++;
+                      return;
+                    }
+                  }
                   await db.query(
                     `INSERT INTO archived_emails 
                      (mailbox_id, uid, message_id, subject, sender_name, sender_email,

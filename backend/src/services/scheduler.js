@@ -53,7 +53,7 @@ const applyArchivePolicy = async (mailbox, db) => {
   else if (mode === 'older_than') cutoffDate = new Date(now - (parseInt(policy.older_than_days) || 90) * 86400000);
   if (!cutoffDate) return;
 
-  const activatedAt = policy.activated_at ? new Date(policy.activated_at) : new Date(0);
+  const activatedAt = policy.activated_at ? new Date(policy.activated_at) : new Date('2000-01-01');
 
   try {
     // Trova email da eliminare — solo quelle archiviate DOPO l'attivazione della policy
@@ -78,14 +78,17 @@ const applyArchivePolicy = async (mailbox, db) => {
       await deleteFromImap(mailbox, data.uids, folder);
     }
 
-    // Marca come eliminate in MailHaven (mantieni nell'archivio)
+    // Marca come archiviate da policy — badge permanente, nessuna scadenza
     const allIds = emails.rows.map(e => e.id);
     await db.query(
-      'UPDATE archived_emails SET is_deleted=true, deleted_at=NOW() WHERE id=ANY($1)',
+      `UPDATE archived_emails
+       SET is_deleted=true, deleted_at=NOW(),
+           badge_type='archived', badge_expires_at=NULL
+       WHERE id=ANY($1)`,
       [allIds]
     );
 
-    console.log(`[Policy] ${mailbox.email}: ${emails.rows.length} email eliminate dall'IMAP`);
+    console.log(`[Policy] ${mailbox.email}: ${emails.rows.length} email archiviate dall'IMAP`);
   } catch (e) {
     console.error('[Policy] Errore:', e.message);
   }
@@ -144,6 +147,22 @@ const cleanupOldLogs = async () => {
   }
 };
 
+// Pulizia badge scaduti (eliminata/recuperata) — gira ogni notte
+const cleanupExpiredBadges = async () => {
+  try {
+    const r = await db.query(
+      `UPDATE archived_emails
+       SET badge_type=NULL, badge_expires_at=NULL
+       WHERE badge_expires_at IS NOT NULL AND badge_expires_at < NOW()`
+    );
+    if (r.rowCount > 0) {
+      console.log(`[Scheduler] Badge scaduti rimossi: ${r.rowCount}`);
+    }
+  } catch (err) {
+    console.error('[Scheduler] Errore pulizia badge:', err.message);
+  }
+};
+
 const start = async (database) => {
   db = database;
   const setting = await db.query("SELECT value FROM settings WHERE key='sync_interval_minutes'");
@@ -154,7 +173,9 @@ const start = async (database) => {
 
   schedulerTimer = setInterval(() => syncAllMailboxes(), intervalMs);
   setInterval(() => cleanupOldLogs(), 24 * 60 * 60 * 1000);
+  setInterval(() => cleanupExpiredBadges(), 24 * 60 * 60 * 1000);
   setTimeout(() => cleanupOldLogs(), 5000);
+  setTimeout(() => cleanupExpiredBadges(), 8000);
 
   const runCheckUpdate = () => {
     const { exec } = require('child_process');

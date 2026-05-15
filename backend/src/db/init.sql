@@ -156,6 +156,8 @@ CREATE TABLE IF NOT EXISTS archived_emails (
   av_status VARCHAR(50) DEFAULT NULL,
   is_pec BOOLEAN DEFAULT false,
   pec_type VARCHAR(50) DEFAULT NULL,
+  badge_type VARCHAR(20) DEFAULT NULL,
+  badge_expires_at TIMESTAMP DEFAULT NULL,
   search_vector tsvector,
   UNIQUE(mailbox_id, uid, path)
 );
@@ -167,6 +169,7 @@ CREATE INDEX IF NOT EXISTS idx_archived_emails_sender ON archived_emails(sender_
 CREATE INDEX IF NOT EXISTS idx_archived_emails_path ON archived_emails(mailbox_id, path);
 CREATE INDEX IF NOT EXISTS idx_archived_emails_is_deleted ON archived_emails(is_deleted) WHERE is_deleted = true;
 CREATE INDEX IF NOT EXISTS idx_archived_emails_av_status ON archived_emails(av_status) WHERE has_attachments = true;
+CREATE INDEX IF NOT EXISTS idx_archived_emails_badge_expires ON archived_emails(badge_expires_at) WHERE badge_expires_at IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION update_email_search_vector()
 RETURNS TRIGGER AS $$
@@ -222,6 +225,7 @@ INSERT INTO settings (key, value) VALUES
   ('av_scan_on_open', 'true'),
   ('sync_interval_minutes', '15'),
   ('sync_enabled', 'true'),
-  ('setup_completed', 'false')
+  ('setup_completed', 'false'),
+  ('badge_duration_days', '30')
 ON CONFLICT (key) DO NOTHING;
 

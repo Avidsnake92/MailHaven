@@ -39,8 +39,8 @@ const getUserMailboxIds = async (db, user) => {
   return r.rows.map(r => r.id);
 };
 
-// Helper: upload EML to IMAP
-const uploadToImap = (config, folder, emlBuffer) => {
+// Helper: upload EML to IMAP con data originale
+const uploadToImap = (config, folder, emlBuffer, sentAt) => {
   return new Promise((resolve, reject) => {
     const imap = new Imap({
       user: config.user,
@@ -66,7 +66,9 @@ const uploadToImap = (config, folder, emlBuffer) => {
       });
 
       function appendMessage() {
-        imap.append(emlBuffer, { mailbox: folder, flags: ['\\Seen'] }, (appendErr) => {
+        // Usa la data originale dell'email — fondamentale per bulk restore
+        const originalDate = sentAt ? new Date(sentAt) : new Date();
+        imap.append(emlBuffer, { mailbox: folder, flags: ['\\Seen'], date: originalDate }, (appendErr) => {
           imap.end();
           if (appendErr) reject(appendErr);
           else resolve(true);
@@ -109,6 +111,11 @@ router.post('/imap', async (req, res) => {
     }
 
     const allowedIds = await getUserMailboxIds(db, req.user);
+
+    // Leggi durata badge dalle settings
+    const s = await db.query(`SELECT value FROM settings WHERE key='badge_duration_days'`);
+    const days = parseInt(s.rows[0]?.value || '30');
+
     const results = [];
 
     for (const id of email_ids) {
@@ -120,9 +127,17 @@ router.post('/imap', async (req, res) => {
         }
         const emlBuffer = Buffer.isBuffer(email.raw) ? email.raw : Buffer.from(email.raw);
         const folder = target_folder || 'INBOX';
-        await uploadToImap(imapConfig, folder, emlBuffer);
-        // Marca l'originale come sorgente di un restore
-        await db.query('UPDATE archived_emails SET is_restored=false WHERE id=$1', [id]);
+        // Passa la data originale di ogni email individualmente
+        await uploadToImap(imapConfig, folder, emlBuffer, email.sent_at);
+        // Aggiorna badge: restored + scadenza temporizzata
+        await db.query(
+          `UPDATE archived_emails
+           SET is_restored=true, is_deleted=false, deleted_at=NULL,
+               badge_type='restored',
+               badge_expires_at=NOW() + ($1 || ' days')::interval
+           WHERE id=$2`,
+          [days, id]
+        );
         results.push({ id, success: true, folder });
       } catch (err) {
         results.push({ id, success: false, error: err.message });

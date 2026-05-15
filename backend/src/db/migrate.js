@@ -33,6 +33,14 @@ const migrate = async (db) => {
   await run(`CREATE INDEX IF NOT EXISTS idx_report_messages_report_id ON report_messages(report_id)`);
   await run(`DROP TRIGGER IF EXISTS trig_deduplicate_email ON archived_emails`);
 
+  // Badge temporizzati per stato email (eliminata/recuperata)
+  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_type VARCHAR(20) DEFAULT NULL`);
+  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_expires_at TIMESTAMP DEFAULT NULL`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_archived_emails_badge_expires ON archived_emails(badge_expires_at) WHERE badge_expires_at IS NOT NULL`);
+
+  // Setting durata badge (giorni)
+  await run(`INSERT INTO settings (key, value) VALUES ('badge_duration_days', '30') ON CONFLICT (key) DO NOTHING`);
+
   console.log('[Migration] Completata');
 };
 

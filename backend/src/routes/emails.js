@@ -184,7 +184,7 @@ router.get('/', async (req, res) => {
       db.query(
         `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email,
                 ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status, ae.is_deleted,
-                ae.mailbox_id, m.email as mailbox_email
+                ae.mailbox_id, m.email as mailbox_email, ae.badge_type, ae.badge_expires_at
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
          WHERE ${where}
@@ -210,6 +210,8 @@ router.get('/', async (req, res) => {
       mailboxId: e.mailbox_id,
       userEmail: e.mailbox_email,
       tags: e.spam_score >= 5 ? ['spam'] : null,
+      badgeType: e.badge_type,
+      badgeExpiresAt: e.badge_expires_at,
     }));
 
     res.json({ items, total, totalPages: Math.ceil(total / parseInt(limit)), page: parseInt(page) });
@@ -445,25 +447,100 @@ router.post('/sync/:mailbox_id', async (req, res) => {
 });
 
 
-// POST /emails/delete
+// POST /emails/delete — marca come eliminata + badge temporizzato
 router.post('/delete', authMiddleware, async (req, res) => {
   const db = req.app.locals.db;
   const { email_ids } = req.body;
   if (!email_ids?.length) return res.status(400).json({ error: 'Nessuna email selezionata' });
   try {
-    await db.query('UPDATE archived_emails SET is_deleted=true, deleted_at=NOW() WHERE id=ANY($1::uuid[])', [email_ids]);
+    // Leggi durata badge dalle settings
+    const s = await db.query(`SELECT value FROM settings WHERE key='badge_duration_days'`);
+    const days = parseInt(s.rows[0]?.value || '30');
+    await db.query(
+      `UPDATE archived_emails
+       SET is_deleted=true, deleted_at=NOW(),
+           badge_type='deleted',
+           badge_expires_at=NOW() + ($1 || ' days')::interval
+       WHERE id=ANY($2::uuid[])`,
+      [days, email_ids]
+    );
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /emails/undelete
+// POST /emails/undelete — rimuove badge eliminata (usato dopo restore)
 router.post('/undelete', authMiddleware, async (req, res) => {
   const db = req.app.locals.db;
   const { email_ids } = req.body;
   if (!email_ids?.length) return res.status(400).json({ error: 'Nessuna email selezionata' });
   try {
-    await db.query('UPDATE archived_emails SET is_deleted=false, deleted_at=NULL, is_restored=true WHERE id=ANY($1::uuid[])', [email_ids]);
+    await db.query(
+      `UPDATE archived_emails
+       SET is_deleted=false, deleted_at=NULL, is_restored=true,
+           badge_type=NULL, badge_expires_at=NULL
+       WHERE id=ANY($1::uuid[])`,
+      [email_ids]
+    );
     res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /emails/delete-imap — elimina fisicamente dall'IMAP (immutabile: resta in DB)
+router.post('/delete-imap', authMiddleware, async (req, res) => {
+  const db = req.app.locals.db;
+  const { email_ids, mailbox_id } = req.body;
+  if (!email_ids?.length) return res.status(400).json({ error: 'Nessuna email selezionata' });
+  try {
+    const mbR = await db.query('SELECT * FROM mailboxes WHERE id=$1 AND active=true', [mailbox_id]);
+    if (!mbR.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
+    const mb = mbR.rows[0];
+    const { decrypt } = require('../services/crypto');
+    const Imap = require('imap');
+
+    // Recupera UID e path delle email
+    const emailsR = await db.query(
+      'SELECT id, uid, path FROM archived_emails WHERE id=ANY($1::uuid[]) AND mailbox_id=$2',
+      [email_ids, mailbox_id]
+    );
+
+    // Raggruppa per cartella
+    const byFolder = {};
+    for (const e of emailsR.rows) {
+      const folder = e.path || 'INBOX';
+      if (!byFolder[folder]) byFolder[folder] = [];
+      if (e.uid) byFolder[folder].push(e.uid);
+    }
+
+    const imapConfig = {
+      user: mb.imap_user || mb.email,
+      password: decrypt(mb.imap_password_encrypted),
+      host: mb.imap_host,
+      port: mb.imap_port || 993,
+      tls: mb.imap_tls !== false,
+      tlsOptions: { rejectUnauthorized: false },
+      connTimeout: 15000,
+      authTimeout: 10000,
+    };
+
+    // Elimina dall'IMAP per ogni cartella
+    for (const [folder, uids] of Object.entries(byFolder)) {
+      if (!uids.length) continue;
+      await new Promise((resolve) => {
+        const imap = new Imap(imapConfig);
+        imap.once('ready', () => {
+          imap.openBox(folder, false, (err) => {
+            if (err) { imap.end(); return resolve(); }
+            imap.setFlags(uids, ['\\Deleted'], () => {
+              imap.expunge(() => { imap.end(); resolve(); });
+            });
+          });
+        });
+        imap.once('error', () => resolve());
+        imap.connect();
+      });
+    }
+
+    res.json({ ok: true, deleted: emailsR.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
