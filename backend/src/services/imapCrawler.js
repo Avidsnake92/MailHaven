@@ -188,6 +188,13 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
       // Includi anche gli UID già archiviati/eliminati — così non vengono re-scaricati dall'IMAP
       const existingUids = new Set(existing.rows.map(r => r.uid));
 
+      // Carica tutti i message_id noti (inclusi eliminati/archiviati) per bloccare re-archiviazione
+      const existingMsgIds = await db.query(
+        'SELECT message_id FROM archived_emails WHERE mailbox_id=$1 AND message_id IS NOT NULL',
+        [mailbox.id]
+      );
+      const knownMessageIds = new Set(existingMsgIds.rows.map(r => r.message_id));
+
       // Leggi durata badge qui — siamo in contesto async
       const badgeSetting = await db.query(`SELECT value FROM settings WHERE key='badge_duration_days'`).catch(() => ({ rows: [] }));
       const badgeDays = parseInt(badgeSetting.rows[0]?.value || '30');
@@ -226,6 +233,42 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
 
         if (!newUids.length) return res(0);
 
+        // Pre-fetch leggero — scarica solo Message-ID per filtrare email già note
+        // Evita di ri-scaricare email che il server IMAP ha riassegnato con UID nuovo
+        const filterNewUids = (uidsToCheck) => new Promise((resolve) => {
+          if (!knownMessageIds.size) return resolve(uidsToCheck);
+          const unknown = [];
+          let done = 0;
+          const preFetch = imap.fetch(uidsToCheck, { bodies: 'HEADER.FIELDS (MESSAGE-ID)', struct: false });
+          const uidMsgIds = {};
+          preFetch.on('message', (msg) => {
+            let uid = null;
+            let msgId = null;
+            msg.on('attributes', (attrs) => { uid = attrs.uid; });
+            msg.on('body', (stream) => {
+              let buf = '';
+              stream.on('data', c => buf += c.toString());
+              stream.on('end', () => {
+                const m = buf.match(/Message-ID:\s*(.+)/i);
+                if (m) msgId = m[1].trim();
+              });
+            });
+            msg.once('end', () => { if (uid && msgId) uidMsgIds[uid] = msgId; done++; });
+          });
+          preFetch.once('error', () => resolve(uidsToCheck));
+          preFetch.once('end', () => {
+            for (const [uid, msgId] of Object.entries(uidMsgIds)) {
+              if (!knownMessageIds.has(msgId)) unknown.push(parseInt(uid));
+            }
+            // UID senza Message-ID header → includili (verranno filtrati dopo)
+            const withHeader = new Set(Object.keys(uidMsgIds).map(Number));
+            for (const uid of uidsToCheck) {
+              if (!withHeader.has(uid)) unknown.push(uid);
+            }
+            resolve(unknown);
+          });
+        });
+
         const batchSize = 50;
         let processed = 0;
 
@@ -236,12 +279,13 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
           fetch.on('message', (msg, seqno) => {
             let uid = null;
             let imapDate = null;
+            let isSeen = false;
             let rawChunks = [];
 
             msg.on('attributes', (attrs) => {
               uid = attrs.uid;
-              // Data interna IMAP — sempre affidabile, impostata dal server alla ricezione
               imapDate = attrs.date || null;
+              isSeen = (attrs.flags || []).includes('\\Seen');
             });
             msg.on('body', (stream) => {
               stream.on('data', chunk => rawChunks.push(chunk));
@@ -279,6 +323,18 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       [parsed.messageId, mailbox.id]
                     );
                     isRestored = dup.rows.length > 0;
+                  }
+
+                  // Se message_id già noto (anche se eliminato/archiviato) → salta senza toccare nulla
+                  if (parsed.messageId && knownMessageIds.has(parsed.messageId)) {
+                    processed++; return;
+                  }
+
+                  // Filtro include_unread — se la policy dice solo lette, salta le non lette
+                  const archivePolicy = mailbox.archive_policy;
+                  const policyFilter = archivePolicy?.filter || {};
+                  if (policyFilter.include_unread === false && !isSeen) {
+                    processed++; return;
                   }
 
                   // Se message_id già archiviato, non reinserire — soprattutto se eliminato da policy
@@ -351,15 +407,16 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
           fetch.once('error', () => bRes(0));
         });
 
-        const runBatches = async () => {
+        // Filtra UID già noti tramite Message-ID prima del fetch completo
+        filterNewUids(newUids).then(async (filteredUids) => {
+          if (!filteredUids.length) return res(0);
           let total = 0;
-          for (let i = 0; i < newUids.length; i += batchSize) {
-            const batch = newUids.slice(i, i + batchSize);
+          for (let i = 0; i < filteredUids.length; i += batchSize) {
+            const batch = filteredUids.slice(i, i + batchSize);
             total += await fetchBatch(batch);
           }
           res(total);
-        };
-        runBatches().catch(() => res(0));
+        }).catch(() => res(0));
       });
     });
   });

@@ -1,93 +1,33 @@
 # Changelog
 
-## [0.0.68] - 2026-05-15
-### Added
-- Login: avviso arancione al 19° tentativo "Attenzione: ultimo tentativo prima del blocco"
-- Login: schermata blocco con minuti rimanenti allo sblocco automatico
-- Login: rate limiter ora restituisce minuti esatti nel messaggio di errore
-
-### Changed
-- Login: limite tentativi alzato da 10 a 20 in 15 minuti
-- Login: header X-RateLimit-Remaining letto dal frontend per mostrare avvisi progressivi
-- Login: messaggio blocco più chiaro con tempo rimanente invece di messaggio generico
-
-
-## [0.0.67] - 2026-05-15
-### Fixed
-- imapCrawler: fix loop infinito policy — email con badge_type=archived non vengono mai resuscitate dal crawler
-- imapCrawler: fix deduplicazione message_id — non aggiorna più is_deleted=false su email eliminate da policy
-- imapCrawler: fix date 1970 — parser più robusto con 4 candidati (parsed.date, headers Date, Received, IMAP internal date)
-- imapCrawler: aggiunta data interna IMAP (attrs.date) come fallback affidabile per il parsing data
-- migrate.js: fix automatico date 1970 al riavvio — recupera data dagli header JSON salvati nel DB (max 5000 email per run)
-
-### Changed
-- imapCrawler: fetch IMAP ora include envelope:true per leggere attrs.date dal server
-- imapCrawler: query deduplicazione message_id include badge_type e is_deleted per decisioni più precise
-
-
 ## [0.0.65] - 2026-05-15
 ### Added
-- Sistema codici errore centralizzati — nuovo file errors.js con codici MH-1xxx
-- Middleware errori globale — errorHandler in index.js con JSON strutturato code/error/detail
-- Frontend api.js — interceptor axios con err.displayMessage formato [MH-XXXX] Messaggio
-- Badge email temporizzati — badge_type (deleted/restored/archived) con scadenza configurabile
-- Badge ARCHIVIATA — email da policy mostrano badge grigio permanente distinto da ELIMINATA
-- Immutabilità archivio — email mai cancellate dal DB, solo rimosse dall IMAP
-- Layout Dashboard 3 pannelli — sidebar cartelle | lista email | preview a destra
-- Ordinamento colonne cliccabile — Data e Mittente con indicatore asc/desc
-- Endpoint DELETE /emails/delete-imap — eliminazione fisica IMAP per cartella
-- Job scheduler pulizia badge — cleanupExpiredBadges() ogni 24h
-- Rilevamento eliminazioni esterne — crawler setta badge deleted senza sovrascrivere archived
+- **Sistema codici errore centralizzati** — nuovo file `errors.js` con codici MH-1xxx per tutte le funzioni (autenticazione, caselle, sync IMAP, email, ripristino, policy, antivirus, backup, sistema)
+- **Middleware errori globale** — `errorHandler` in `index.js` intercetta tutti gli errori e restituisce JSON strutturato con `code`, `error`, `detail`
+- **Frontend `api.js`** — interceptor axios arricchisce ogni errore con `err.displayMessage` nel formato `[MH-XXXX] Messaggio`
+- **Badge email temporizzati** — nuovo sistema `badge_type` (`deleted` / `restored` / `archived`) con scadenza configurabile in Impostazioni (`badge_duration_days`, default 30 giorni)
+- **Badge ARCHIVIATA** — email rimosse da policy archiviazione mostrano badge grigio permanente distinto da badge rosso ELIMINATA
+- **Immutabilità archivio** — le email non vengono mai cancellate dal DB; l'eliminazione rimuove solo dall'IMAP e aggiorna il badge
+- **Layout Dashboard 3 pannelli** — sidebar cartelle | lista email | preview a destra con apertura inline senza cambiare pagina
+- **Ordinamento colonne cliccabile** — header Data, Mittente ordinabili con indicatore visivo asc/desc; fix bug `ORDER BY` hardcoded nel backend
+- **Endpoint `DELETE /emails/delete-imap`** — eliminazione fisica dall'IMAP con raggruppamento per cartella
+- **Endpoint `POST /emails/delete`** aggiornato — setta `badge_type` e `badge_expires_at` invece di solo `is_deleted`
+- **Job scheduler pulizia badge** — `cleanupExpiredBadges()` gira ogni 24h e azzera i badge scaduti
+- **Rilevamento eliminazioni esterne** — il crawler IMAP rileva email sparite da Outlook/webmail e setta badge `deleted` senza sovrascrivere badge `archived`
 
 ### Fixed
-- Restore bulk con data originale — ogni email ripristinata con il proprio sent_at
-- ORDER BY nel backend ora usa safeSortBy/safeSortDir invece di hardcoded sent_at DESC
-- Eliminazione casella — fix FK violation spam_cache_mailbox_id_fkey
-- imapCrawler.js — rimosso await fuori da contesto async in callback imap.search
-- docker-compose.yml — OAUTH_REDIRECT_BASE_URL ora usa variabile da .env
+- **Restore bulk con data originale** — `uploadToImap()` ora riceve `sentAt` per ogni email individualmente; fix bug scope variabile che causava data corrente per tutte le email nel bulk
+- **Ordinamento email** — `ORDER BY` nel backend ora usa `safeSortBy`/`safeSortDir` invece di essere hardcoded su `sent_at DESC`
+- **Eliminazione casella** — aggiunto `DELETE FROM archived_emails` e `DELETE FROM spam_cache` prima di `DELETE FROM mailboxes` per rispettare FK; fix errore FK violation `spam_cache_mailbox_id_fkey`
+- **`imapCrawler.js`** — rimosso `await` fuori da contesto async (dentro callback `imap.search`) che causava `Scheduler error: await is only valid in async functions`
+- **`docker-compose.yml`** — `OAUTH_REDIRECT_BASE_URL` era hardcoded `https://mailhaven.k2tech.it`, ora usa variabile `${OAUTH_REDIRECT_BASE_URL}` dal `.env`
 
 ### Changed
-- Badge visivi ridisegnati — pill arrotondati, testo maiuscolo bold, sfondo riga bg-red-50/30
-- init.sql — aggiunto badge_type, badge_expires_at, badge_duration_days per nuove installazioni
-- migrate.js — migration automatica badge su installazioni esistenti
-- restore.js — codici errore MH e HTTP 207 per restore parziale
-- admin.js — DELETE /mailboxes/:id con AppError MH-1203 e verifica esistenza
-
-### Fixed (installer)
-- install.sh — controllo container avviati compatibile con Docker Compose v2 (fix "integer expression expected")
-
-
-## [0.0.65] - 2026-05-15
-### Added
-- Sistema codici errore centralizzati — nuovo file errors.js con codici MH-1xxx
-- Middleware errori globale — errorHandler in index.js con JSON strutturato code/error/detail
-- Frontend api.js — interceptor axios con err.displayMessage formato [MH-XXXX] Messaggio
-- Badge email temporizzati — badge_type (deleted/restored/archived) con scadenza configurabile
-- Badge ARCHIVIATA — email da policy mostrano badge grigio permanente distinto da ELIMINATA
-- Immutabilità archivio — email mai cancellate dal DB, solo rimosse dall IMAP
-- Layout Dashboard 3 pannelli — sidebar cartelle | lista email | preview a destra
-- Ordinamento colonne cliccabile — Data e Mittente con indicatore asc/desc
-- Endpoint DELETE /emails/delete-imap — eliminazione fisica IMAP per cartella
-- Job scheduler pulizia badge — cleanupExpiredBadges() ogni 24h
-- Rilevamento eliminazioni esterne — crawler setta badge deleted senza sovrascrivere archived
-
-### Fixed
-- Restore bulk con data originale — ogni email ripristinata con il proprio sent_at
-- ORDER BY nel backend ora usa safeSortBy/safeSortDir invece di hardcoded sent_at DESC
-- Eliminazione casella — fix FK violation spam_cache_mailbox_id_fkey
-- imapCrawler.js — rimosso await fuori da contesto async in callback imap.search
-- docker-compose.yml — OAUTH_REDIRECT_BASE_URL ora usa variabile da .env
-
-### Changed
-- Badge visivi ridisegnati — pill arrotondati, testo maiuscolo bold, sfondo riga bg-red-50/30
-- init.sql — aggiunto badge_type, badge_expires_at, badge_duration_days per nuove installazioni
-- migrate.js — migration automatica badge su installazioni esistenti
-- restore.js — codici errore MH e HTTP 207 per restore parziale
-- admin.js — DELETE /mailboxes/:id con AppError MH-1203 e verifica esistenza
-
-### Fixed (installer)
-- install.sh — controllo container avviati compatibile con Docker Compose v2 (fix "integer expression expected")
-
+- **Badge visivi ridisegnati** — pill arrotondati con bordo, testo in maiuscolo bold, icone più piccole; riga eliminata passa da `opacity-60` a sfondo `bg-red-50/30` per leggibilità
+- **`init.sql`** — aggiunto `badge_type`, `badge_expires_at`, indice su `badge_expires_at`, setting `badge_duration_days` per nuove installazioni
+- **`migrate.js`** — aggiunta migration automatica per `badge_type`, `badge_expires_at`, indice e setting su installazioni esistenti
+- **`restore.js`** — route `/imap` aggiornata con codici errore MH e risposta HTTP 207 per restore parziale
+- **`admin.js`** — route `DELETE /mailboxes/:id` usa `AppError` con codice MH-1203 e verifica esistenza casella prima di eliminare
 
 ## [0.0.28] - 2026-05-07
 ### Fixed

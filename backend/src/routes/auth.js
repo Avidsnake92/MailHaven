@@ -13,7 +13,7 @@ const getIp = (req) => {
   return fwd ? fwd.split(',')[0].trim() : req.socket.remoteAddress;
 };
 
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 10; // blocco DB dopo 10 tentativi (rate limiter blocca prima a 20)
 const LOCK_MINUTES = 15;
 const SESSION_MAX_MS = 8 * 60 * 60 * 1000; // 8 ore max per sessione
 
@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
         try {
           const admins = await db.query("SELECT email FROM users WHERE role = 'superadmin' AND active = true");
           for (const admin of admins.rows) {
-            await sendAccountBlocked(admin.email, user, ip);
+            await sendAccountBlocked(db, admin.email, user, ip, MAX_ATTEMPTS);
           }
         } catch (e) { console.error('Mail notification error:', e.message); }
 
@@ -118,7 +118,7 @@ router.post('/login', async (req, res) => {
         const { sendSuspiciousIp } = require('../services/mailer');
         const admins = await db.query("SELECT email FROM users WHERE role = 'superadmin' AND active = true");
         for (const admin of admins.rows) {
-          await sendSuspiciousIp(admin.email, user, ip, knownIps).catch(() => {});
+          await sendSuspiciousIp(db, admin.email, user, ip, knownIps).catch(() => {});
         }
       }
     } catch (e) { console.error('Suspicious IP check error:', e.message); }

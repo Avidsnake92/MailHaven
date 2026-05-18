@@ -189,7 +189,7 @@ router.get('/', async (req, res) => {
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
          WHERE ${where}
-         ORDER BY ${safeSortBy} ${safeSortDir}
+         ORDER BY ae.sent_at DESC
          LIMIT $${p} OFFSET $${p+1}`,
         [...params, parseInt(limit), offset]
       )

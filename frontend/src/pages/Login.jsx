@@ -9,9 +9,11 @@ export default function Login() {
   const [totpCode, setTotpCode] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
+  const [warning, setWarning] = useState('')
   const [loading, setLoading] = useState(false)
   const [requires2fa, setRequires2fa] = useState(false)
   const [locked, setLocked] = useState(false)
+  const [retryMinutes, setRetryMinutes] = useState(null)
   const { branding } = useBranding()
 
   const doLogin = (token, user) => {
@@ -23,6 +25,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setWarning('')
     setLoading(true)
     try {
       const body = requires2fa
@@ -30,6 +33,12 @@ export default function Login() {
         : { email, password }
 
       const res = await api.post('/auth/login', body)
+
+      // Controlla tentativi rimanenti — avvisa se siamo all'ultimo
+      const remaining = parseInt(res.headers?.['x-ratelimit-remaining'] ?? '99')
+      if (remaining === 1) {
+        setWarning('Attenzione: questo è l\'ultimo tentativo disponibile. Dopo verrai bloccato per 15 minuti.')
+      }
 
       if (res.data.token) {
         doLogin(res.data.token, res.data.user)
@@ -39,7 +48,13 @@ export default function Login() {
       }
     } catch (err) {
       const data = err.response?.data
-      if (data?.locked) {
+      const remaining = parseInt(err.response?.headers?.['x-ratelimit-remaining'] ?? '99')
+
+      if (data?.blocked) {
+        setLocked(true)
+        setRetryMinutes(data.retryAfterMinutes || 15)
+        setError(data.error)
+      } else if (data?.locked) {
         setLocked(true)
         setError(data.error)
       } else if (data?.requires_2fa) {
@@ -47,6 +62,10 @@ export default function Login() {
         setError(data.error || 'Codice 2FA non valido')
       } else {
         setError(data?.error || 'Email o password non corretti')
+        // Avvisa se prossimo tentativo sarà l'ultimo
+        if (remaining === 1) {
+          setWarning('Attenzione: questo è l\'ultimo tentativo disponibile. Dopo verrai bloccato per 15 minuti.')
+        }
       }
     } finally {
       setLoading(false)
@@ -66,12 +85,15 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Account bloccato */}
+          {/* Account bloccato da rate limiter */}
           {locked && (
             <div className="mb-6 flex flex-col items-center text-center p-4 bg-red-50 border border-red-200 rounded-xl">
               <Lock size={28} className="text-red-500 mb-2" />
-              <p className="text-sm font-semibold text-red-700">Account bloccato</p>
+              <p className="text-sm font-semibold text-red-700">Accesso temporaneamente bloccato</p>
               <p className="text-xs text-red-600 mt-1">{error}</p>
+              {retryMinutes && (
+                <p className="text-xs text-red-500 mt-2">Riprova tra circa <strong>{retryMinutes} minut{retryMinutes === 1 ? 'o' : 'i'}</strong>.</p>
+              )}
             </div>
           )}
 
@@ -128,7 +150,18 @@ export default function Login() {
                   </button>
                 </div>
               </div>
-              {error && (
+              {warning && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
+                  <span className="text-amber-500 shrink-0 mt-0.5">⚠️</span>
+                  <span>{warning}</span>
+                </div>
+              )}
+              {error && !warning && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                  {error}
+                </div>
+              )}
+              {error && warning && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
                   {error}
                 </div>

@@ -33,13 +33,40 @@ const migrate = async (db) => {
   await run(`CREATE INDEX IF NOT EXISTS idx_report_messages_report_id ON report_messages(report_id)`);
   await run(`DROP TRIGGER IF EXISTS trig_deduplicate_email ON archived_emails`);
 
-  // Badge temporizzati per stato email (eliminata/recuperata)
+  // Badge temporizzati
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_type VARCHAR(20) DEFAULT NULL`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_expires_at TIMESTAMP DEFAULT NULL`);
   await run(`CREATE INDEX IF NOT EXISTS idx_archived_emails_badge_expires ON archived_emails(badge_expires_at) WHERE badge_expires_at IS NOT NULL`);
-
-  // Setting durata badge (giorni)
   await run(`INSERT INTO settings (key, value) VALUES ('badge_duration_days', '30') ON CONFLICT (key) DO NOTHING`);
+
+  // Fix date 1970 — recupera data dagli header JSON salvati
+  try {
+    const bad = await db.query(`
+      SELECT id, headers FROM archived_emails
+      WHERE (EXTRACT(YEAR FROM sent_at) <= 1970 OR sent_at IS NULL)
+      AND headers IS NOT NULL
+      LIMIT 5000
+    `);
+    if (bad.rows.length > 0) {
+      console.log(`[Migration] Fix date 1970: ${bad.rows.length} email da correggere...`);
+      let fixed = 0;
+      for (const row of bad.rows) {
+        try {
+          const headers = typeof row.headers === 'string' ? JSON.parse(row.headers) : row.headers;
+          const raw = headers['date'] || headers['Date'] || null;
+          if (!raw) continue;
+          const d = new Date(raw);
+          if (!isNaN(d.getTime()) && d.getFullYear() > 1970 && d.getFullYear() < 2100) {
+            await db.query(`UPDATE archived_emails SET sent_at=$1 WHERE id=$2`, [d, row.id]);
+            fixed++;
+          }
+        } catch {}
+      }
+      console.log(`[Migration] Fix date 1970: ${fixed}/${bad.rows.length} email corrette`);
+    }
+  } catch (e) {
+    console.warn('[Migration] Fix date 1970 skip:', e.message);
+  }
 
   console.log('[Migration] Completata');
 };

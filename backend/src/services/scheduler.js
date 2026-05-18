@@ -42,26 +42,64 @@ const deleteFromImap = async (mailbox, uids, folderPath) => {
 // Applica policy archiviazione — elimina dall'IMAP, mantieni in MailHaven
 const applyArchivePolicy = async (mailbox, db) => {
   const policy = mailbox.archive_policy;
-  if (!policy || !policy.delete_enabled) return;
-  const mode = policy.delete_mode || 'never';
-  if (mode === 'never') return;
+  if (!policy) return;
 
-  let cutoffDate = null;
+  // Supporta sia struttura nuova {filter, delete} che vecchia {delete_enabled, delete_mode}
+  const del = policy.delete || {};
+  const filter = policy.filter || {};
+
+  // Retrocompatibilità struttura vecchia
+  const deleteMode = del.mode || (policy.delete_enabled ? policy.delete_mode : 'never') || 'never';
+  const deleteDays = del.days || policy.delete_after_days || policy.older_than_days || 30;
+  const includeReadOnly = filter.include_unread === false; // se false, archivia solo lette
+
+  if (deleteMode === 'never') return;
+
   const now = new Date();
-  if (mode === 'immediately') cutoffDate = now;
-  else if (mode === 'after_days') cutoffDate = new Date(now - (parseInt(policy.delete_after_days) || 30) * 86400000);
-  else if (mode === 'older_than') cutoffDate = new Date(now - (parseInt(policy.older_than_days) || 90) * 86400000);
+  let cutoffDate = null;
+  if (deleteMode === 'immediately') cutoffDate = now;
+  else if (deleteMode === 'after_days') cutoffDate = new Date(now - deleteDays * 86400000);
+  else if (deleteMode === 'older_than') cutoffDate = new Date(now - deleteDays * 86400000);
   if (!cutoffDate) return;
 
-  const activatedAt = policy.activated_at ? new Date(policy.activated_at) : new Date('2000-01-01');
+  // Filtro data_from — non archiviare email troppo recenti
+  let dateFromCondition = '';
+  let dateFromParams = [];
+  if (filter.date_from_enabled) {
+    if (filter.date_from_type === 'date' && filter.date_from) {
+      dateFromCondition = ' AND sent_at >= $4';
+      dateFromParams = [new Date(filter.date_from)];
+    } else if (filter.date_from_days) {
+      dateFromCondition = ' AND sent_at >= $4';
+      dateFromParams = [new Date(now - filter.date_from_days * 86400000)];
+    }
+  }
+
+  // Filtro date_to — non archiviare email più vecchie di una certa data
+  let dateToCondition = '';
+  let dateToParams = [];
+  if (filter.date_to_enabled) {
+    const paramIdx = dateFromParams.length > 0 ? '$5' : '$4';
+    if (filter.date_to_type === 'date' && filter.date_to) {
+      dateToCondition = ` AND sent_at <= ${paramIdx}`;
+      dateToParams = [new Date(filter.date_to)];
+    } else if (filter.date_to_days) {
+      dateToCondition = ` AND sent_at <= ${paramIdx}`;
+      dateToParams = [new Date(now - filter.date_to_days * 86400000)];
+    }
+  }
+
+  // Filtro messaggi segnalati (flagged)
+  const flaggedCondition = del.include_flagged ? '' : ' AND (is_flagged = false OR is_flagged IS NULL)';
 
   try {
-    // Trova email da eliminare — solo quelle archiviate DOPO l'attivazione della policy
+    const params = [mailbox.id, cutoffDate, ...dateFromParams, ...dateToParams];
     const emails = await db.query(
-      `SELECT id, uid, path FROM archived_emails 
-       WHERE mailbox_id=$1 AND sent_at<$2 AND is_deleted=false 
-       AND received_at >= $3 LIMIT 100`,
-      [mailbox.id, cutoffDate, activatedAt]
+      `SELECT id, uid, path FROM archived_emails
+       WHERE mailbox_id=$1 AND sent_at<$2 AND is_deleted=false
+       ${dateFromCondition}${dateToCondition}${flaggedCondition}
+       LIMIT 100`,
+      params
     );
     if (!emails.rows.length) return;
 
@@ -78,7 +116,7 @@ const applyArchivePolicy = async (mailbox, db) => {
       await deleteFromImap(mailbox, data.uids, folder);
     }
 
-    // Marca come archiviate da policy — badge permanente, nessuna scadenza
+    // Marca come archiviate da policy — badge permanente
     const allIds = emails.rows.map(e => e.id);
     await db.query(
       `UPDATE archived_emails

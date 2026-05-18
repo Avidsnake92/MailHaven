@@ -28,8 +28,18 @@ app.use('/api/', limiter);
 // Rate limiting specifico per auth (più restrittivo)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: 'Troppi tentativi di accesso, riprova tra 15 minuti' },
+  max: 20,
+  standardHeaders: true,  // aggiunge X-RateLimit-Remaining negli header risposta
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const resetMs = req.rateLimit?.resetTime ? req.rateLimit.resetTime.getTime() : Date.now() + 15 * 60 * 1000;
+    const minutesLeft = Math.ceil((resetMs - Date.now()) / 60000);
+    res.status(429).json({
+      error: `Troppi tentativi di accesso. Riprova tra ${minutesLeft} minut${minutesLeft === 1 ? 'o' : 'i'}.`,
+      blocked: true,
+      retryAfterMinutes: minutesLeft,
+    });
+  },
 });
 app.use('/api/auth/login', authLimiter);
 const PORT = process.env.PORT || 3001;
@@ -95,10 +105,6 @@ app.use('/api/reports', require('./routes/reports'));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '2.0.0' });
 });
-
-// Gestione errori centralizzata — DEVE essere dopo tutte le route
-const { errorHandler } = require('./errors');
-app.use(errorHandler);
 
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`MailHaven backend running on port ${PORT}`);
