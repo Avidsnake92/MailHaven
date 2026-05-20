@@ -205,11 +205,11 @@ function SecurityTab({ user }) {
 // UpdateTab — con animazioni, barra progresso, avviso backup
 // ═══════════════════════════════════════════════════════
 const UPDATE_STEPS = [
-  { id: 'fetch',   label: 'Download aggiornamenti',     icon: '⬇️' },
-  { id: 'install', label: 'Installazione dipendenze',   icon: '📦' },
-  { id: 'build',   label: 'Compilazione frontend',      icon: '🔨' },
-  { id: 'restart', label: 'Riavvio servizi',            icon: '🔄' },
-  { id: 'done',    label: 'Aggiornamento completato',   icon: '✅' },
+  { id: 'fetch',   label: 'Download aggiornamenti',   duration: 30  },
+  { id: 'install', label: 'Installazione dipendenze', duration: 60  },
+  { id: 'build',   label: 'Compilazione frontend',    duration: 120 },
+  { id: 'restart', label: 'Riavvio servizi',          duration: 30  },
+  { id: 'done',    label: 'Aggiornamento completato', duration: 10  },
 ]
 const TOTAL_DURATION = UPDATE_STEPS.reduce((a, s) => a + s.duration, 0)
 
@@ -240,16 +240,19 @@ function UpdateProgress({ startVersion }) {
   useEffect(() => {
     const poll = setInterval(async () => {
       try {
-        const res = await fetch('/api/health', { cache: 'no-store' })
+        // Legge version.json direttamente — più affidabile di /api/health
+        const res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
         const data = await res.json()
         if (startVersion && data.version && data.version !== startVersion) {
           setDone(true); setProgress(100)
           clearInterval(poll)
-          setTimeout(() => window.location.reload(), 1500)
+          setTimeout(() => window.location.reload(), 2000)
         }
-      } catch {}
-    }, 10000)
-    const timeout = setTimeout(() => { clearInterval(poll); window.location.reload() }, 5 * 60 * 1000)
+      } catch {
+        // Backend non raggiungibile — normale durante riavvio, aspetta
+      }
+    }, 8000)
+    const timeout = setTimeout(() => { clearInterval(poll); window.location.reload() }, 6 * 60 * 1000)
     return () => { clearInterval(poll); clearTimeout(timeout) }
   }, [startVersion])
 

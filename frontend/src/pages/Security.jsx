@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { ShieldCheck, ShieldOff, Key, Loader2, Check, X, Lock, Unlock } from 'lucide-react'
+import { ShieldCheck, ShieldOff, Key, Loader2, Check, X, Lock, Unlock, Eye, EyeOff } from 'lucide-react'
 
 export default function Security() {
   const { user } = useAuth()
@@ -13,6 +13,32 @@ export default function Security() {
   const [disablePassword, setDisablePassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
+
+  // Change password state
+  const [pwdCurrent, setPwdCurrent] = useState('')
+  const [pwdNew, setPwdNew] = useState('')
+  const [pwdConfirm, setPwdConfirm] = useState('')
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const [pwdMsg, setPwdMsg] = useState('')
+  const [pwdError, setPwdError] = useState('')
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+
+  const handleChangePassword = async () => {
+    setPwdError(''); setPwdMsg('')
+    if (!pwdCurrent || !pwdNew || !pwdConfirm) return setPwdError('Compila tutti i campi')
+    if (pwdNew.length < 8) return setPwdError('La nuova password deve essere di almeno 8 caratteri')
+    if (pwdNew !== pwdConfirm) return setPwdError('Le password non coincidono')
+    if (pwdNew === pwdCurrent) return setPwdError('La nuova password deve essere diversa da quella attuale')
+    setPwdLoading(true)
+    try {
+      await api.post('/auth/change-password', { current_password: pwdCurrent, new_password: pwdNew })
+      setPwdMsg('Password aggiornata con successo')
+      setPwdCurrent(''); setPwdNew(''); setPwdConfirm('')
+    } catch (err) {
+      setPwdError(err.displayMessage || err.response?.data?.error || 'Errore durante il cambio password')
+    } finally { setPwdLoading(false) }
+  }
   const [error, setError] = useState('')
   const [step, setStep] = useState('idle') // idle | setup | verify | disable
 
@@ -87,11 +113,62 @@ export default function Security() {
     <div className="p-4 sm:p-6 max-w-2xl mx-auto h-full overflow-y-auto fade-in">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Sicurezza</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Gestione 2FA e sicurezza account</p>
+        <p className="text-sm text-gray-500 mt-0.5">Gestione password, 2FA e sicurezza account</p>
       </div>
 
       {msg && <div className="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">{msg}</div>}
       {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
+
+      {/* ── CAMBIO PASSWORD ── */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Lock size={18} className="text-gray-600" />
+          <h2 className="text-base font-semibold text-gray-900">Cambia password</h2>
+        </div>
+        {pwdMsg && <div className="mb-3 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-2.5 rounded-lg flex items-center gap-2"><Check size={14} />{pwdMsg}</div>}
+        {pwdError && <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2.5 rounded-lg">{pwdError}</div>}
+        <div className="space-y-3">
+          <div className="relative">
+            <input type={showCurrent ? 'text' : 'password'} value={pwdCurrent}
+              onChange={e => setPwdCurrent(e.target.value)}
+              placeholder="Password attuale"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <button onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <div className="relative">
+            <input type={showNew ? 'text' : 'password'} value={pwdNew}
+              onChange={e => setPwdNew(e.target.value)}
+              placeholder="Nuova password (min. 8 caratteri)"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <button onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <input type="password" value={pwdConfirm}
+            onChange={e => setPwdConfirm(e.target.value)}
+            placeholder="Conferma nuova password"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          {pwdNew && (
+            <div className="flex gap-1.5">
+              {['8+ car.', 'Maiuscola', 'Numero'].map((label, i) => {
+                const checks = [pwdNew.length >= 8, /[A-Z]/.test(pwdNew), /[0-9]/.test(pwdNew)]
+                return (
+                  <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${checks[i] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                    {checks[i] ? '✓' : '○'} {label}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+          <button onClick={handleChangePassword} disabled={pwdLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors">
+            {pwdLoading ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+            Aggiorna password
+          </button>
+        </div>
+      </div>
 
       {/* 2FA Section */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">

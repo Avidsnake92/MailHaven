@@ -39,6 +39,11 @@ const migrate = async (db) => {
   await run(`CREATE INDEX IF NOT EXISTS idx_archived_emails_badge_expires ON archived_emails(badge_expires_at) WHERE badge_expires_at IS NOT NULL`);
   await run(`INSERT INTO settings (key, value) VALUES ('badge_duration_days', '30') ON CONFLICT (key) DO NOTHING`);
 
+  // Colonne extra sync_log per dettagli operazioni
+  await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS emails_archived INTEGER DEFAULT 0`);
+  await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS emails_deleted_external INTEGER DEFAULT 0`);
+  await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS details JSONB DEFAULT NULL`);
+
   // Fix date 1970 — recupera data dagli header JSON salvati
   try {
     const bad = await db.query(`

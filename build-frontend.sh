@@ -1,5 +1,5 @@
 #!/bin/bash
-# MailHaven — Build e deploy frontend
+# MailHaven ï¿½ Build e deploy frontend
 # Uso: bash build-frontend.sh
 
 echo "=== MailHaven Frontend Build ==="
@@ -21,6 +21,8 @@ fi
 # Deploy in nginx
 echo "Deploy..."
 docker cp ~/mailhaven/frontend/dist/. mailhaven-frontend:/usr/share/nginx/html/
+# Copia version.json nella root nginx per il polling aggiornamento
+docker cp ~/mailhaven/version.json mailhaven-frontend:/usr/share/nginx/html/version.json
 
 echo "=== Build completato! ==="
-echo "Ricarica il browser in modalità incognito."
+echo "Ricarica il browser in modalitï¿½ incognito."

@@ -132,6 +132,70 @@ router.get('/storage', async (req, res) => {
   }
 });
 
+// GET /emails/global-search — ricerca full-text su tutte le caselle accessibili
+router.get('/global-search', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  const { search, page = 1, limit = 30, from_date, to_date } = req.query;
+  if (!search || search.trim().length < 2) return res.status(400).json({ error: 'Query troppo corta (min 2 caratteri)', code: 'MH-1406' });
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  try {
+    let mailboxFilter = '';
+    let extraParams = [];
+    if (req.user.role !== 'superadmin') {
+      const mbR = await db.query(
+        `SELECT m.id FROM mailboxes m
+         LEFT JOIN mailbox_users mu ON mu.mailbox_id = m.id
+         WHERE m.active=true AND (mu.user_id=$1 OR m.client_id IN (
+           SELECT client_id FROM users WHERE id=$1
+         ))`,
+        [req.user.id]
+      );
+      const ids = mbR.rows.map(r => r.id);
+      if (!ids.length) return res.json({ items: [], total: 0, totalPages: 0, page: 1 });
+      mailboxFilter = `AND ae.mailbox_id = ANY($${extraParams.length + 3}::int[])`;
+      extraParams = [ids];
+    }
+
+    let conditions = [`ae.search_vector @@ plainto_tsquery('simple', $1)`];
+    let params = [search, parseInt(limit)];
+    if (from_date) { conditions.push(`ae.sent_at >= $${params.length + 1}`); params.push(from_date); }
+    if (to_date)   { conditions.push(`ae.sent_at <= $${params.length + 1}`); params.push(to_date); }
+    if (extraParams.length) params.push(...extraParams);
+
+    const where = conditions.join(' AND ') + (mailboxFilter ? ` ${mailboxFilter}` : '');
+
+    const [items, count] = await Promise.all([
+      db.query(`
+        SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email, ae.sent_at,
+               ae.path, ae.has_attachments, ae.is_deleted, ae.is_restored,
+               ae.badge_type, ae.mailbox_id, m.email as mailbox_email,
+               ts_headline('simple', COALESCE(ae.body_text,''), plainto_tsquery('simple', $1),
+                 'MaxFragments=1, MaxWords=15, MinWords=5') as snippet
+        FROM archived_emails ae
+        JOIN mailboxes m ON m.id = ae.mailbox_id
+        WHERE ${where}
+        ORDER BY ts_rank(ae.search_vector, plainto_tsquery('simple', $1)) DESC, ae.sent_at DESC
+        LIMIT $2 OFFSET ${offset}
+      `, params),
+      db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${where}`, params),
+    ]);
+
+    res.json({
+      items: items.rows.map(e => ({
+        id: e.id, subject: e.subject, senderName: e.sender_name,
+        senderEmail: e.sender_email, sentAt: e.sent_at, path: e.path,
+        hasAttachments: e.has_attachments, isDeleted: e.is_deleted,
+        isRestored: e.is_restored, badgeType: e.badge_type,
+        mailboxId: e.mailbox_id, mailboxEmail: e.mailbox_email,
+        snippet: e.snippet,
+      })),
+      total: parseInt(count.rows[0].count),
+      totalPages: Math.ceil(parseInt(count.rows[0].count) / parseInt(limit)),
+      page: parseInt(page),
+    });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
 // GET /emails — list emails with filters
 router.get('/', async (req, res) => {
   const db = req.app.locals.db;

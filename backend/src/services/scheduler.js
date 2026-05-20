@@ -127,8 +127,10 @@ const applyArchivePolicy = async (mailbox, db) => {
     );
 
     console.log(`[Policy] ${mailbox.email}: ${emails.rows.length} email archiviate dall'IMAP`);
+    return emails.rows.length;
   } catch (e) {
     console.error('[Policy] Errore:', e.message);
+    return 0;
   }
 };
 
@@ -150,12 +152,39 @@ const syncAllMailboxes = async () => {
         [mailbox.id]
       );
       const logId = logResult.rows[0].id;
+      const startTime = Date.now();
       try {
         const synced = await syncMailbox(mailbox, db);
-        await applyArchivePolicy(mailbox, db).catch(e => console.error('[Policy]', e.message));
+
+        // Conta email archiviate da policy in questo ciclo
+        let archivedByPolicy = 0;
+        try {
+          const policyResult = await applyArchivePolicy(mailbox, db);
+          archivedByPolicy = policyResult || 0;
+        } catch (e) { console.error('[Policy]', e.message); }
+
+        // Conta email eliminate esternamente in questo ciclo
+        const extDeleted = await db.query(
+          `SELECT COUNT(*) FROM archived_emails
+           WHERE mailbox_id=$1 AND badge_type='deleted'
+           AND badge_expires_at > NOW() - INTERVAL '10 minutes'`,
+          [mailbox.id]
+        );
+
+        const durationSec = Math.round((Date.now() - startTime) / 1000);
+        const details = {
+          duration_sec: durationSec,
+          emails_new: synced,
+          emails_archived_policy: archivedByPolicy,
+          emails_deleted_external: parseInt(extDeleted.rows[0].count),
+        };
+
         await db.query(
-          `UPDATE sync_log SET status='completed', emails_synced=$1, finished_at=NOW() WHERE id=$2`,
-          [synced, logId]
+          `UPDATE sync_log SET status='completed', emails_synced=$1,
+           emails_archived=$2, emails_deleted_external=$3,
+           details=$4, finished_at=NOW() WHERE id=$5`,
+          [synced, archivedByPolicy, parseInt(extDeleted.rows[0].count),
+           JSON.stringify(details), logId]
         );
         if (synced > 0) {
           console.log(`[Scheduler] ${mailbox.email}: +${synced} emails`);
@@ -167,6 +196,33 @@ const syncAllMailboxes = async () => {
           `UPDATE sync_log SET status='error', error=$1, finished_at=NOW() WHERE id=$2`,
           [err.message, logId]
         );
+        // Notifica email su errore sync — non bloccante
+        try {
+          const { getSmtpConfig, getTransport } = require('./mailer');
+          const cfg = await getSmtpConfig(db);
+          if (cfg.host && cfg.user) {
+            const admins = await db.query("SELECT email FROM users WHERE role='superadmin' AND active=true");
+            const transport = getTransport(cfg);
+            for (const admin of admins.rows) {
+              transport.sendMail({
+                from: `"MailHaven" <${cfg.from}>`,
+                to: admin.email,
+                subject: `⚠️ [MH-1301] Errore sync — ${mailbox.email}`,
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+                  <h2 style="color:#dc2626">⚠️ Errore sincronizzazione IMAP</h2>
+                  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+                    <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">Casella</td><td style="padding:8px">${mailbox.email}</td></tr>
+                    <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">Errore</td><td style="padding:8px;color:#dc2626">${err.message}</td></tr>
+                    <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">Codice</td><td style="padding:8px">MH-1301</td></tr>
+                    <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">Data/Ora</td><td style="padding:8px">${new Date().toLocaleString('it-IT')}</td></tr>
+                  </table>
+                  <p>Verifica le credenziali IMAP e la raggiungibilità del server.</p>
+                  <p style="color:#6b7280;font-size:12px">MailHaven — Sync Monitor</p>
+                </div>`,
+              }).catch(() => {});
+            }
+          }
+        } catch (mailErr) { console.error('[Scheduler] Sync notification error:', mailErr.message); }
       }
     }
   } catch (err) {

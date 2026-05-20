@@ -442,7 +442,7 @@ function SyncLog() {
                           'bg-red-50 border-red-100'
                         }`}>
                           <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {log.status === 'completed'
                                 ? <CheckCircle2 size={13} className="text-green-500" />
                                 : log.status === 'running'
@@ -451,23 +451,37 @@ function SyncLog() {
                               <span className={`text-xs font-semibold capitalize ${
                                 log.status === 'completed' ? 'text-green-700' :
                                 log.status === 'running' ? 'text-blue-700' : 'text-red-700'
-                              }`}>{log.status}</span>
+                              }`}>{log.status === 'completed' ? 'Completata' : log.status === 'running' ? 'In corso' : 'Errore'}</span>
                               {log.emails_synced > 0 && (
-                                <span className="text-xs text-gray-500">· {log.emails_synced} email scaricate</span>
+                                <span className="text-xs text-gray-600 bg-white/60 px-1.5 py-0.5 rounded">+{log.emails_synced} nuove</span>
                               )}
-                              {log.emails_synced === 0 && log.status === 'completed' && (
-                                <span className="text-xs text-gray-400">· Nessuna novità</span>
+                              {log.emails_archived > 0 && (
+                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">🗂 {log.emails_archived} archiviate</span>
+                              )}
+                              {log.emails_deleted_external > 0 && (
+                                <span className="text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">🗑 {log.emails_deleted_external} el. esternamente</span>
+                              )}
+                              {log.emails_synced === 0 && log.status === 'completed' && !log.emails_archived && (
+                                <span className="text-xs text-gray-400">Nessuna novità</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <div className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
                               <Clock size={10} />
                               {formatDate(log.started_at)}
                             </div>
                           </div>
-                          {log.finished_at && (
-                            <p className="text-xs text-gray-400">
-                              Durata: {Math.round((new Date(log.finished_at) - new Date(log.started_at)) / 1000)}s
-                            </p>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {log.finished_at && (
+                              <p className="text-xs text-gray-400">
+                                Durata: {Math.round((new Date(log.finished_at) - new Date(log.started_at)) / 1000)}s
+                              </p>
+                            )}
+                            {log.error && (
+                              <p className="text-xs text-red-600 font-mono bg-red-50 px-2 py-1 rounded mt-1 w-full">
+                                {log.error}
+                              </p>
+                            )}
+                          </div>
                           )}
                           {log.error && (
                             <p className="text-xs text-red-600 mt-1 font-mono bg-red-100 rounded px-2 py-1 break-all">{log.error}</p>

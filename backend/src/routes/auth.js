@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { authMiddleware } = require('../middleware/auth');
+const { ERRORS, AppError } = require('../errors');
 const { log } = require('../services/logger');
 const { sendAccountBlocked } = require('../services/mailer');
 const { generateSecret, generateQR, verifyToken } = require('../services/totp');
@@ -167,20 +168,22 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // Change password
-router.post('/change-password', authMiddleware, async (req, res) => {
+router.post('/change-password', authMiddleware, async (req, res, next) => {
   const { current_password, new_password } = req.body;
   const db = req.app.locals.db;
   const ip = getIp(req);
   try {
+    if (!new_password || new_password.length < 8) return next(new AppError(ERRORS.MH_1103));
+    if (new_password === current_password) return res.status(400).json({ error: 'La nuova password deve essere diversa da quella attuale', code: 'MH-1103' });
     const result = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     const valid = await bcrypt.compare(current_password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Password attuale non corretta' });
+    if (!valid) return next(new AppError(ERRORS.MH_1001, 'password attuale errata'));
     const hash = await bcrypt.hash(new_password, 10);
-    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    await db.query('UPDATE users SET password_hash=$1, failed_attempts=0, locked_until=NULL WHERE id=$2', [hash, req.user.id]);
     await log(db, req.user.id, 'PASSWORD_CHANGED', { email: req.user.email }, ip);
-    res.json({ message: 'Password aggiornata' });
-  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+    res.json({ message: 'Password aggiornata con successo' });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
 });
 
 // Setup 2FA - generate QR code

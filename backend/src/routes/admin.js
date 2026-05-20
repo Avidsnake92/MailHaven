@@ -80,24 +80,51 @@ router.get('/users', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
-router.post('/users', async (req, res) => {
+router.post('/users', async (req, res, next) => {
   const db = req.app.locals.db;
   const { email, password, full_name, role, client_id } = req.body;
   if (req.user.role === 'admin' && role !== 'user') {
-    return res.status(403).json({ error: 'Non puoi creare utenti con questo ruolo' });
+    return next(new AppError(ERRORS.MH_1004));
   }
   try {
     const pwdError = validatePassword(password)
-    if (pwdError) return res.status(400).json({ error: pwdError })
+    if (pwdError) return next(new AppError(ERRORS.MH_1103, pwdError));
     const hash = await bcrypt.hash(password, 10);
     const result = await db.query(
       'INSERT INTO users (email, password_hash, full_name, role, client_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, full_name, role, client_id',
       [email, hash, full_name, role, client_id || null]
     );
-    res.json(result.rows[0]);
+    const newUser = result.rows[0];
+
+    // Invia email di benvenuto (non bloccante)
+    const { getSmtpConfig, getTransport } = require('../services/mailer');
+    getSmtpConfig(db).then(cfg => {
+      if (!cfg.host || !cfg.user) return;
+      const transport = getTransport(cfg);
+      transport.sendMail({
+        from: `"MailHaven" <${cfg.from}>`,
+        to: email,
+        subject: '👋 Benvenuto in MailHaven',
+        html: `
+          <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+            <h2 style="color:#2563eb">Benvenuto in MailHaven!</h2>
+            <p>Ciao ${full_name || email},</p>
+            <p>Il tuo account è stato creato con successo. Ecco le tue credenziali di accesso:</p>
+            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0">
+              <p style="margin:4px 0"><strong>Email:</strong> ${email}</p>
+              <p style="margin:4px 0"><strong>Password:</strong> ${password}</p>
+            </div>
+            <p style="color:#dc2626;font-size:13px">⚠️ Ti consigliamo di cambiare la password al primo accesso dalla sezione Sicurezza.</p>
+            <p style="color:#6b7280;font-size:12px">MailHaven — Email Archive System</p>
+          </div>
+        `,
+      }).catch(e => console.error('[Admin] Welcome email error:', e.message));
+    }).catch(() => {});
+
+    res.json(newUser);
   } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Email già esistente' });
-    res.status(500).json({ error: 'Errore server' });
+    if (err.code === '23505') return next(new AppError(ERRORS.MH_1102));
+    next(new AppError(ERRORS.MH_1903, err.message));
   }
 });
 
@@ -192,7 +219,7 @@ router.post('/mailboxes', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Errore server' }); }
 });
 
-router.put('/mailboxes/:id', async (req, res) => {
+router.put('/mailboxes/:id', async (req, res, next) => {
   const db = req.app.locals.db;
   const { client_id, email, display_name, active, imap_host, imap_port, imap_tls, imap_user, imap_password } = req.body;
   const { encrypt } = require('../services/crypto');
@@ -213,7 +240,19 @@ router.put('/mailboxes/:id', async (req, res) => {
       );
     }
     res.json({ message: 'Casella aggiornata' });
-  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+  } catch (err) { next(new AppError(ERRORS.MH_1203, err.message)); }
+});
+
+// PATCH /admin/mailboxes/:id/toggle — abilita/disabilita casella
+router.patch('/mailboxes/:id/toggle', async (req, res, next) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query('SELECT id, active FROM mailboxes WHERE id=$1', [req.params.id]);
+    if (!r.rows.length) return next(new AppError(ERRORS.MH_1201));
+    const newActive = !r.rows[0].active;
+    await db.query('UPDATE mailboxes SET active=$1 WHERE id=$2', [newActive, req.params.id]);
+    res.json({ active: newActive, message: newActive ? 'Casella abilitata' : 'Casella disabilitata' });
+  } catch (err) { next(new AppError(ERRORS.MH_1203, err.message)); }
 });
 
 router.delete('/mailboxes/:id', async (req, res, next) => {
@@ -263,7 +302,24 @@ router.get('/sync-status', async (req, res) => {
     const r = await db.query(
       `SELECT sl.*, m.email as mailbox_email FROM sync_log sl
        JOIN mailboxes m ON m.id = sl.mailbox_id
-       ORDER BY sl.started_at DESC LIMIT 20`
+       ORDER BY sl.started_at DESC LIMIT 50`
+    );
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
+// GET /admin/mailboxes/:id/sync-status — storico sync per casella specifica
+router.get('/mailboxes/:id/sync-status', async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query(
+      `SELECT sl.*, m.email as mailbox_email
+       FROM sync_log sl
+       JOIN mailboxes m ON m.id = sl.mailbox_id
+       WHERE sl.mailbox_id = $1
+       ORDER BY sl.started_at DESC
+       LIMIT 50`,
+      [req.params.id]
     );
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight } from 'lucide-react'
 
 const tabs = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
 
@@ -971,6 +971,13 @@ function MailboxesTab({ branding, user }) {
     setDeleteItem(null); load()
   }
 
+  const handleToggleActive = async (m) => {
+    try {
+      const res = await api.patch(`/admin/mailboxes/${m.id}/toggle`)
+      setMailboxes(prev => prev.map(mb => mb.id === m.id ? { ...mb, active: res.data.active } : mb))
+    } catch { }
+  }
+
   const handleSync = async () => {
     setSyncing(true); setSyncMsg('')
     try {
@@ -1067,6 +1074,14 @@ function MailboxesTab({ branding, user }) {
                         <span className={`w-1.5 h-1.5 rounded-full ${m.has_password ? 'bg-green-500' : 'bg-amber-500'}`} />
                         {m.has_password ? 'IMAP configurato' : 'IMAP mancante'}
                       </span>
+                      {m.active === false && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Disabilitata
+                          </span>
+                        </>
+                      )}
                       {m.email_count > 0 && (
                         <>
                           <span className="text-gray-300">·</span>
@@ -1106,8 +1121,8 @@ function MailboxesTab({ branding, user }) {
                     } catch {}
                   }}
                     title={m.sync_paused ? 'Riprendi sync' : 'Pausa sync'}
-                    className={`p-1.5 rounded-lg transition-colors ${m.sync_paused ? 'text-orange-500 bg-orange-50 hover:bg-orange-100' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}>
-                    {m.sync_paused ? <Play size={14} /> : <Pause size={14} />}
+                    className={`p-2 rounded-lg transition-colors ${m.sync_paused ? 'text-orange-500 bg-orange-50 hover:bg-orange-100' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}>
+                    {m.sync_paused ? <Play size={16} /> : <Pause size={16} />}
                   </button>
                                     <button onClick={async (e) => {
                     e.stopPropagation()
@@ -1120,6 +1135,11 @@ function MailboxesTab({ branding, user }) {
                     setTimeout(() => setSyncMsg(''), 3000)
                   }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Sincronizza ora">
                     <RefreshCw size={14} />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); handleToggleActive(m) }}
+                    title={m.active ? 'Disabilita casella' : 'Abilita casella'}
+                    className={`p-1.5 rounded-lg transition-colors ${m.active !== false ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}`}>
+                    {m.active !== false ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                   </button>
                   <ActionMenu onEdit={() => openEdit(m)} onDelete={() => setDeleteItem(m)} />
                 </div>
