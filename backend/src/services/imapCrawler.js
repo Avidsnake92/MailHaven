@@ -327,14 +327,14 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
 
                   // Se message_id già noto (anche se eliminato/archiviato) → salta senza toccare nulla
                   if (parsed.messageId && knownMessageIds.has(parsed.messageId)) {
-                    processed++; return;
+                    return; // non incrementare processed
                   }
 
                   // Filtro include_unread — se la policy dice solo lette, salta le non lette
                   const archivePolicy = mailbox.archive_policy;
                   const policyFilter = archivePolicy?.filter || {};
                   if (policyFilter.include_unread === false && !isSeen) {
-                    processed++; return;
+                    return; // non incrementare processed
                   }
 
                   // Se message_id già archiviato, non reinserire — soprattutto se eliminato da policy
@@ -345,18 +345,16 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                     );
                     if (exists.rows.length > 0) {
                       const ex = exists.rows[0];
-                      // Se eliminata da policy (badge_type=archived) NON resuscitare mai
                       if (ex.badge_type === 'archived') {
-                        processed++; return;
+                        return; // non incrementare processed
                       }
-                      // Se path cambiato e non eliminata, aggiorna solo il path
                       if (ex.path !== folderPath && !ex.is_deleted) {
                         await db.query(
                           'UPDATE archived_emails SET path=$1 WHERE id=$2',
                           [folderPath, ex.id]
                         );
                       }
-                      processed++; return;
+                      return; // non incrementare processed
                     }
                   }
                   await db.query(

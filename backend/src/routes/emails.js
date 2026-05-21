@@ -490,25 +490,40 @@ router.post('/export', async (req, res) => {
   } catch (err) { console.error(err); if (!res.headersSent) res.status(500).json({ error: 'Errore export' }); }
 });
 
+// POST /emails/apply-policy/:mailbox_id — applica policy alle email già archiviate
+router.post('/apply-policy/:mailbox_id', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  if (!['admin', 'superadmin'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
+  try {
+    const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.mailbox_id]);
+    if (!r.rows[0]) return next(new AppError(ERRORS.MH_1201));
+    const { applyArchivePolicy } = require('../services/scheduler');
+    const count = await applyArchivePolicy(r.rows[0], db);
+    res.json({ message: `Policy applicata: ${count || 0} email elaborate` });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
 // POST /emails/sync/:mailbox_id — manual sync trigger
 router.post('/sync/:mailbox_id', async (req, res) => {
   const db = req.app.locals.db;
   if (!['admin', 'superadmin'].includes(req.user.role)) return res.status(403).json({ error: 'Accesso negato' });
-
   try {
     const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.mailbox_id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
-
-    res.json({ message: 'Sincronizzazione avviata' });
-
-    const { syncNow } = require('../services/scheduler');
-    setImmediate(() => {
-      const { syncMailbox } = require('../services/imapCrawler');
-      syncMailbox(r.rows[0], db)
-        .then(n => console.log(`Manual sync ${r.rows[0].email}: +${n} emails`))
-        .catch(e => console.error(`Manual sync error:`, e.message));
-    });
-  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+    const mailbox = r.rows[0];
+    const { syncMailbox } = require('../services/imapCrawler');
+    const { applyArchivePolicy } = require('../services/scheduler');
+    // Attende completamento sync prima di rispondere — così il frontend vede lo spinner
+    const n = await syncMailbox(mailbox, db);
+    if (applyArchivePolicy) {
+      await applyArchivePolicy(mailbox, db).catch(e => console.error('[Policy]', e.message));
+    }
+    console.log(`Manual sync ${mailbox.email}: +${n} emails`);
+    res.json({ message: 'Sincronizzazione completata', synced: n });
+  } catch (err) {
+    console.error('Manual sync error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 

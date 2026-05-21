@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.72] - 2026-05-20
+### Added
+- Bottone "Applica policy alle email già archiviate" in Impostazioni Sincronizzazione — elimina dall'IMAP le email già in archivio che rientrano nei criteri della policy
+- Route POST /emails/apply-policy/:mailbox_id per applicare policy manualmente
+
+### Fixed
+- Bottone sync manuale — ora attende il completamento prima di rispondere, lo spinner rimane visibile per tutta la durata della sync
+- imapCrawler: contatore processed++ ora incrementa solo su INSERT reale, non su email saltate per message_id noto
+- Dashboard: testi e icone scalati a dimensione intermedia (text-sm, icone +2px)
+
+### Changed
+- Route POST /emails/sync/:mailbox_id — risposta sincrona invece di fire-and-forget, include emails sincronizzate nel response
+
+
 ## [0.0.65] - 2026-05-15
 ### Added
 - **Sistema codici errore centralizzati** — nuovo file `errors.js` con codici MH-1xxx per tutte le funzioni (autenticazione, caselle, sync IMAP, email, ripristino, policy, antivirus, backup, sistema)

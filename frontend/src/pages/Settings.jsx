@@ -750,6 +750,26 @@ export default function Settings() {
                               <Loader2 size={11} className="animate-spin" /> Salvataggio...
                             </p>
                           )}
+
+                          {/* Applica policy alle email già archiviate */}
+                          {del.mode && del.mode !== 'never' && (
+                            <div className="border-t border-gray-100 pt-3 mt-1">
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Applicare la policy alle email già archiviate di ${m.email}? Le email che rientrano nei criteri verranno eliminate dall'IMAP.`)) return;
+                                  try {
+                                    const res = await api.post(`/emails/apply-policy/${m.id}`);
+                                    alert(res.data.message);
+                                  } catch (e) {
+                                    alert(e.response?.data?.error || 'Errore');
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors font-medium">
+                                ⚡ Applica policy alle email già archiviate
+                              </button>
+                              <p className="text-[10px] text-gray-400 mt-1">Elimina dall'IMAP le email già in archivio che rientrano nei criteri configurati.</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )
