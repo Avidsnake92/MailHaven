@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.0.74] - 2026-05-24
+### Added
+- Security: CORS whitelist con supporto reti locali automatico (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+- Security: CSP abilitato con policy completa
+- Security: JWT blacklist su PostgreSQL — logout invalida il token sul backend
+- Security: route POST /auth/logout con invalidazione token
+- Security: middleware validate.js per schema validation senza dipendenze esterne
+- Security: input sanitization middleware (rimuove chiavi con $ e .)
+- Security: PostgreSQL pool tuning (max 20 conn, timeout, statement_timeout)
+- Security: 404 handler globale
+- Security: jwtBlacklist.js — servizio blacklist con cleanup automatico ogni ora
+
+### Fixed
+- crypto.js: fix encryptBuffer/decryptBuffer usavano utf8 invece di hex per la chiave — causava Invalid key length
+- migrate.js: fix date 1970 ora prova tutti i formati header (date, Date, received, Received)
+- Logs.jsx: rimossi simboli )} spurii dopo ogni log sync
+- index.js: rimosse route duplicate (oauth, update, reports montate due volte)
+- auth.js: aggiunto jti ai token JWT per supporto blacklist
+- admin.js: validate schema su createUser
+
+### Changed
+- index.js: helmet hardened con CSP completo, HSTS, referrer policy
+- auth middleware: controlla blacklist JWT ad ogni richiesta
+- AuthContext: logout chiama API /auth/logout prima di rimuovere token locale
+
+
 ## [0.0.72] - 2026-05-20
 ### Added
 - Bottone "Applica policy alle email già archiviate" in Impostazioni Sincronizzazione — elimina dall'IMAP le email già in archivio che rientrano nei criteri della policy

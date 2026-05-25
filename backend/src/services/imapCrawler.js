@@ -23,6 +23,10 @@ const getSpamScore = (headers) => {
 // Rimuove byte null e caratteri invalidi per PostgreSQL UTF8
 const sanitizeText = (str) => {
   if (str == null) return null;
+  // Gestisce casi in cui il parser restituisce un oggetto invece di una stringa
+  if (typeof str !== 'string') {
+    try { str = String(str); } catch { return null; }
+  }
   return str.replace(/\x00/g, '').replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/\uFFFD/g, '');
 };
 

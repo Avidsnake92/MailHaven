@@ -19,7 +19,17 @@ export const AuthProvider = ({ children }) => {
   const warningTimer = useRef(null)
   const refreshTimer = useRef(null)
 
-  const logout = useCallback((reason = '') => {
+  const logout = useCallback(async (reason = '') => {
+    // Invalida token sul backend (blacklist)
+    try {
+      const token = localStorage.getItem('mv_token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      }
+    } catch {}
     localStorage.removeItem('mv_token')
     localStorage.removeItem('mv_user')
     setUser(null)

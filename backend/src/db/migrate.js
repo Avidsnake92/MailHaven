@@ -33,6 +33,15 @@ const migrate = async (db) => {
   await run(`CREATE INDEX IF NOT EXISTS idx_report_messages_report_id ON report_messages(report_id)`);
   await run(`DROP TRIGGER IF EXISTS trig_deduplicate_email ON archived_emails`);
 
+  // JWT Blacklist per token revocation al logout
+  await run(`CREATE TABLE IF NOT EXISTS jwt_blacklist (
+    jti VARCHAR(255) PRIMARY KEY,
+    user_id INTEGER,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_jwt_blacklist_expires ON jwt_blacklist(expires_at)`);
+
   // Badge temporizzati
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_type VARCHAR(20) DEFAULT NULL`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_expires_at TIMESTAMP DEFAULT NULL`);
@@ -58,11 +67,27 @@ const migrate = async (db) => {
       for (const row of bad.rows) {
         try {
           const headers = typeof row.headers === 'string' ? JSON.parse(row.headers) : row.headers;
-          const raw = headers['date'] || headers['Date'] || null;
-          if (!raw) continue;
-          const d = new Date(raw);
-          if (!isNaN(d.getTime()) && d.getFullYear() > 1970 && d.getFullYear() < 2100) {
-            await db.query(`UPDATE archived_emails SET sent_at=$1 WHERE id=$2`, [d, row.id]);
+          const rawDates = [
+            headers['date'], headers['Date'], headers['DATE'],
+            headers['received'], headers['Received'],
+          ];
+          let fixedDate = null;
+          for (const raw of rawDates) {
+            if (!raw) continue;
+            const str = Array.isArray(raw) ? raw[0] : String(raw);
+            const candidates = [str];
+            const match = str.match(/;\s*(.+)$/);
+            if (match) candidates.push(match[1].trim());
+            for (const candidate of candidates) {
+              const d = new Date(candidate);
+              if (!isNaN(d.getTime()) && d.getFullYear() > 1970 && d.getFullYear() < 2100) {
+                fixedDate = d; break;
+              }
+            }
+            if (fixedDate) break;
+          }
+          if (fixedDate) {
+            await db.query(`UPDATE archived_emails SET sent_at=$1 WHERE id=$2`, [fixedDate, row.id]);
             fixed++;
           }
         } catch {}

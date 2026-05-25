@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { log } = require('../services/logger');
 const { ERRORS, AppError } = require('../errors');
+const { validate, schemas } = require('../middleware/validate');
 
 // Validazione password
 const validatePassword = (password) => {
@@ -80,7 +81,7 @@ router.get('/users', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
-router.post('/users', async (req, res, next) => {
+router.post('/users', validate(schemas.createUser), async (req, res, next) => {
   const db = req.app.locals.db;
   const { email, password, full_name, role, client_id } = req.body;
   if (req.user.role === 'admin' && role !== 'user') {

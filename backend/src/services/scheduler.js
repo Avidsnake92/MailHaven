@@ -156,13 +156,6 @@ const syncAllMailboxes = async () => {
       try {
         const synced = await syncMailbox(mailbox, db);
 
-        // Conta email archiviate da policy in questo ciclo
-        let archivedByPolicy = 0;
-        try {
-          const policyResult = await applyArchivePolicy(mailbox, db);
-          archivedByPolicy = policyResult || 0;
-        } catch (e) { console.error('[Policy]', e.message); }
-
         // Conta email eliminate esternamente in questo ciclo
         const extDeleted = await db.query(
           `SELECT COUNT(*) FROM archived_emails
@@ -175,7 +168,7 @@ const syncAllMailboxes = async () => {
         const details = {
           duration_sec: durationSec,
           emails_new: synced,
-          emails_archived_policy: archivedByPolicy,
+          emails_archived_policy: 0,
           emails_deleted_external: parseInt(extDeleted.rows[0].count),
         };
 
@@ -183,13 +176,27 @@ const syncAllMailboxes = async () => {
           `UPDATE sync_log SET status='completed', emails_synced=$1,
            emails_archived=$2, emails_deleted_external=$3,
            details=$4, finished_at=NOW() WHERE id=$5`,
-          [synced, archivedByPolicy, parseInt(extDeleted.rows[0].count),
+          [synced, 0, parseInt(extDeleted.rows[0].count),
            JSON.stringify(details), logId]
         );
         if (synced > 0) {
           console.log(`[Scheduler] ${mailbox.email}: +${synced} emails`);
           try { const avBatch = require('./avBatchScanner'); avBatch.runNow(db); } catch(e) {}
         }
+
+        // Policy gira DOPO il completamento del ciclo con un delay
+        // Evita che le email appena archiviate vengano subito eliminate e riarchiviete
+        setTimeout(async () => {
+          try {
+            const archived = await applyArchivePolicy(mailbox, db);
+            if (archived > 0) {
+              await db.query(
+                `UPDATE sync_log SET emails_archived=$1 WHERE id=$2`,
+                [archived, logId]
+              );
+            }
+          } catch(e) { console.error('[Policy]', e.message); }
+        }, 10000); // 10 secondi dopo la sync
       } catch (err) {
         console.error(`[Scheduler] Error syncing ${mailbox.email}:`, err.message);
         await db.query(
@@ -287,4 +294,4 @@ const start = async (database) => {
 const stop = () => { if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; } };
 const runNow = () => syncAllMailboxes();
 
-module.exports = { start, stop, runNow };
+module.exports = { start, stop, runNow, applyArchivePolicy };

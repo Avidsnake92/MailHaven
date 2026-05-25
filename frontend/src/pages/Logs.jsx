@@ -482,10 +482,6 @@ function SyncLog() {
                               </p>
                             )}
                           </div>
-                          )}
-                          {log.error && (
-                            <p className="text-xs text-red-600 mt-1 font-mono bg-red-100 rounded px-2 py-1 break-all">{log.error}</p>
-                          )}
                         </div>
                       ))}
                     </div>
