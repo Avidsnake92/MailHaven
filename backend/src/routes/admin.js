@@ -520,6 +520,57 @@ router.get('/storage/vm', requireRole('superadmin'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /admin/key-rotation — ruota la chiave di cifratura (solo superadmin)
+router.post('/key-rotation', authMiddleware, requireRole('superadmin'), async (req, res, next) => {
+  const db = req.app.locals.db;
+  const { password } = req.body;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+  if (!password) return next(new AppError(ERRORS.MH_1001, 'Password obbligatoria'));
+  try {
+    // Verifica password superadmin
+    const userR = await db.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
+    const valid = await bcrypt.compare(password, userR.rows[0].password_hash);
+    if (!valid) return next(new AppError(ERRORS.MH_1001, 'Password non corretta'));
+
+    const { encrypt, decrypt } = require('../services/crypto');
+    const crypto = require('crypto');
+
+    // Genera nuova chiave
+    const newKeyHex = crypto.randomBytes(32).toString('hex');
+    const oldKeyHex = process.env.ENCRYPTION_KEY;
+
+    // Re-cifra tutte le password IMAP con la nuova chiave
+    const mailboxes = await db.query('SELECT id, imap_password_encrypted FROM mailboxes WHERE imap_password_encrypted IS NOT NULL');
+    let reencrypted = 0;
+    for (const m of mailboxes.rows) {
+      try {
+        const plain = decrypt(m.imap_password_encrypted);
+        if (!plain) continue;
+        // Cifra con nuova chiave temporaneamente
+        const oldKey = process.env.ENCRYPTION_KEY;
+        process.env.ENCRYPTION_KEY = newKeyHex;
+        const newEncrypted = encrypt(plain);
+        process.env.ENCRYPTION_KEY = oldKey;
+        await db.query('UPDATE mailboxes SET imap_password_encrypted=$1 WHERE id=$2', [newEncrypted, m.id]);
+        reencrypted++;
+      } catch(e) { console.error(`[KeyRotation] Error re-encrypting mailbox ${m.id}:`, e.message); }
+    }
+
+    // Salva nuova chiave nel DB e nel processo
+    await db.query(`INSERT INTO settings (key, value) VALUES ('encryption_key', $1)
+      ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=NOW()`, [newKeyHex]);
+    process.env.ENCRYPTION_KEY = newKeyHex;
+
+    // Log rotazione
+    await db.query('INSERT INTO key_rotation_log (performed_by, ip_address) VALUES ($1, $2)', [req.user.id, ip]);
+
+    res.json({
+      message: `Chiave ruotata con successo. ${reencrypted} caselle re-cifrate.`,
+      rotated_at: new Date().toISOString(),
+    });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
 module.exports = router;
 // ---- ACTIVITY LOG ----
 router.get('/logs', async (req, res) => {

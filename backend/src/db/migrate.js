@@ -33,6 +33,34 @@ const migrate = async (db) => {
   await run(`CREATE INDEX IF NOT EXISTS idx_report_messages_report_id ON report_messages(report_id)`);
   await run(`DROP TRIGGER IF EXISTS trig_deduplicate_email ON archived_emails`);
 
+  // Colonne profilo utente
+  await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone VARCHAR(100) DEFAULT 'Europe/Rome'`);
+  await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'it'`);
+  await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50) DEFAULT NULL`);
+  await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500) DEFAULT NULL`);
+
+  // Tabella sessioni attive per concurrent session control
+  await run(`CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    jti VARCHAR(255) UNIQUE NOT NULL,
+    device_info JSONB DEFAULT NULL,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_seen TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL
+  )`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at)`);
+
+  // Tabella log rotazione chiave
+  await run(`CREATE TABLE IF NOT EXISTS key_rotation_log (
+    id SERIAL PRIMARY KEY,
+    performed_by INTEGER REFERENCES users(id),
+    performed_at TIMESTAMP DEFAULT NOW(),
+    ip_address VARCHAR(45)
+  )`);
+
   // JWT Blacklist per token revocation al logout
   await run(`CREATE TABLE IF NOT EXISTS jwt_blacklist (
     jti VARCHAR(255) PRIMARY KEY,

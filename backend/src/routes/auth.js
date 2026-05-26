@@ -135,6 +135,19 @@ router.post('/login', validate(schemas.login), async (req, res) => {
       { expiresIn: '15m' }
     );
 
+    // Salva sessione nel DB
+    try {
+      const ua = req.headers['user-agent'] || '';
+      await db.query(
+        `INSERT INTO user_sessions (user_id, jti, ip_address, device_info, expires_at)
+         VALUES ($1, $2, $3, $4, NOW() + INTERVAL '15 minutes')
+         ON CONFLICT (jti) DO NOTHING`,
+        [user.id, jti, ip, JSON.stringify({ ua: ua.slice(0, 200) })]
+      );
+      // Pulizia sessioni scadute
+      await db.query('DELETE FROM user_sessions WHERE expires_at < NOW()');
+    } catch(e) { console.error('[Sessions] Save error:', e.message); }
+
     res.json({
       token,
       user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role, client_id: user.client_id }
@@ -160,15 +173,144 @@ router.post('/refresh', authMiddleware, async (req, res) => {
 });
 
 // Get current user
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
   try {
     const result = await db.query(
-      'SELECT id, email, full_name, role, client_id, last_login, totp_enabled FROM users WHERE id = $1',
+      'SELECT id, email, full_name, role, client_id, last_login, totp_enabled, timezone, language, phone FROM users WHERE id = $1',
       [req.user.id]
     );
+    if (!result.rows[0]) return next(new AppError(ERRORS.MH_1101));
     res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
+// POST /auth/avatar — upload immagine profilo
+router.post('/avatar', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  const multer = require('multer');
+  const path = require('path');
+  const fs = require('fs');
+
+  const uploadDir = path.join(__dirname, '../../uploads/avatars');
+  fs.mkdirSync(uploadDir, { recursive: true });
+
+  const storage = multer.diskStorage({
+    destination: uploadDir,
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `user_${req.user.id}_${Date.now()}${ext}`);
+    },
+  });
+
+  const upload = multer({
+    storage,
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+    fileFilter: (req, file, cb) => {
+      const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (!allowed.includes(ext)) return cb(new Error('Formato non supportato. Usa JPG, PNG o WEBP'));
+      cb(null, true);
+    },
+  }).single('avatar');
+
+  upload(req, res, async (err) => {
+    if (err) return next(new AppError({ ...ERRORS.MH_1903, message: err.message }, err.message));
+    if (!req.file) return next(new AppError(ERRORS.MH_1402, 'Nessun file caricato'));
+
+    // Elimina vecchio avatar se esiste
+    try {
+      const old = await db.query('SELECT avatar_url FROM users WHERE id=$1', [req.user.id]);
+      if (old.rows[0]?.avatar_url && old.rows[0].avatar_url.startsWith('/uploads/')) {
+        const oldPath = path.join(__dirname, '../../', old.rows[0].avatar_url);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+    } catch {}
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    await db.query('UPDATE users SET avatar_url=$1, updated_at=NOW() WHERE id=$2', [avatarUrl, req.user.id]);
+    res.json({ avatar_url: avatarUrl });
+  });
+});
+
+// DELETE /auth/avatar — rimuovi avatar
+router.delete('/avatar', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query('SELECT avatar_url FROM users WHERE id=$1', [req.user.id]);
+    if (r.rows[0]?.avatar_url?.startsWith('/uploads/')) {
+      const fs = require('fs');
+      const path = require('path');
+      const p = path.join(__dirname, '../../', r.rows[0].avatar_url);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+    await db.query('UPDATE users SET avatar_url=NULL, updated_at=NOW() WHERE id=$1', [req.user.id]);
+    res.json({ ok: true });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
+// PUT /auth/avatar/preset — scegli avatar predefinito
+router.put('/avatar/preset', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  const { preset } = req.body;
+  const validPresets = ['preset_1','preset_2','preset_3','preset_4','preset_5','preset_6','preset_7','preset_8'];
+  if (!validPresets.includes(preset)) return next(new AppError(ERRORS.MH_1402, 'Preset non valido'));
+  try {
+    const avatarUrl = `/avatars/${preset}.svg`;
+    await db.query('UPDATE users SET avatar_url=$1, updated_at=NOW() WHERE id=$2', [avatarUrl, req.user.id]);
+    res.json({ avatar_url: avatarUrl });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
+// PUT /auth/profile — aggiorna profilo utente
+router.put('/profile', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  const { full_name, timezone, language, phone } = req.body;
+  try {
+    if (full_name !== undefined && (typeof full_name !== 'string' || full_name.trim().length < 2)) {
+      return next(new AppError(ERRORS.MH_1104, 'Il nome deve avere almeno 2 caratteri'));
+    }
+    const allowed_timezones = ['Europe/Rome','Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','Asia/Tokyo','UTC'];
+    const allowed_languages = ['it','en','de','fr','es'];
+    if (timezone && !allowed_timezones.includes(timezone)) return next(new AppError(ERRORS.MH_1104, 'Timezone non valida'));
+    if (language && !allowed_languages.includes(language)) return next(new AppError(ERRORS.MH_1104, 'Lingua non valida'));
+    await db.query(
+      `UPDATE users SET full_name=COALESCE($1,full_name), timezone=COALESCE($2,timezone),
+       language=COALESCE($3,language), phone=COALESCE($4,phone), updated_at=NOW() WHERE id=$5`,
+      [full_name?.trim()||null, timezone||null, language||null, phone?.trim()||null, req.user.id]
+    );
+    const updated = await db.query(
+      'SELECT id,email,full_name,role,timezone,language,phone,totp_enabled FROM users WHERE id=$1',
+      [req.user.id]
+    );
+    res.json(updated.rows[0]);
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
+// GET /auth/sessions — lista sessioni attive
+router.get('/sessions', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query(
+      `SELECT id, ip_address, device_info, created_at, last_seen, (jti=$2) as is_current
+       FROM user_sessions WHERE user_id=$1 AND expires_at>NOW() ORDER BY last_seen DESC`,
+      [req.user.id, req.user.jti||'']
+    );
+    res.json(r.rows);
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
+// DELETE /auth/sessions/:id — termina una sessione
+router.delete('/sessions/:id', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query('SELECT jti FROM user_sessions WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    if (!r.rows.length) return next(new AppError(ERRORS.MH_1401));
+    const { blacklistToken } = require('../services/jwtBlacklist');
+    await blacklistToken(db, r.rows[0].jti, req.user.id, Math.floor(Date.now()/1000)+900);
+    await db.query('DELETE FROM user_sessions WHERE id=$1', [req.params.id]);
+    res.json({ message: 'Sessione terminata' });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
 });
 
 // Change password

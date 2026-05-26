@@ -158,6 +158,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Static files — uploads e avatar predefiniti ───────────────────────────
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/avatars', express.static(path.join(__dirname, '../public/avatars')));
+
 // ── Plugin Office — headers speciali ──────────────────────────────────────
 app.use('/plugin', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');

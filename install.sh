@@ -185,6 +185,7 @@ if [ "$INSTALL_MODE" = "1" ]; then
   ask "URL di accesso [http://${LOCAL_IP}:8080]:"
   read OAUTH_REDIRECT_BASE_URL
   OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL:-http://${LOCAL_IP}:8080}
+  APP_URL=$OAUTH_REDIRECT_BASE_URL
   SMTP_HOST=""
   SMTP_PORT="587"
   SMTP_SECURE="false"
@@ -244,6 +245,7 @@ else
   ask "URL base OAuth redirect [http://${LOCAL_IP}:8080]:"
   read OAUTH_REDIRECT_BASE_URL
   OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL:-http://${LOCAL_IP}:8080}
+  APP_URL=$OAUTH_REDIRECT_BASE_URL
 fi
 
 done_step
@@ -269,6 +271,7 @@ MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL}
+APP_URL=${APP_URL}
 ENVEOF
 
 ok "File .env creato"
@@ -317,8 +320,7 @@ echo ""
 
 # Verifica che i container siano partiti
 sleep 5
-RUNNING=$(docker compose ps --status running 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
-RUNNING=${RUNNING:-0}
+RUNNING=$(docker compose ps --status running 2>/dev/null | grep -c "running" || echo "0")
 if [ "$RUNNING" -ge 3 ]; then
   ok "Container avviati ($RUNNING/3)"
 else

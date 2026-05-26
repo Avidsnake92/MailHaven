@@ -82,11 +82,13 @@ export default function Layout() {
   const UserBar = () => (
     <div className="px-3 py-4 border-t border-gray-100">
       <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-          style={{ background: branding.primary_color || '#2563eb' }}>
+        <button onClick={() => navigate('/profile')}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 hover:opacity-80 transition-opacity"
+          style={{ background: branding.primary_color || '#2563eb' }}
+          title="Profilo">
           {(user?.full_name || user?.email || '?')[0].toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
+        </button>
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate('/profile')}>
           <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name || user?.email}</p>
           <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
         </div>

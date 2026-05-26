@@ -16,6 +16,7 @@ import Security from './pages/Security'
 import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
 import GlobalSearch from './pages/GlobalSearch'
+import Profile from './pages/Profile'
 import Layout from './components/Layout'
 import UpdateNotification from './components/UpdateNotification'
 import api from './services/api'
@@ -72,6 +73,7 @@ function AppContent() {
           <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="email/:id" element={<EmailView />} />
           <Route path="global-search" element={<GlobalSearch />} />
+          <Route path="profile" element={<Profile />} />
           <Route path="antispam" element={<Antispam />} />
           <Route path="backup" element={
             <ProtectedRoute roles={['superadmin']}><Backup /></ProtectedRoute>
