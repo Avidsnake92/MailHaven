@@ -83,6 +83,14 @@ export const AuthProvider = ({ children }) => {
     // Refresh token ogni 10 minuti
     refreshTimer.current = setInterval(refreshToken, REFRESH_INTERVAL)
 
+    const refreshAvatar = async () => {
+    try {
+      const api = (await import('../services/api')).default
+      const r = await api.get('/auth/me')
+      setUser(u => u ? { ...u, avatar_url: r.data.avatar_url } : u)
+    } catch {}
+  }
+
     return () => {
       events.forEach(e => window.removeEventListener(e, handleActivity))
       clearTimeout(inactivityTimer.current)
@@ -100,8 +108,16 @@ export const AuthProvider = ({ children }) => {
     return res.data.user
   }
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading, sessionWarning, resetInactivityTimer }}>
+  const refreshAvatar = async () => {
+    try {
+      const api = (await import('../services/api')).default
+      const r = await api.get('/auth/me')
+      setUser(u => u ? { ...u, avatar_url: r.data.avatar_url } : u)
+    } catch {}
+  }
+
+    return (
+    <AuthContext.Provider value={{ user, login, logout, loading, sessionWarning, resetInactivityTimer, refreshAvatar }}>
       {/* Avviso sessione in scadenza */}
       {sessionWarning && (
         <div style={{

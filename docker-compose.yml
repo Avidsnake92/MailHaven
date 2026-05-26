@@ -38,6 +38,7 @@ services:
       - ./check-update.sh:/root/mailhaven/check-update.sh
       - ./version.json:/app/version.json
       - ./CHANGELOG.md:/app/CHANGELOG.md
+      - mailhaven-uploads:/app/uploads
 
   mailhaven-frontend:
     build: ./frontend
@@ -69,6 +70,8 @@ networks:
     driver: bridge
 
 volumes:
+  mailhaven-uploads:
+    driver: local
   mailhaven-db-data:
     external: true
     name: mailhaven_mailhaven-db-data

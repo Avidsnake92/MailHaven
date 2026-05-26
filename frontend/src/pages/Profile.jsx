@@ -25,8 +25,6 @@ const LANGUAGES = [
   { value: 'es', label: '🇪🇸 Español' },
 ]
 
-const PRESETS = [1,2,3,4,5,6,7,8]
-
 // Avatar component
 function Avatar({ avatarUrl, name, email, size = 'lg', onClick }) {
   const initials = name
@@ -51,7 +49,7 @@ function Avatar({ avatarUrl, name, email, size = 'lg', onClick }) {
 }
 
 export default function Profile() {
-  const { user, login } = useAuth()
+  const { user, login, refreshAvatar } = useAuth()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -108,20 +106,11 @@ export default function Profile() {
       fd.append('avatar', file)
       const r = await api.post('/auth/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       setAvatarUrl(r.data.avatar_url)
+      if (refreshAvatar) refreshAvatar()
       setMsg('Avatar aggiornato')
       setTimeout(() => setMsg(''), 3000)
     } catch (e) { setError(e.displayMessage || 'Errore upload') }
     finally { setUploadingAvatar(false) }
-  }
-
-  const handlePresetSelect = async (preset) => {
-    try {
-      const r = await api.put('/auth/avatar/preset', { preset: `preset_${preset}` })
-      setAvatarUrl(r.data.avatar_url)
-      setShowAvatarPicker(false)
-      setMsg('Avatar aggiornato')
-      setTimeout(() => setMsg(''), 3000)
-    } catch (e) { setError(e.displayMessage || 'Errore') }
   }
 
   const handleRemoveAvatar = async () => {
@@ -215,38 +204,24 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Avatar picker */}
+        {/* Avatar picker — solo upload personalizzato */}
         {showAvatarPicker && (
           <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-gray-700">Scegli avatar</p>
+              <p className="text-sm font-semibold text-gray-700">Cambia foto profilo</p>
               <button onClick={() => setShowAvatarPicker(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={16} />
               </button>
             </div>
-
-            {/* Avatar predefiniti */}
-            <p className="text-xs text-gray-500 mb-2">Avatar predefiniti</p>
-            <div className="grid grid-cols-8 gap-2 mb-3">
-              {PRESETS.map(p => (
-                <button key={p} onClick={() => handlePresetSelect(p)}
-                  className="w-10 h-10 rounded-full overflow-hidden hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all">
-                  <img src={`/avatars/preset_${p}.svg`} alt={`Preset ${p}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-
-            {/* Upload personalizzato */}
-            <p className="text-xs text-gray-500 mb-2">Oppure carica una tua foto</p>
             <div className="flex items-center gap-2">
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp"
                 onChange={handleAvatarUpload} className="hidden" />
               <button onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 text-sm px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-white transition-colors">
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 <Upload size={13} /> Carica foto
               </button>
               <span className="text-xs text-gray-400">JPG, PNG, WEBP · max 2MB</span>
-              {avatarUrl && (
+              {avatarUrl && avatarUrl.startsWith('/uploads/') && (
                 <button onClick={handleRemoveAvatar}
                   className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 ml-auto">
                   <Trash2 size={12} /> Rimuovi
