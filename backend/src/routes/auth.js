@@ -177,7 +177,7 @@ router.get('/me', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
   try {
     const result = await db.query(
-      'SELECT id, email, full_name, role, client_id, last_login, totp_enabled, timezone, language, phone FROM users WHERE id = $1',
+      'SELECT id, email, full_name, role, client_id, last_login, totp_enabled, timezone, language, phone, avatar_url FROM users WHERE id = $1',
       [req.user.id]
     );
     if (!result.rows[0]) return next(new AppError(ERRORS.MH_1101));

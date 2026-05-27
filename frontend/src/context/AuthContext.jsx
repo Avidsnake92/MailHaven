@@ -105,6 +105,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('mv_token', res.data.token)
     localStorage.setItem('mv_user', JSON.stringify(res.data.user))
     setUser(res.data.user)
+    try {
+      const pr = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + res.data.token } })
+      if (pr.ok) { const full = await pr.json(); setUser(u => ({ ...u, avatar_url: full.avatar_url })) }
+    } catch {}
     return res.data.user
   }
 
