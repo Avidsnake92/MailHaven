@@ -13,21 +13,20 @@ export const AuthProvider = ({ children }) => {
     return u ? JSON.parse(u) : null
   })
   const [loading, setLoading] = useState(false)
-  const [sessionWarning, setSessionWarning] = useState(false) // mostra avviso scadenza
+  const [sessionWarning, setSessionWarning] = useState(false)
 
   const inactivityTimer = useRef(null)
   const warningTimer = useRef(null)
   const refreshTimer = useRef(null)
 
   const logout = useCallback(async (reason = '') => {
-    // Invalida token sul backend (blacklist)
     try {
-      const token = localStorage.getItem('mv_token');
+      const token = localStorage.getItem('mv_token')
       if (token) {
         await fetch('/api/auth/logout', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
+        }).catch(() => {})
       }
     } catch {}
     localStorage.removeItem('mv_token')
@@ -37,9 +36,7 @@ export const AuthProvider = ({ children }) => {
     clearTimeout(inactivityTimer.current)
     clearTimeout(warningTimer.current)
     clearInterval(refreshTimer.current)
-    if (reason) {
-      sessionStorage.setItem('logout_reason', reason)
-    }
+    if (reason) sessionStorage.setItem('logout_reason', reason)
     window.location.href = '/login'
   }, [])
 
@@ -47,8 +44,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.post('/auth/refresh')
       localStorage.setItem('mv_token', res.data.token)
-    } catch (err) {
-      // 401 = sessione di 8 ore scaduta
+    } catch {
       logout('Sessione scaduta. Effettua nuovamente il login.')
     }
   }, [logout])
@@ -57,40 +53,21 @@ export const AuthProvider = ({ children }) => {
     setSessionWarning(false)
     clearTimeout(inactivityTimer.current)
     clearTimeout(warningTimer.current)
-
-    // Avviso 2 minuti prima del logout
     warningTimer.current = setTimeout(() => {
       setSessionWarning(true)
     }, INACTIVITY_TIMEOUT - WARNING_BEFORE)
-
-    // Logout per inattività
     inactivityTimer.current = setTimeout(() => {
       logout('Sessione scaduta per inattività.')
     }, INACTIVITY_TIMEOUT)
   }, [logout])
 
-  // Avvia timer quando l'utente è loggato
   useEffect(() => {
     if (!user) return
-
-    // Eventi di attività utente
     const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
     const handleActivity = () => resetInactivityTimer()
-
     events.forEach(e => window.addEventListener(e, handleActivity))
     resetInactivityTimer()
-
-    // Refresh token ogni 10 minuti
     refreshTimer.current = setInterval(refreshToken, REFRESH_INTERVAL)
-
-    const refreshAvatar = async () => {
-    try {
-      const api = (await import('../services/api')).default
-      const r = await api.get('/auth/me')
-      setUser(u => u ? { ...u, avatar_url: r.data.avatar_url } : u)
-    } catch {}
-  }
-
     return () => {
       events.forEach(e => window.removeEventListener(e, handleActivity))
       clearTimeout(inactivityTimer.current)
@@ -105,24 +82,36 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('mv_token', res.data.token)
     localStorage.setItem('mv_user', JSON.stringify(res.data.user))
     setUser(res.data.user)
+    // Carica subito avatar_url dal profilo completo
     try {
       const pr = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + res.data.token } })
-      if (pr.ok) { const full = await pr.json(); setUser(u => ({ ...u, avatar_url: full.avatar_url })) }
+      if (pr.ok) {
+        const full = await pr.json()
+        setUser(u => {
+          const updated = { ...u, avatar_url: full.avatar_url }
+          localStorage.setItem('mv_user', JSON.stringify(updated))
+          return updated
+        })
+      }
     } catch {}
     return res.data.user
   }
 
-  const refreshAvatar = async () => {
+  // Aggiorna avatar_url nello state e in localStorage — usabile da Profile.jsx
+  const refreshAvatar = useCallback(async () => {
     try {
-      const api = (await import('../services/api')).default
       const r = await api.get('/auth/me')
-      setUser(u => u ? { ...u, avatar_url: r.data.avatar_url } : u)
+      setUser(u => {
+        if (!u) return u
+        const updated = { ...u, avatar_url: r.data.avatar_url }
+        localStorage.setItem('mv_user', JSON.stringify(updated))
+        return updated
+      })
     } catch {}
-  }
+  }, [])
 
-    return (
+  return (
     <AuthContext.Provider value={{ user, login, logout, loading, sessionWarning, resetInactivityTimer, refreshAvatar }}>
-      {/* Avviso sessione in scadenza */}
       {sessionWarning && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,

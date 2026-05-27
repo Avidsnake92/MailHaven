@@ -4,22 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
 import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle, Search } from 'lucide-react'
 
-function useUserAvatar() {
-  const [avatarUrl, setAvatarUrl] = React.useState(null)
-  React.useEffect(() => {
-    const token = localStorage.getItem('mv_token')
-    if (!token) return
-    fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d?.avatar_url && setAvatarUrl(d.avatar_url))
-      .catch(() => {})
-  }, [])
-  return avatarUrl
-}
-
 export default function Layout() {
-  const { user, logout } = useAuth()
-  const avatarUrl = useUserAvatar()
+  const { user, logout, refreshAvatar } = useAuth()
   const { branding } = useBranding()
   const navigate = useNavigate()
   const location = useLocation()
@@ -28,6 +14,11 @@ export default function Layout() {
     location.pathname === '/logs' || location.pathname === '/audit'
   )
   const [settingsOpen, setSettingsOpen] = useState(location.pathname === '/settings')
+
+  // Aggiorna avatar quando si torna sulla sidebar (es. dopo cambio in Profile)
+  useEffect(() => {
+    refreshAvatar()
+  }, [location.pathname])
 
   useEffect(() => { setSidebarOpen(false) }, [location.pathname])
   useEffect(() => {
@@ -51,6 +42,8 @@ export default function Layout() {
   const sectionLabel = (label) => (
     <p className="px-4 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
   )
+
+  const avatarUrl = user?.avatar_url || null
 
   const NavItems = () => (
     <>

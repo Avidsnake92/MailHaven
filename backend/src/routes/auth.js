@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const { v: uuidv4 } = require('uuid');
 const { authMiddleware } = require('../middleware/auth');
 const { ERRORS, AppError } = require('../errors');
@@ -11,6 +14,29 @@ const { log } = require('../services/logger');
 const { sendAccountBlocked } = require('../services/mailer');
 const { generateSecret, generateQR, verifyToken } = require('../services/totp');
 const { encrypt, decrypt } = require('../services/crypto');
+
+// ── Multer — inizializzato una volta sola al caricamento del modulo ─────────
+const uploadDir = path.join(__dirname, '../../uploads/avatars');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const avatarStorage = multer.diskStorage({
+  destination: uploadDir,
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `user_${req.user.id}_${Date.now()}${ext}`);
+  },
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowed.includes(ext)) return cb(new Error('Formato non supportato. Usa JPG, PNG o WEBP'));
+    cb(null, true);
+  },
+}).single('avatar');
 
 const getIp = (req) => {
   const fwd = req.headers['x-forwarded-for'];
@@ -186,47 +212,18 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 });
 
 // POST /auth/avatar — upload immagine profilo
-router.post('/avatar', authMiddleware, async (req, res, next) => {
+router.post('/avatar', authMiddleware, (req, res, next) => {
   const db = req.app.locals.db;
-  const multer = require('multer');
-  const path = require('path');
-  const fs = require('fs');
-
-  const uploadDir = path.join(__dirname, '../../uploads/avatars');
-  fs.mkdirSync(uploadDir, { recursive: true });
-
-  const storage = multer.diskStorage({
-    destination: uploadDir,
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      cb(null, `user_${req.user.id}_${Date.now()}${ext}`);
-    },
-  });
-
-  const upload = multer({
-    storage,
-    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
-    fileFilter: (req, file, cb) => {
-      const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
-      const ext = path.extname(file.originalname).toLowerCase();
-      if (!allowed.includes(ext)) return cb(new Error('Formato non supportato. Usa JPG, PNG o WEBP'));
-      cb(null, true);
-    },
-  }).single('avatar');
-
-  upload(req, res, async (err) => {
+  avatarUpload(req, res, async (err) => {
     if (err) return next(new AppError({ ...ERRORS.MH_1903, message: err.message }, err.message));
     if (!req.file) return next(new AppError(ERRORS.MH_1402, 'Nessun file caricato'));
-
-    // Elimina vecchio avatar se esiste
     try {
       const old = await db.query('SELECT avatar_url FROM users WHERE id=$1', [req.user.id]);
-      if (old.rows[0]?.avatar_url && old.rows[0].avatar_url.startsWith('/uploads/')) {
+      if (old.rows[0]?.avatar_url?.startsWith('/uploads/')) {
         const oldPath = path.join(__dirname, '../../', old.rows[0].avatar_url);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
     } catch {}
-
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
     await db.query('UPDATE users SET avatar_url=$1, updated_at=NOW() WHERE id=$2', [avatarUrl, req.user.id]);
     res.json({ avatar_url: avatarUrl });
