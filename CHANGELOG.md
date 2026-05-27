@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.0.77] - 2026-05-28
+### Fixed
+- CORS bloccava il login su produzione — APP_URL mancava nella sezione environment di docker-compose.yml
+
+## [0.0.76] - 2026-05-27
+### Fixed
+- Avatar sidebar non si aggiornava senza logout/login — refreshAvatar definita due volte in AuthContext.jsx, useUserAvatar in Layout.jsx faceva fetch una sola volta al mount
+- refreshAvatar ora unico useCallback che aggiorna state e localStorage; Layout legge user.avatar_url da AuthContext e chiama refreshAvatar() ad ogni cambio pathname
+- multer istanziato a ogni request POST /avatar — spostato al top-level del modulo
+
+
+## [0.0.77] - 2026-05-28
+### Fixed
+- CORS bloccava il login su produzione — APP_URL non veniva passato al container perché mancava nella sezione environment di docker-compose.yml
+
 ## [0.0.76] - 2026-05-27
 ### Fixed
 - Avatar sidebar non si aggiornava senza logout/login — `refreshAvatar` era definita due volte in `AuthContext.jsx` (una dentro `useEffect` non esposta, una fuori) e `useUserAvatar` in `Layout.jsx` faceva fetch una sola volta al mount con dipendenza `[]`
