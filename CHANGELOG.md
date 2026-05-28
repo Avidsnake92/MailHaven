@@ -2,6 +2,11 @@
 
 ## [0.0.77] - 2026-05-28
 ### Fixed
+- CORS bloccava il login su produzione — APP_URL mancava nella sezione environment di docker-compose.yml, la variabile non veniva passata al container
+
+
+## [0.0.77] - 2026-05-28
+### Fixed
 - CORS bloccava il login su produzione — APP_URL mancava nella sezione environment di docker-compose.yml
 
 ## [0.0.76] - 2026-05-27
