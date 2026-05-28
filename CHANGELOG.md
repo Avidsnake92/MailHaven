@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.81] - 2026-05-28
+### Fixed
+- OAuth Microsoft: authorization code usabile una sola volta — eliminata doppia chiamata token, email e nome ora letti dall id_token JWT incluso nella risposta
+- OAuth Microsoft: aggiunto scope openid, email, profile per garantire la presenza dell id_token
+- OAuth Microsoft: rimosso User.Read dagli scope (non necessario con id_token)
+
+
 ## [0.0.80] - 2026-05-28
 ### Fixed
 - OAuth Microsoft: email non trovata per account business/guest con UPN nel formato user_domain.com#EXT#@tenant.onmicrosoft.com — aggiunta ricostruzione email dal formato UPN esteso
