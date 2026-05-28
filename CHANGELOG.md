@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.79] - 2026-05-28
+### Fixed
+- OAuth callback faceva redirect a /gestione che non esiste in React — corretto in /admin per Microsoft e Google
+
+
 ## [0.0.78] - 2026-05-28
 ### Added
 - Badge OAuth nella lista caselle — mostra logo Microsoft 365 o Google per caselle collegate via OAuth

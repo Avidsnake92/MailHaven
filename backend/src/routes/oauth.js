@@ -57,7 +57,7 @@ router.get('/microsoft/callback', async (req, res) => {
   const db = req.app.locals.db;
 
   if (error) {
-    return res.redirect(`/gestione?oauth_error=${encodeURIComponent(error_description || error)}&tab=mailboxes`);
+    return res.redirect(`/admin?oauth_error=${encodeURIComponent(error_description || error)}&tab=mailboxes`);
   }
 
   try {
@@ -138,10 +138,10 @@ router.get('/microsoft/callback', async (req, res) => {
       );
     }
 
-    res.redirect(`/gestione?oauth_success=${encodeURIComponent(email)}&tab=mailboxes`);
+    res.redirect(`/admin?oauth_success=${encodeURIComponent(email)}&tab=mailboxes`);
   } catch (err) {
     console.error('OAuth Microsoft error:', err.message);
-    res.redirect(`/gestione?oauth_error=${encodeURIComponent(err.message)}&tab=mailboxes`);
+    res.redirect(`/admin?oauth_error=${encodeURIComponent(err.message)}&tab=mailboxes`);
   }
 });
 
@@ -240,7 +240,7 @@ router.get('/google/callback', async (req, res) => {
   const db = req.app.locals.db;
 
   if (error) {
-    return res.redirect(`/gestione?oauth_error=${encodeURIComponent(error_description || error)}&tab=mailboxes`);
+    return res.redirect(`/admin?oauth_error=${encodeURIComponent(error_description || error)}&tab=mailboxes`);
   }
 
   try {
@@ -327,10 +327,10 @@ router.get('/google/callback', async (req, res) => {
       );
     }
 
-    res.redirect(`/gestione?oauth_success=${encodeURIComponent(email)}&tab=mailboxes`);
+    res.redirect(`/admin?oauth_success=${encodeURIComponent(email)}&tab=mailboxes`);
   } catch (err) {
     console.error('OAuth Google error:', err.message);
-    res.redirect(`/gestione?oauth_error=${encodeURIComponent(err.message)}&tab=mailboxes`);
+    res.redirect(`/admin?oauth_error=${encodeURIComponent(err.message)}&tab=mailboxes`);
   }
 });
 
