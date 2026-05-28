@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.80] - 2026-05-28
+### Fixed
+- OAuth Microsoft: email non trovata per account business/guest con UPN nel formato user_domain.com#EXT#@tenant.onmicrosoft.com — aggiunta ricostruzione email dal formato UPN esteso
+- OAuth Microsoft: aggiunto log msUser fields per debug futuro
+
+
 ## [0.0.79] - 2026-05-28
 ### Fixed
 - OAuth callback faceva redirect a /gestione che non esiste in React — corretto in /admin per Microsoft e Google

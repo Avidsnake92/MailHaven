@@ -86,8 +86,25 @@ router.get('/microsoft/callback', async (req, res) => {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     });
     const msUser = await userRes.json();
+    console.log('[OAuth MS] msUser fields:', JSON.stringify({ mail: msUser.mail, upn: msUser.userPrincipalName, display: msUser.displayName }));
 
-    const email = msUser.mail || msUser.userPrincipalName;
+    // userPrincipalName per account guest/esterni può essere "user_domain.com#EXT#@tenant.onmicrosoft.com"
+    // In quel caso ricostruiamo l'email dal formato UPN
+    let email = msUser.mail;
+    if (!email && msUser.userPrincipalName) {
+      const upn = msUser.userPrincipalName;
+      if (upn.includes('#EXT#')) {
+        // Formato: firstname.lastname_domain.com#EXT#@tenant.onmicrosoft.com
+        // Ricostruiamo: firstname.lastname@domain.com
+        const localPart = upn.split('#EXT#')[0]; // es. "a.terraneo_g7suite.com"
+        const atIdx = localPart.lastIndexOf('_');
+        if (atIdx !== -1) {
+          email = localPart.substring(0, atIdx) + '@' + localPart.substring(atIdx + 1);
+        }
+      } else {
+        email = upn;
+      }
+    }
     if (!email) throw new Error('Email non trovata nell\'account Microsoft');
 
     // Calcola scadenza token
