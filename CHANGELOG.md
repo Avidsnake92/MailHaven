@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.0.78] - 2026-05-28
+### Added
+- Badge OAuth nella lista caselle — mostra logo Microsoft 365 o Google per caselle collegate via OAuth
+- Badge "Token in scadenza" in arancione se il refresh token scade entro 7 giorni
+- Toast notifica al ritorno dal callback OAuth — verde su successo, rosso su errore, sparisce dopo 5/8s
+
+### Fixed
+- Gestione ritorno callback OAuth — query param oauth_success/oauth_error ora letti e puliti dall URL
+- admin.js GET /mailboxes — aggiunto oauth_provider e oauth_refresh_expires_at alla SELECT
+
+
+## [0.0.78] - 2026-05-28
+### Added
+- Badge OAuth nella lista caselle — mostra logo Microsoft 365 o Google per caselle collegate via OAuth
+- Badge "Token in scadenza" in arancione se il refresh token scade entro 7 giorni
+- Toast notifica al ritorno dal callback OAuth — verde su successo, rosso su errore, sparisce dopo 5/8s
+
+### Fixed
+- Gestione ritorno callback OAuth — query param oauth_success/oauth_error ora letti e puliti dall URL
+- admin.js GET /mailboxes — aggiunto oauth_provider e oauth_refresh_expires_at alla SELECT
+
+
 ## [0.0.77] - 2026-05-28
 ### Fixed
 - CORS bloccava il login su produzione — APP_URL mancava nella sezione environment di docker-compose.yml, la variabile non veniva passata al container
