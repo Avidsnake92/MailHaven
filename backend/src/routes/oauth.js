@@ -12,7 +12,9 @@ const REDIRECT_URI = process.env.OAUTH_REDIRECT_BASE_URL
 const SCOPES = [
   'https://outlook.office.com/IMAP.AccessAsUser.All',
   'offline_access',
-  'User.Read'
+  'openid',
+  'email',
+  'profile',
 ].join(' ');
 
 // ── Step 1: redirect verso Microsoft login ────────────────────────────────
@@ -81,31 +83,23 @@ router.get('/microsoft/callback', async (req, res) => {
     const tokens = await tokenRes.json();
     if (tokens.error) throw new Error(tokens.error_description || tokens.error);
 
-    // Ottieni info utente da Microsoft Graph
-    const userRes = await fetch('https://graph.microsoft.com/v1.0/me', {
-      headers: { Authorization: `Bearer ${tokens.access_token}` }
-    });
-    const msUser = await userRes.json();
-    console.log('[OAuth MS] msUser fields:', JSON.stringify({ mail: msUser.mail, upn: msUser.userPrincipalName, display: msUser.displayName }));
-
-    // userPrincipalName per account guest/esterni può essere "user_domain.com#EXT#@tenant.onmicrosoft.com"
-    // In quel caso ricostruiamo l'email dal formato UPN
-    let email = msUser.mail;
-    if (!email && msUser.userPrincipalName) {
-      const upn = msUser.userPrincipalName;
-      if (upn.includes('#EXT#')) {
-        // Formato: firstname.lastname_domain.com#EXT#@tenant.onmicrosoft.com
-        // Ricostruiamo: firstname.lastname@domain.com
-        const localPart = upn.split('#EXT#')[0]; // es. "a.terraneo_g7suite.com"
-        const atIdx = localPart.lastIndexOf('_');
-        if (atIdx !== -1) {
-          email = localPart.substring(0, atIdx) + '@' + localPart.substring(atIdx + 1);
+    // Leggiamo email e nome dall'id_token (JWT) incluso nella risposta — non serve Graph
+    let email = null;
+    let displayName = null;
+    if (tokens.id_token) {
+      try {
+        const payload = JSON.parse(Buffer.from(tokens.id_token.split('.')[1], 'base64').toString());
+        console.log('[OAuth MS] id_token claims:', JSON.stringify({ email: payload.email, upn: payload.preferred_username, name: payload.name }));
+        email = payload.email || payload.preferred_username;
+        displayName = payload.name || null;
+        if (email && email.includes('#EXT#')) {
+          const localPart = email.split('#EXT#')[0];
+          const atIdx = localPart.lastIndexOf('_');
+          if (atIdx !== -1) email = localPart.substring(0, atIdx) + '@' + localPart.substring(atIdx + 1);
         }
-      } else {
-        email = upn;
-      }
+      } catch(e) { console.log('[OAuth MS] id_token parse error:', e.message); }
     }
-    if (!email) throw new Error('Email non trovata nell\'account Microsoft');
+    if (!email) throw new Error('Email non trovata nell\'account Microsoft — assicurati che lo scope openid+email sia abilitato');
 
     // Calcola scadenza token
     const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000));
@@ -144,7 +138,7 @@ router.get('/microsoft/callback', async (req, res) => {
          VALUES ($1,$2,$3,'outlook.office365.com',993,true,$4,'microsoft',$5,$6,$7,$8,true)`,
         [
           email,
-          msUser.displayName || email,
+          displayName || email,
           client_id,
           email,
           tokens.access_token,

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.82] - 2026-05-28
+### Fixed
+- Preview email mostrava "false" nel pannello di anteprima — body_html salvato come stringa "false" invece di NULL quando il parser non trova HTML; aggiunto sanity check prima di restituire il contenuto
+
+
 ## [0.0.81] - 2026-05-28
 ### Fixed
 - OAuth Microsoft: authorization code usabile una sola volta — eliminata doppia chiamata token, email e nome ora letti dall id_token JWT incluso nella risposta

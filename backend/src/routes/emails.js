@@ -381,9 +381,13 @@ router.get('/:id/content', async (req, res) => {
     // Attachments con index per il download
     const atts = (attachments || []).map((a, i) => ({ ...a, index: i }));
 
+    // Sanity check: 'false' come stringa è un artefatto del parser — trattiamo come null
+    const safeHtml = (body_html && body_html !== 'false') ? body_html : null;
+    const safeText = (body_text && body_text !== 'false') ? body_text : null;
+
     // If we have cached HTML/text use that, otherwise parse raw
-    if (body_html || body_text) {
-      return res.json({ html: body_html, text: body_text, attachments: atts });
+    if (safeHtml || safeText) {
+      return res.json({ html: safeHtml, text: safeText, attachments: atts });
     }
 
     if (raw) {
