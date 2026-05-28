@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.83] - 2026-05-29
+### Fixed
+- Sync IMAP ora esclude cartelle non-email — Calendario, Contatti, Attività, Bozze, Spam, Posta eliminata, Sync Issues; eliminava le notifiche "Retrieval using the IMAP4 protocol failed" generate da Exchange su elementi non-email
+
+
 ## [0.0.82] - 2026-05-28
 ### Fixed
 - Preview email mostrava "false" nel pannello di anteprima — body_html salvato come stringa "false" invece di NULL quando il parser non trova HTML; aggiunto sanity check prima di restituire il contenuto

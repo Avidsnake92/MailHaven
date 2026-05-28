@@ -441,7 +441,30 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
         });
       });
 
+      // Cartelle da escludere — non contengono email (calendario, contatti, attività, bozze, spam)
+      const EXCLUDED_FOLDERS = [
+        'Calendar', 'Calendario', 'Calendars',
+        'Contacts', 'Contatti', 'Contact',
+        'Tasks', 'Attività', 'Notes', 'Note',
+        'Drafts', 'Bozze',
+        'Junk Email', 'Spam', 'Posta indesiderata',
+        'Outbox', 'Posta in uscita',
+        'Deleted Items', 'Posta eliminata', 'Trash',
+        'Sync Issues', 'Conflicts', 'Local Failures', 'Server Failures',
+      ];
+      const isExcluded = (folder) => EXCLUDED_FOLDERS.some(ex =>
+        folder === ex ||
+        folder.startsWith(ex + '/') ||
+        folder.startsWith(ex + '\\') ||
+        folder.endsWith('/' + ex) ||
+        folder.endsWith('\\' + ex)
+      );
+
       for (const folder of folders) {
+        if (isExcluded(folder)) {
+          console.log(`[Crawler] ${mailbox.email} — skip cartella: ${folder}`);
+          continue;
+        }
         try {
           const synced = await processFolder(folder);
           totalSynced += synced;
