@@ -1013,6 +1013,14 @@ function MailboxesTab({ branding, user }) {
 
   const handleDelete = async () => {
     try { await api.delete(`/admin/mailboxes/${deleteItem.id}`) } catch { }
+    // Pulizia localStorage — evita che Dashboard provi a caricare una casella eliminata
+    try {
+      const saved = JSON.parse(localStorage.getItem('mv_dashboard_state') || '{}')
+      if (saved.selectedMailboxId === deleteItem.id) {
+        delete saved.selectedMailboxId
+        localStorage.setItem('mv_dashboard_state', JSON.stringify(saved))
+      }
+    } catch {}
     setDeleteItem(null); load()
   }
 
