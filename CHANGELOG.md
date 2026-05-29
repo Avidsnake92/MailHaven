@@ -2,6 +2,12 @@
 
 ## [0.0.83] - 2026-05-29
 ### Fixed
+- Caselle OAuth non venivano mai sincronizzate — scheduler filtrava solo caselle con imap_password_encrypted IS NOT NULL, escludendo quelle con oauth_access_token
+- Sync IMAP ora esclude cartelle non-email — Calendario, Contatti, Attività, Bozze, Spam, Posta eliminata, Sync Issues; elimina le notifiche "Retrieval using the IMAP4 protocol failed" generate da Exchange
+
+
+## [0.0.83] - 2026-05-29
+### Fixed
 - Sync IMAP ora esclude cartelle non-email — Calendario, Contatti, Attività, Bozze, Spam, Posta eliminata, Sync Issues; eliminava le notifiche "Retrieval using the IMAP4 protocol failed" generate da Exchange su elementi non-email
 
 
