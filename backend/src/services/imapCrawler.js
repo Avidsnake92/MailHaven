@@ -159,9 +159,10 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
     if (mailbox.oauth_provider === 'microsoft' && mailbox.oauth_access_token) {
       const { getValidToken } = require('./oauthHelper');
       const accessToken = await getValidToken(db, mailbox);
-      imapConfig.xoauth2 = Buffer.from(
-        `user=${mailbox.imap_user || mailbox.email}\x01auth=Bearer ${accessToken}\x01\x01`
-      ).toString('base64');
+      console.log(`[Crawler] OAuth MS token per ${mailbox.email}: ${accessToken ? accessToken.substring(0,20)+'...' : 'NULL'}`);
+      const xoauth2str = `user=${mailbox.imap_user || mailbox.email}\x01auth=Bearer ${accessToken}\x01\x01`;
+      imapConfig.xoauth2 = Buffer.from(xoauth2str).toString('base64');
+      delete imapConfig.password;
     } else if (mailbox.oauth_provider === 'google' && mailbox.oauth_access_token) {
       const { getValidGoogleToken } = require('../routes/oauth');
       const accessToken = await getValidGoogleToken(db, mailbox);
@@ -204,7 +205,9 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
       const badgeDays = parseInt(badgeSetting.rows[0]?.value || '30');
 
       imap.search(['ALL'], (err, uids) => {
-        if (err || !uids.length) return res(0);
+        if (err) { console.error(`[Crawler] search error ${folderPath}:`, err.message); return res(0); }
+        if (!uids.length) return res(0);
+        console.log(`[Crawler] ${mailbox.email} — ${folderPath}: ${uids.length} email trovate`);
 
         const newUids = uids.filter(uid => !existingUids.has(uid));
 
@@ -481,8 +484,19 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
     }
   });
 
-  imap.once('error', (err) => reject(err));
+  imap.once('error', (err) => {
+    console.error(`[Crawler] IMAP error ${mailbox.email}:`, err.message);
+    try { imap.destroy(); } catch {}
+    reject(err);
+  });
   imap.once('end', () => {});
+
+  // Previene crash Node.js su EPIPE non gestiti dalla libreria imap
+  if (imap._socket) {
+    imap._socket.on('error', (err) => {
+      if (err.code === 'EPIPE') return; // già gestito sopra
+    });
+  }
   imap.connect();
 });
 

@@ -5,7 +5,9 @@ const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
 const SCOPES = [
   'https://outlook.office.com/IMAP.AccessAsUser.All',
   'offline_access',
-  'User.Read'
+  'openid',
+  'email',
+  'profile',
 ].join(' ');
 
 const refreshMicrosoftToken = async (db, mailbox) => {
@@ -21,6 +23,7 @@ const refreshMicrosoftToken = async (db, mailbox) => {
     })
   });
   const tokens = await tokenRes.json();
+  console.log('[OAuthHelper] refresh result:', tokens.error || 'ok', 'expires_in:', tokens.expires_in);
   if (tokens.error) throw new Error(tokens.error_description || tokens.error);
   const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000));
   await db.query(
@@ -31,9 +34,14 @@ const refreshMicrosoftToken = async (db, mailbox) => {
 };
 
 const getValidToken = async (db, mailbox) => {
-  if (mailbox.oauth_expires_at && new Date(mailbox.oauth_expires_at) > new Date(Date.now() + 60000)) {
+  const expires = new Date(mailbox.oauth_expires_at);
+  const needRefresh = !mailbox.oauth_expires_at || expires <= new Date(Date.now() + 60000);
+  console.log(`[OAuthHelper] ${mailbox.email}: expires=${expires.toISOString()}, needRefresh=${needRefresh}`);
+  if (!needRefresh) {
+    console.log(`[OAuthHelper] ${mailbox.email}: usando token esistente`);
     return mailbox.oauth_access_token;
   }
+  console.log(`[OAuthHelper] ${mailbox.email}: refresh in corso...`);
   return await refreshMicrosoftToken(db, mailbox);
 };
 
