@@ -179,6 +179,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
   const imap = new Imap(imapConfig);
 
   let totalSynced = 0;
+  const folderResults = [];
 
   const processFolder = (folderPath) => new Promise((res, rej) => {
     imap.openBox(folderPath, true, async (err, box) => {
@@ -466,18 +467,21 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
       for (const folder of folders) {
         if (isExcluded(folder)) {
           console.log(`[Crawler] ${mailbox.email} — skip cartella: ${folder}`);
+          folderResults.push({ folder, skipped: true });
           continue;
         }
         try {
           const synced = await processFolder(folder);
           totalSynced += synced;
+          folderResults.push({ folder, synced });
         } catch (e) {
           console.error(`Error processing folder ${folder}:`, e.message);
+          folderResults.push({ folder, synced: 0, error: e.message });
         }
       }
 
       imap.end();
-      resolve(totalSynced);
+      resolve({ total: totalSynced, folders: folderResults });
     } catch (e) {
       imap.end();
       reject(e);

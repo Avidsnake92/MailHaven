@@ -156,7 +156,9 @@ const syncAllMailboxes = async () => {
       const logId = logResult.rows[0].id;
       const startTime = Date.now();
       try {
-        const synced = await syncMailbox(mailbox, db);
+        const result = await syncMailbox(mailbox, db);
+        const synced = typeof result === 'object' ? result.total : result;
+        const folderResults = typeof result === 'object' ? result.folders : [];
 
         // Conta email eliminate esternamente in questo ciclo
         const extDeleted = await db.query(
@@ -167,18 +169,23 @@ const syncAllMailboxes = async () => {
         );
 
         const durationSec = Math.round((Date.now() - startTime) / 1000);
+        const foldersScanned = folderResults.filter(f => !f.skipped).length;
+        const foldersSkipped = folderResults.filter(f => f.skipped).length;
         const details = {
           duration_sec: durationSec,
           emails_new: synced,
           emails_archived_policy: 0,
           emails_deleted_external: parseInt(extDeleted.rows[0].count),
+          folders: folderResults,
         };
 
         await db.query(
           `UPDATE sync_log SET status='completed', emails_synced=$1,
            emails_archived=$2, emails_deleted_external=$3,
-           details=$4, finished_at=NOW() WHERE id=$5`,
+           folders_scanned=$4, folders_skipped=$5,
+           details=$6, finished_at=NOW() WHERE id=$7`,
           [synced, 0, parseInt(extDeleted.rows[0].count),
+           foldersScanned, foldersSkipped,
            JSON.stringify(details), logId]
         );
         if (synced > 0) {

@@ -476,11 +476,40 @@ function SyncLog() {
                                 Durata: {Math.round((new Date(log.finished_at) - new Date(log.started_at)) / 1000)}s
                               </p>
                             )}
+                            {log.folders_scanned > 0 && (
+                              <p className="text-xs text-gray-400">📁 {log.folders_scanned} cartelle</p>
+                            )}
+                            {log.folders_skipped > 0 && (
+                              <p className="text-xs text-gray-400">⏭ {log.folders_skipped} saltate</p>
+                            )}
                             {log.error && (
                               <p className="text-xs text-red-600 font-mono bg-red-50 px-2 py-1 rounded mt-1 w-full">
                                 {log.error}
                               </p>
                             )}
+                            {log.details && (() => {
+                              try {
+                                const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+                                if (!d?.folders?.length) return null;
+                                return (
+                                  <details className="w-full mt-1">
+                                    <summary className="text-xs text-blue-500 cursor-pointer hover:text-blue-700">
+                                      Dettaglio cartelle ({d.folders.length})
+                                    </summary>
+                                    <div className="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
+                                      {d.folders.map((f, fi) => (
+                                        <div key={fi} className="flex items-center justify-between text-xs px-2 py-0.5 rounded bg-white/60">
+                                          <span className="text-gray-600 font-mono truncate max-w-xs">{f.folder}</span>
+                                          <span className={`ml-2 shrink-0 font-medium ${f.synced > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                            {f.synced > 0 ? `+${f.synced}` : f.error ? '⚠ errore' : '✓ ok'}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                );
+                              } catch { return null; }
+                            })()}
                           </div>
                         </div>
                       ))}

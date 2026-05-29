@@ -80,6 +80,8 @@ const migrate = async (db) => {
   await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS emails_archived INTEGER DEFAULT 0`);
   await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS emails_deleted_external INTEGER DEFAULT 0`);
   await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS details JSONB DEFAULT NULL`);
+  await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS folders_scanned INTEGER DEFAULT 0`);
+  await run(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS folders_skipped INTEGER DEFAULT 0`);
 
   // Fix date 1970 — recupera data dagli header JSON salvati
   try {

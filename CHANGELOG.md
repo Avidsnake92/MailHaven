@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.84] - 2026-05-29
+### Added
+- Log sync verbosi — dettaglio per cartella con conteggio email sincronizzate, cartelle saltate ed errori
+- UI Log: sezione espandibile "Dettaglio cartelle" per ogni sync con stato per cartella
+- Contatori folders_scanned e folders_skipped nei log
+
+### Fixed
+- EPIPE non gestito causava crash Node.js — aggiunto error handler su socket IMAP
+- Log token OAuth verbosi per debug refresh token
+
+
 ## [0.0.83] - 2026-05-29
 ### Fixed
 - Caselle OAuth non venivano mai sincronizzate — scheduler filtrava solo caselle con imap_password_encrypted IS NOT NULL
