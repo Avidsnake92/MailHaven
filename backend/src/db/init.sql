@@ -24,7 +24,11 @@ CREATE TABLE IF NOT EXISTS users (
   failed_attempts INTEGER DEFAULT 0,
   locked_until TIMESTAMP,
   totp_secret TEXT,
-  totp_enabled BOOLEAN DEFAULT false
+  totp_enabled BOOLEAN DEFAULT false,
+  timezone VARCHAR(100) DEFAULT 'Europe/Rome',
+  language VARCHAR(10) DEFAULT 'it',
+  phone VARCHAR(50) DEFAULT NULL,
+  avatar_url VARCHAR(500) DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS mailboxes (
@@ -44,7 +48,8 @@ CREATE TABLE IF NOT EXISTS mailboxes (
   oauth_access_token TEXT,
   oauth_refresh_token TEXT,
   oauth_expires_at TIMESTAMP,
-  oauth_refresh_expires_at TIMESTAMP
+  oauth_refresh_expires_at TIMESTAMP,
+  archive_policy JSONB DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_mailboxes (
@@ -195,10 +200,68 @@ CREATE TABLE IF NOT EXISTS sync_log (
   mailbox_id INTEGER REFERENCES mailboxes(id) ON DELETE CASCADE,
   status VARCHAR(50),
   emails_synced INTEGER DEFAULT 0,
+  emails_archived INTEGER DEFAULT 0,
+  emails_deleted_external INTEGER DEFAULT 0,
+  folders_scanned INTEGER DEFAULT 0,
+  folders_skipped INTEGER DEFAULT 0,
   error TEXT,
+  details JSONB DEFAULT NULL,
   started_at TIMESTAMP DEFAULT NOW(),
   finished_at TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  jti VARCHAR(255) UNIQUE NOT NULL,
+  device_info JSONB DEFAULT NULL,
+  ip_address VARCHAR(45),
+  created_at TIMESTAMP DEFAULT NOW(),
+  last_seen TIMESTAMP DEFAULT NOW(),
+  expires_at TIMESTAMP NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS jwt_blacklist (
+  jti VARCHAR(255) PRIMARY KEY,
+  user_id INTEGER,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_jwt_blacklist_expires ON jwt_blacklist(expires_at);
+
+CREATE TABLE IF NOT EXISTS key_rotation_log (
+  id SERIAL PRIMARY KEY,
+  performed_by INTEGER REFERENCES users(id),
+  performed_at TIMESTAMP DEFAULT NOW(),
+  ip_address VARCHAR(45)
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL DEFAULT 'bug',
+  status VARCHAR(50) NOT NULL DEFAULT 'open',
+  priority VARCHAR(50) NOT NULL DEFAULT 'normal',
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  page_url VARCHAR(500),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+
+CREATE TABLE IF NOT EXISTS report_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  is_staff BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_report_messages_report_id ON report_messages(report_id);
 
 CREATE TABLE IF NOT EXISTS plugin_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

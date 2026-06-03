@@ -36,8 +36,6 @@ const decrypt = (encrypted) => {
   }
 };
 
-module.exports = { encrypt, decrypt };
-
 // Cifra un Buffer (per email raw)
 const encryptBuffer = (buffer) => {
   const key = Buffer.from(process.env.ENCRYPTION_KEY || '0'.repeat(64), 'hex');
@@ -72,4 +70,4 @@ const decryptBuffer = (buffer) => {
   }
 };
 
-module.exports = { ...module.exports, encryptBuffer, decryptBuffer };
+module.exports = { encrypt, decrypt, encryptBuffer, decryptBuffer };

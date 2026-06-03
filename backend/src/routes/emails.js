@@ -144,8 +144,8 @@ router.get('/global-search', authMiddleware, async (req, res, next) => {
     if (req.user.role !== 'superadmin') {
       const mbR = await db.query(
         `SELECT m.id FROM mailboxes m
-         LEFT JOIN mailbox_users mu ON mu.mailbox_id = m.id
-         WHERE m.active=true AND (mu.user_id=$1 OR m.client_id IN (
+         LEFT JOIN user_mailboxes um ON um.mailbox_id = m.id
+         WHERE m.active=true AND (um.user_id=$1 OR m.client_id IN (
            SELECT client_id FROM users WHERE id=$1
          ))`,
         [req.user.id]
@@ -473,7 +473,10 @@ router.post('/export', async (req, res) => {
       for (const email of r.rows) {
         const from = `From - ${new Date(email.sent_at).toUTCString()}\r\n`;
         res.write(from);
-        if (email.raw) res.write(email.raw);
+        if (email.raw) {
+          const rawBuffer = await decompress(email.raw);
+          res.write(rawBuffer);
+        }
         res.write('\r\n\r\n');
       }
       return res.end();
@@ -486,8 +489,9 @@ router.post('/export', async (req, res) => {
     archive.pipe(res);
     for (const email of r.rows) {
       if (email.raw) {
+        const rawBuffer = await decompress(email.raw);
         const safeName = (email.subject || 'email').replace(/[^a-z0-9]/gi, '_').substring(0, 50);
-        archive.append(email.raw, { name: `${email.path}/${safeName}_${email.id.substring(0,8)}.eml` });
+        archive.append(rawBuffer, { name: `${email.path}/${safeName}_${email.id.substring(0,8)}.eml` });
       }
     }
     await archive.finalize();

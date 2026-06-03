@@ -1,16 +1,25 @@
 # Changelog
 
-## [0.0.85] - 2026-06-03
-### Added
-- Installazione produzione pulita con `.env.example` aggiornato per MailHaven.
-- Flusso update pensato per tag/release Git invece di aggiornamento cieco da `main`.
-- Hardening Docker Compose per produzione con healthcheck, porta backend locale e frontend su 8080.
-
+## [0.0.85] - 2026-06-04
 ### Fixed
-- Rimosso uso operativo di segreti reali dagli esempi di configurazione.
-- Corretto refresh JWT per mantenere `jti` e tracciamento sessione.
-- Evitata duplicazione della route backup restore.
-- Aggiunta protezione path traversal durante restore ZIP.
+- SQL Injection in /admin/av-logs — parametro status ora passato come bind parameter
+- Route GET /users duplicata rimossa da admin.js — usava tabella user_clients inesistente, causava crash
+- Route GET|PUT /mailboxes/:id/policy triplicate ridotte a una sola definizione
+- module.exports spostato alla fine di admin.js — era a meta file (riga 574)
+- user_clients sostituita con user_mailboxes in emails.js, restore.js, spam.js — global-search, restore e lista spam per utenti non-admin erano sempre rotti
+- Export MBOX e ZIP ora decomprimono il raw prima di scrivere — i file esportati erano corrotti
+- crypto.js: doppio module.exports consolidato — encryptBuffer/decryptBuffer ora sempre disponibili
+- scheduler.js: deleteFromImap ora salta le caselle OAuth invece di chiamare decrypt(null)
+- restore.js: getImapConfig ora gestisce caselle OAuth con errore esplicito invece di null silenzioso
+- auth.js: validazione MIME type aggiunta all'upload avatar (era solo estensione nome file)
+- auth.js: import uuidv4 inutilizzato rimosso; import duplicato blacklistToken rimosso
+- admin.js: password rimossa dall'email di benvenuto — non inviata piu in chiaro
+- admin.js: authMiddleware ridondante rimosso dalla route policy
+- init.sql: aggiunta colonna archive_policy alla tabella mailboxes
+- init.sql: aggiunte colonne timezone, language, phone, avatar_url alla tabella users
+- init.sql: aggiunte tabelle mancanti user_sessions, jwt_blacklist, key_rotation_log, reports, report_messages
+- init.sql: sync_log ora include tutte le colonne emails_archived, emails_deleted_external, folders_scanned, folders_skipped, details
+
 
 ## [0.0.84] - 2026-05-29
 ### Added

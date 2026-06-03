@@ -8,9 +8,14 @@ let db = null;
 
 // Elimina email dall'IMAP fisicamente
 const deleteFromImap = async (mailbox, uids, folderPath) => {
+  // Le caselle OAuth non supportano la cancellazione tramite password — skip
+  if (mailbox.oauth_provider && mailbox.oauth_access_token) {
+    console.log(`[Policy] ${mailbox.email}: skip deleteFromImap (casella OAuth)`);
+    return;
+  }
   return new Promise((resolve) => {
     const imap = new Imap({
-      user: mailbox.imap_user,
+      user: mailbox.imap_user || mailbox.email,
       password: decrypt(mailbox.imap_password_encrypted),
       host: mailbox.imap_host,
       port: mailbox.imap_port || 993,

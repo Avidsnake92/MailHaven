@@ -5,7 +5,6 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { v: uuidv4 } = require('uuid');
 const { authMiddleware } = require('../middleware/auth');
 const { ERRORS, AppError } = require('../errors');
 const { blacklistToken } = require('../services/jwtBlacklist');
@@ -31,9 +30,12 @@ const avatarUpload = multer({
   storage: avatarStorage,
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!allowed.includes(ext)) return cb(new Error('Formato non supportato. Usa JPG, PNG o WEBP'));
+    if (!allowedExts.includes(ext) || !allowedMimes.includes(file.mimetype)) {
+      return cb(new Error('Formato non supportato. Usa JPG, PNG o WEBP'));
+    }
     cb(null, true);
   },
 }).single('avatar');
@@ -304,7 +306,6 @@ router.delete('/sessions/:id', authMiddleware, async (req, res, next) => {
   try {
     const r = await db.query('SELECT jti FROM user_sessions WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     if (!r.rows.length) return next(new AppError(ERRORS.MH_1401));
-    const { blacklistToken } = require('../services/jwtBlacklist');
     await blacklistToken(db, r.rows[0].jti, req.user.id, Math.floor(Date.now()/1000)+900);
     await db.query('DELETE FROM user_sessions WHERE id=$1', [req.params.id]);
     res.json({ message: 'Sessione terminata' });

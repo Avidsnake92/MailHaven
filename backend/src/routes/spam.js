@@ -11,7 +11,9 @@ const getUserMailboxIds = async (db, user) => {
     return r.rows.map(r => r.id);
   }
   const r = await db.query(
-    'SELECT m.id FROM mailboxes m JOIN clients c ON m.client_id=c.id JOIN user_clients uc ON c.id=uc.client_id WHERE uc.user_id=$1 AND m.active=true',
+    `SELECT m.id FROM mailboxes m
+     JOIN user_mailboxes um ON um.mailbox_id = m.id
+     WHERE um.user_id=$1 AND m.active=true`,
     [user.id]
   );
   return r.rows.map(r => r.id);

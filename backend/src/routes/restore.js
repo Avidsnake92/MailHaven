@@ -34,7 +34,9 @@ const getUserMailboxIds = async (db, user) => {
     return r.rows.map(r => r.id);
   }
   const r = await db.query(
-    'SELECT m.id FROM mailboxes m JOIN clients c ON m.client_id=c.id JOIN user_clients uc ON c.id=uc.client_id WHERE uc.user_id=$1 AND m.active=true',
+    `SELECT m.id FROM mailboxes m
+     JOIN user_mailboxes um ON um.mailbox_id = m.id
+     WHERE um.user_id=$1 AND m.active=true`,
     [user.id]
   );
   return r.rows.map(r => r.id);
@@ -82,14 +84,18 @@ const uploadToImap = (config, folder, emlBuffer, sentAt) => {
   });
 };
 
-// Helper: get IMAP config from DB
+// Helper: get IMAP config from DB (solo per caselle password — OAuth non supporta restore diretto)
 const getImapConfig = async (db, mailboxEmail) => {
   const result = await db.query(
-    'SELECT imap_host, imap_port, imap_tls, imap_user, imap_password_encrypted FROM mailboxes WHERE email=$1 AND active=true',
+    'SELECT imap_host, imap_port, imap_tls, imap_user, imap_password_encrypted, oauth_provider FROM mailboxes WHERE email=$1 AND active=true',
     [mailboxEmail]
   );
-  if (!result.rows[0]?.imap_password_encrypted) return null;
+  if (!result.rows[0]) return null;
   const row = result.rows[0];
+  if (row.oauth_provider && !row.imap_password_encrypted) {
+    throw new Error(`La casella ${mailboxEmail} usa OAuth — il ripristino IMAP diretto non è supportato per caselle OAuth`);
+  }
+  if (!row.imap_password_encrypted) return null;
   return {
     host: row.imap_host,
     port: row.imap_port || 993,

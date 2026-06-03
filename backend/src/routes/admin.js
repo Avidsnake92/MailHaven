@@ -113,7 +113,7 @@ router.post('/users', validate(schemas.createUser), async (req, res, next) => {
             <p>Il tuo account è stato creato con successo. Ecco le tue credenziali di accesso:</p>
             <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0">
               <p style="margin:4px 0"><strong>Email:</strong> ${email}</p>
-              <p style="margin:4px 0"><strong>Password:</strong> ${password}</p>
+              <p style="margin:4px 0"><strong>Password:</strong> (quella impostata dall'amministratore)</p>
             </div>
             <p style="color:#dc2626;font-size:13px">⚠️ Ti consigliamo di cambiare la password al primo accesso dalla sezione Sicurezza.</p>
             <p style="color:#6b7280;font-size:12px">MailHaven — Email Archive System</p>
@@ -134,10 +134,8 @@ router.put('/users/:id', async (req, res) => {
   const { full_name, role, active, client_id, password } = req.body;
   try {
     if (password) {
-      if (password) {
-        const pwdError = validatePassword(password)
-        if (pwdError) return res.status(400).json({ error: pwdError })
-      }
+      const pwdError = validatePassword(password)
+      if (pwdError) return res.status(400).json({ error: pwdError })
       const hash = await bcrypt.hash(password, 10);
       await db.query(
         'UPDATE users SET full_name=$1, role=$2, active=$3, client_id=$4, password_hash=$5, updated_at=NOW() WHERE id=$6',
@@ -336,29 +334,6 @@ router.post('/users/:userId/mailboxes', async (req, res) => {
       await db.query('INSERT INTO user_mailboxes (user_id, mailbox_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [req.params.userId, mid]);
     }
     res.json({ message: 'Caselle assegnate' });
-  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
-});
-
-// GET /admin/users?client_id=X — utenti di un cliente
-router.get('/users', async (req, res) => {
-  const db = req.app.locals.db;
-  const { client_id } = req.query;
-  try {
-    let query, params;
-    if (client_id) {
-      query = `SELECT DISTINCT u.id, u.email, u.full_name, u.role 
-               FROM users u
-               LEFT JOIN user_clients uc ON uc.user_id = u.id
-               WHERE (uc.client_id = $1 OR u.role IN ('admin','superadmin'))
-               AND u.active = true
-               ORDER BY u.full_name`;
-      params = [client_id];
-    } else {
-      query = `SELECT id, email, full_name, role FROM users WHERE active=true ORDER BY full_name`;
-      params = [];
-    }
-    const r = await db.query(query, params);
-    res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
@@ -571,7 +546,6 @@ router.post('/key-rotation', authMiddleware, requireRole('superadmin'), async (r
   } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
 });
 
-module.exports = router;
 // ---- ACTIVITY LOG ----
 router.get('/logs', async (req, res) => {
   const db = req.app.locals.db;
@@ -651,14 +625,17 @@ router.get('/av-logs', async (req, res) => {
   const { page = 1, limit = 50, status } = req.query;
   const offset = (page - 1) * limit;
   try {
-    let where = status ? `WHERE a.status = '${status}'` : '';
+    let where = '';
+    const params = [limit, offset];
+    if (status) { params.push(status); where = `WHERE a.status = $${params.length}`; }
     const result = await db.query(
       `SELECT a.*, u.email as user_email, u.full_name as user_name
        FROM av_log a LEFT JOIN users u ON a.scanned_by = u.id
        ${where} ORDER BY a.created_at DESC LIMIT $1 OFFSET $2`,
-      [limit, offset]
+      params
     );
-    const count = await db.query(`SELECT COUNT(*) FROM av_log a ${where}`);
+    const countParams = status ? [status] : [];
+    const count = await db.query(`SELECT COUNT(*) FROM av_log a ${where}`, countParams);
     res.json({ logs: result.rows, total: parseInt(count.rows[0].count), page: parseInt(page), totalPages: Math.ceil(count.rows[0].count / limit) });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
@@ -734,7 +711,7 @@ router.post('/av/restart-scheduler', requireRole('superadmin'), async (req, res)
 
 
 // ── ARCHIVING POLICY ──
-router.get('/mailboxes/:id/policy', authMiddleware, async (req, res) => {
+router.get('/mailboxes/:id/policy', async (req, res) => {
   const db = req.app.locals.db;
   try {
     const result = await db.query(
@@ -748,46 +725,15 @@ router.get('/mailboxes/:id/policy', authMiddleware, async (req, res) => {
 
 router.put('/mailboxes/:id/policy', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
-  const policy = req.body;
   try {
     await db.query(
       'UPDATE mailboxes SET archive_policy = $1 WHERE id = $2',
-      [JSON.stringify(policy), req.params.id]
+      [JSON.stringify(req.body), req.params.id]
     );
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-
-router.get('/mailboxes/:id/policy', authMiddleware, async (req, res) => {
-  const db = req.app.locals.db;
-  try {
-    const r = await db.query('SELECT archive_policy FROM mailboxes WHERE id=$1', [req.params.id]);
-    res.json(r.rows[0]?.archive_policy || {});
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-router.put('/mailboxes/:id/policy', requireRole('superadmin'), async (req, res) => {
-  const db = req.app.locals.db;
-  try {
-    await db.query('UPDATE mailboxes SET archive_policy=$1 WHERE id=$2', [JSON.stringify(req.body), req.params.id]);
-    res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-router.get('/mailboxes/:id/policy', authMiddleware, async (req, res) => {
-  const db = req.app.locals.db;
-  try {
-    const r = await db.query('SELECT archive_policy FROM mailboxes WHERE id=$1', [req.params.id]);
-    res.json(r.rows[0]?.archive_policy || {});
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-router.put('/mailboxes/:id/policy', requireRole('superadmin'), async (req, res) => {
-  const db = req.app.locals.db;
-  try {
-    await db.query('UPDATE mailboxes SET archive_policy=$1 WHERE id=$2', [JSON.stringify(req.body), req.params.id]);
-    res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
 // ── STATISTICHE ──
 router.get('/stats/overview', authMiddleware, async (req, res) => {
   const db = req.app.locals.db;
