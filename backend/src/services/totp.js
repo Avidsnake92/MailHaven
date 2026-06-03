@@ -6,7 +6,7 @@ const generateSecret = () => {
   return secret.base32;
 };
 
-const generateQR = async (email, secretBase32, appName = 'MailVault') => {
+const generateQR = async (email, secretBase32, appName = 'MailHaven') => {
   const totp = new TOTP({
     issuer: appName,
     label: email,

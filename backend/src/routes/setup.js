@@ -72,7 +72,9 @@ router.post('/complete', async (req, res) => {
       for (const envPath of envPaths) {
         if (fs.existsSync(envPath)) {
           let content = fs.readFileSync(envPath, 'utf8');
-          const set = (c, k, v) => /^${k}=.*/m.test(c) ? c.replace(new RegExp(`^${k}=.*`, 'm'), `${k}=${v}`) : c + `\n${k}=${v}`;
+          const set = (c, k, v) => new RegExp(`^${k}=.*`, 'm').test(c)
+            ? c.replace(new RegExp(`^${k}=.*`, 'm'), `${k}=${v}`)
+            : c + `\n${k}=${v}`;
           content = set(content, 'ENCRYPTION_KEY', encryption_key);
           content = set(content, 'JWT_SECRET', jwt_secret);
           fs.writeFileSync(envPath, content, 'utf8');

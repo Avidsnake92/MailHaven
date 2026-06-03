@@ -198,7 +198,7 @@ export default function Backup() {
   const [activeTab, setActiveTab] = useState('s3')
   const [s3Config, setS3Config] = useState({ 
     endpoint: '', region: 'us-east-1', bucket: '', access_key: '', secret_key: '', 
-    prefix: 'mailvault-backup', force_path_style: true, schedule: 'manual', enabled: false,
+    prefix: 'mailhaven-backup', force_path_style: true, schedule: 'manual', enabled: false,
     retention_days: 30, retention_versions: null
   })
   const [sftpConfig, setSftpConfig] = useState({ 
@@ -418,7 +418,7 @@ export default function Backup() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Prefisso cartella</label>
-                  <input value={s3Config.prefix || 'mailvault-backup'} onChange={e => setS3Config(c => ({ ...c, prefix: e.target.value }))}
+                  <input value={s3Config.prefix || 'mailhaven-backup'} onChange={e => setS3Config(c => ({ ...c, prefix: e.target.value }))}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2" />
                 </div>
               </div>
@@ -466,7 +466,7 @@ export default function Backup() {
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Cartella remota</label>
                 <input value={sftpConfig.sftp_remote_path || '/backups'} onChange={e => setSftpConfig(c => ({ ...c, sftp_remote_path: e.target.value }))}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 font-mono text-xs" placeholder="/volume1/backups/mailvault" />
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 font-mono text-xs" placeholder="/volume1/backups/mailhaven" />
                 <p className="text-xs text-gray-400 mt-1">Synology: /volume1/cartella — QNAP: /share/cartella</p>
               </div>
             </div>

@@ -241,8 +241,10 @@ router.get('/list', async (req, res) => {
 });
 
 // Restore
-router.post('/restore', async (req, res) => {
-  const { key, provider_type } = req.body;
+router.post('/restore', async (req, res, next) => {
+  const { key, provider_type, remote_file } = req.body;
+  if (remote_file && !key) return next();
+  if (!key) return res.status(400).json({ error: 'Parametro key mancante' });
   const db = req.app.locals.db;
   try {
     const config = await getConfig(db, provider_type || 's3');

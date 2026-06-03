@@ -98,19 +98,33 @@ const restoreBackup = async (config, key) => {
   const fs = require('fs');
   const path = require('path');
   const unzipper = require('unzipper');
+  const { pipeline } = require('stream/promises');
 
   const response = await client.send(new GetObjectCommand({
     Bucket: config.bucket,
     Key: key,
   }));
 
-  // Extract ZIP to storage root
-  await new Promise((resolve, reject) => {
-    response.Body
-      .pipe(unzipper.Extract({ path: storageRoot }))
-      .on('close', resolve)
-      .on('error', reject);
-  });
+  const root = path.resolve(storageRoot);
+  await fs.promises.mkdir(root, { recursive: true });
+
+  const parser = response.Body.pipe(unzipper.Parse({ forceStream: true }));
+  for await (const entry of parser) {
+    const target = path.resolve(root, entry.path);
+    if (target !== root && !target.startsWith(root + path.sep)) {
+      entry.autodrain();
+      throw new Error(`Percorso non sicuro nel backup: ${entry.path}`);
+    }
+
+    if (entry.type === 'Directory') {
+      await fs.promises.mkdir(target, { recursive: true });
+      entry.autodrain();
+      continue;
+    }
+
+    await fs.promises.mkdir(path.dirname(target), { recursive: true });
+    await pipeline(entry, fs.createWriteStream(target));
+  }
 
   return { restored: true, key };
 };

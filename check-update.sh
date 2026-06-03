@@ -1,47 +1,55 @@
-#!/bin/bash
-# MailHaven — Check aggiornamenti disponibili
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-INSTALL_DIR="/root/mailhaven"
+INSTALL_DIR="${INSTALL_DIR:-/root/mailhaven}"
 OUTPUT="$INSTALL_DIR/data/git-status.json"
 
 mkdir -p "$INSTALL_DIR/data"
 cd "$INSTALL_DIR" || exit 1
 
-git fetch origin main --quiet 2>/dev/null
+git fetch --tags origin --quiet 2>/dev/null || true
 
-CURRENT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-REMOTE=$(git rev-parse --short origin/main 2>/dev/null || echo "unknown")
-BEHIND=$(git rev-list HEAD..origin/main --count 2>/dev/null || echo "0")
+CURRENT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+LATEST_TAG="$(git tag --sort=-v:refname | head -n 1 2>/dev/null || true)"
 
-# Genera JSON sicuro per i commit usando python3 — evita problemi con caratteri speciali
+if [ -n "$LATEST_TAG" ]; then
+  REMOTE="$(git rev-parse --short "$LATEST_TAG" 2>/dev/null || echo unknown)"
+  BEHIND="$(git rev-list HEAD.."$LATEST_TAG" --count 2>/dev/null || echo 0)"
+  LOG_REF="$LATEST_TAG"
+else
+  REMOTE="$(git rev-parse --short origin/main 2>/dev/null || echo unknown)"
+  BEHIND="$(git rev-list HEAD..origin/main --count 2>/dev/null || echo 0)"
+  LOG_REF="origin/main"
+fi
+
 python3 - << PYEOF
-import subprocess, json, os
+import subprocess, json
 
+install_dir = '$INSTALL_DIR'
+log_ref = '$LOG_REF'
+commits = []
 try:
     result = subprocess.run(
-        ['git', 'log', '--oneline', '-5', 'origin/main'],
-        capture_output=True, text=True, cwd='$INSTALL_DIR'
+        ['git', 'log', '--oneline', '-5', log_ref],
+        capture_output=True, text=True, cwd=install_dir
     )
-    commits = []
-    for line in result.stdout.strip().split('\n'):
+    for line in result.stdout.strip().split('\\n'):
         if not line.strip():
             continue
         parts = line.split(' ', 1)
-        commits.append({
-            'hash': parts[0],
-            'message': parts[1] if len(parts) > 1 else ''
-        })
+        commits.append({'hash': parts[0], 'message': parts[1] if len(parts) > 1 else ''})
 except Exception:
-    commits = []
+    pass
 
 data = {
     'currentCommit': '$CURRENT',
     'remoteCommit': '$REMOTE',
+    'latestTag': '$LATEST_TAG',
     'commitsBehind': int('$BEHIND') if '$BEHIND'.isdigit() else 0,
     'latestCommits': commits,
 }
-with open('$OUTPUT', 'w') as f:
+with open('$OUTPUT', 'w', encoding='utf-8') as f:
     json.dump(data, f)
 PYEOF
 
-echo "[check-update] current=$CURRENT remote=$REMOTE behind=$BEHIND"
+echo "[check-update] current=$CURRENT remote=$REMOTE tag=$LATEST_TAG behind=$BEHIND"

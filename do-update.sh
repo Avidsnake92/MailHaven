@@ -1,54 +1,50 @@
-#!/bin/bash
-# MailHaven — Script aggiornamento automatico
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-LOG="/root/mailhaven/data/update.log"
-INSTALL_DIR="/root/mailhaven"
+INSTALL_DIR="${INSTALL_DIR:-/root/mailhaven}"
+LOG="$INSTALL_DIR/data/update.log"
+TARGET_REF="${1:-${RELEASE_REF:-}}"
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG"; }
+mkdir -p "$INSTALL_DIR/data"
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
+die() { log "ERRORE: $*"; exit 1; }
+
+cd "$INSTALL_DIR" || die "directory $INSTALL_DIR non trovata"
+if [ -f .env ]; then
+  set -a
+  . ./.env
+  set +a
+fi
 
 log "=== Avvio aggiornamento MailHaven ==="
+git fetch --tags origin >> "$LOG" 2>&1 || die "git fetch fallito"
 
-cd "$INSTALL_DIR" || { log "ERRORE: directory $INSTALL_DIR non trovata"; exit 1; }
+if [ -z "$TARGET_REF" ]; then
+  TARGET_REF="$(git tag --sort=-v:refname | head -n 1 || true)"
+fi
+[ -n "$TARGET_REF" ] || TARGET_REF="origin/main"
 
-# 1. Fetch aggiornamenti
-log "Fetch aggiornamenti dal repository..."
-if ! git fetch origin main 2>> "$LOG"; then
-  log "ERRORE: git fetch fallito — verifica connessione e token GitHub"
-  exit 1
+CURRENT_REF="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+log "versione corrente: $CURRENT_REF"
+log "target update: $TARGET_REF"
+
+BACKUP_DIR="$INSTALL_DIR/data/pre-update"
+mkdir -p "$BACKUP_DIR"
+if docker compose ps --status running mailhaven-db >/dev/null 2>&1; then
+  BACKUP_FILE="$BACKUP_DIR/db-$(date '+%Y%m%d-%H%M%S').sql.gz"
+  log "backup database: $BACKUP_FILE"
+  docker compose exec -T mailhaven-db pg_dump -U "${DB_USER:-mailhaven}" "${DB_NAME:-mailhaven}" | gzip > "$BACKUP_FILE" || die "backup database fallito"
 fi
 
-# 2. Applica aggiornamenti
-log "Applicazione aggiornamenti..."
-if ! git reset --hard origin/main >> "$LOG" 2>&1; then
-  log "ERRORE: git reset fallito"
-  exit 1
-fi
+git checkout --force "$TARGET_REF" >> "$LOG" 2>&1 || die "checkout $TARGET_REF fallito"
 
-# 3. Rebuild backend con --no-cache
-log "Rebuild backend..."
-if ! docker compose build --no-cache mailhaven-backend >> "$LOG" 2>&1; then
-  log "ERRORE: build backend fallita"
-  exit 1
-fi
-if ! docker compose up -d mailhaven-backend >> "$LOG" 2>&1; then
-  log "ERRORE: avvio backend fallito"
-  exit 1
-fi
+log "build immagini"
+docker compose build --pull >> "$LOG" 2>&1 || die "docker compose build fallito"
 
-# 4. Build frontend
-log "Build frontend..."
-if ! bash "$INSTALL_DIR/build-frontend.sh" >> "$LOG" 2>&1; then
-  log "ERRORE: build frontend fallita"
-  exit 1
-fi
+log "riavvio stack"
+docker compose up -d >> "$LOG" 2>&1 || die "docker compose up fallito"
 
-# 5. Aggiorna git-status.json
-log "Aggiornamento git status..."
-bash "$INSTALL_DIR/check-update.sh" 2>> "$LOG"
+log "aggiorno stato release"
+bash "$INSTALL_DIR/check-update.sh" >> "$LOG" 2>&1 || true
 
-# 6. Riconfigura cron
-CRON_CHECK="*/30 * * * * bash /root/mailhaven/check-update.sh >> /root/mailhaven/data/check-update.log 2>&1"
-CRON_TRIGGER="* * * * * if [ -f /root/mailhaven/data/update.trigger ]; then rm -f /root/mailhaven/data/update.trigger && bash /root/mailhaven/do-update.sh > /root/mailhaven/data/update.log 2>&1; fi"
-(crontab -l 2>/dev/null | grep -v 'check-update.sh' | grep -v 'update.trigger'; echo "$CRON_CHECK"; echo "$CRON_TRIGGER") | crontab -
-
-log "=== Aggiornamento completato con successo ==="
+log "=== Aggiornamento completato ==="

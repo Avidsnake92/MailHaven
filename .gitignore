@@ -6,6 +6,8 @@ backend/node_modules/
 # Environment
 .env
 *.env.local
+.env.*
+!.env.example
 
 # Setup lock
 setup.lock
@@ -17,14 +19,21 @@ frontend/.vite/
 # Logs
 *.log
 logs/
+data/
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Docker volumes
-data/
+uploads/
 
 # Temp
 tmp/
 *.tmp
+
+# Local backups and generated files
+*.bak
+*.bak.*
+EOF
+.push_version

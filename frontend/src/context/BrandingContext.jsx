@@ -5,10 +5,10 @@ const BrandingContext = createContext({})
 
 export const BrandingProvider = ({ children }) => {
   const [branding, setBranding] = useState({
-    app_name: 'MailVault',
+    app_name: 'MailHaven',
     primary_color: '#2563eb',
     secondary_color: '#1e40af',
-    footer_text: 'MailVault - Email Archiving',
+    footer_text: 'MailHaven - Email Archiving',
     logo_url: null,
   })
 

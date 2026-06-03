@@ -190,8 +190,9 @@ router.post('/refresh', authMiddleware, async (req, res) => {
   if (Date.now() - sessionStart > SESSION_MAX_MS) {
     return res.status(401).json({ error: 'Sessione scaduta, effettua nuovamente il login.' });
   }
+  const jti = req.user.jti || require('crypto').randomUUID();
   const token = jwt.sign(
-    { id: req.user.id, email: req.user.email, role: req.user.role, client_id: req.user.client_id, full_name: req.user.full_name, sessionStart },
+    { id: req.user.id, email: req.user.email, role: req.user.role, client_id: req.user.client_id, full_name: req.user.full_name, sessionStart, jti },
     process.env.JWT_SECRET,
     { expiresIn: '15m' }
   );
@@ -353,7 +354,7 @@ router.post('/2fa/setup', authMiddleware, async (req, res) => {
     
     const secret = generateSecret();
     const branding = await db.query('SELECT app_name FROM branding LIMIT 1');
-    const appName = branding.rows[0]?.app_name || 'MailVault';
+    const appName = branding.rows[0]?.app_name || 'MailHaven';
     
     const { qrDataUrl, uri } = await generateQR(user.email, secret, appName);
     

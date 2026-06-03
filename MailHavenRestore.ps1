@@ -1,5 +1,5 @@
 # MailHaven Emergency Restore Tool
-# Uso: .\MailHavenRestore.ps1 -BackupFile "mailvault-2026-01-01.mhbak" -EncryptionKey "tuachiave" -OutputFolder "C:\restore"
+# Uso: .\MailHavenRestore.ps1 -BackupFile "mailhaven-2026-01-01.mhbak" -EncryptionKey "tuachiave" -OutputFolder "C:\restore"
 
 param(
     [Parameter(Mandatory=$true)]

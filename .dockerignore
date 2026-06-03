@@ -1,0 +1,11 @@
+.git
+.env
+**/node_modules
+data
+logs
+tmp
+*.log
+*.bak
+*.bak.*
+frontend/dist
+frontend/.vite

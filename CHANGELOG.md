@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.85] - 2026-06-03
+### Added
+- Installazione produzione pulita con `.env.example` aggiornato per MailHaven.
+- Flusso update pensato per tag/release Git invece di aggiornamento cieco da `main`.
+- Hardening Docker Compose per produzione con healthcheck, porta backend locale e frontend su 8080.
+
+### Fixed
+- Rimosso uso operativo di segreti reali dagli esempi di configurazione.
+- Corretto refresh JWT per mantenere `jti` e tracciamento sessione.
+- Evitata duplicazione della route backup restore.
+- Aggiunta protezione path traversal durante restore ZIP.
+
 ## [0.0.84] - 2026-05-29
 ### Added
 - Log sync verbosi — dettaglio per cartella con conteggio email sincronizzate, cartelle saltate ed errori

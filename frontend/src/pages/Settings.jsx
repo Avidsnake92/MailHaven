@@ -827,14 +827,14 @@ export default function Settings() {
               <p className="text-xs text-gray-500 mb-4">Installa il plugin nel tuo client email per accedere all'archivio MailHaven direttamente da Outlook o Thunderbird.</p>
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <a href={`${window.location.origin.replace(':8080',':3001')}/plugin/outlook/manifest.xml`}
-                  download="mailvault-outlook-manifest.xml"
+                  download="mailhaven-outlook-manifest.xml"
                   className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
                   <img src="/outlook-icon.png" className="w-12 h-12 object-contain" alt="Outlook" />
                   <span className="text-sm font-semibold text-gray-800">Outlook Add-in</span>
                   <span className="text-xs text-gray-500">Scarica manifest XML</span>
                 </a>
                 <a href={`${window.location.origin.replace(':8080',':3001')}/plugin/thunderbird/manifest.json`}
-                  download="mailvault-thunderbird.json"
+                  download="mailhaven-thunderbird.json"
                   className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
                   <img src="/thunderbird-icon.png" className="w-12 h-12 object-contain" alt="Thunderbird" />
                   <span className="text-sm font-semibold text-gray-800">Thunderbird</span>

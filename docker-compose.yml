@@ -1,45 +1,33 @@
 services:
   mailhaven-backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: mailhaven-backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - JWT_SECRET=${JWT_SECRET}
       - DB_HOST=mailhaven-db
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_SECURE=${SMTP_SECURE}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
-      - MICROSOFT_TENANT_ID=${MICROSOFT_TENANT_ID}
-      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - OAUTH_REDIRECT_BASE_URL=${OAUTH_REDIRECT_BASE_URL}
-      - APP_URL=${APP_URL}
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     networks:
       - mailhaven-net
     depends_on:
-      - mailhaven-db
+      mailhaven-db:
+        condition: service_healthy
     volumes:
       - mailhaven-clamav-db:/var/lib/clamav
-      - ./backend/src:/app/src
-      - ./backend/package.json:/app/package.json
       - ./data:/app/data
-      - ./check-update.sh:/root/mailhaven/check-update.sh
-      - ./version.json:/app/version.json
-      - ./CHANGELOG.md:/app/CHANGELOG.md
+      - ./version.json:/app/version.json:ro
+      - ./CHANGELOG.md:/app/CHANGELOG.md:ro
       - mailhaven-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   mailhaven-frontend:
     build: ./frontend
@@ -50,12 +38,15 @@ services:
     networks:
       - mailhaven-net
     depends_on:
-      - mailhaven-backend
+      mailhaven-backend:
+        condition: service_healthy
 
   mailhaven-db:
     image: postgres:17-alpine
     container_name: mailhaven-db
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
@@ -65,6 +56,11 @@ services:
       - ./backend/src/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - mailhaven-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   mailhaven-net:
@@ -74,8 +70,6 @@ volumes:
   mailhaven-uploads:
     driver: local
   mailhaven-db-data:
-    external: true
-    name: mailhaven_mailhaven-db-data
+    driver: local
   mailhaven-clamav-db:
-    external: true
-    name: mailhaven_mailhaven-clamav-db
+    driver: local
