@@ -5,9 +5,8 @@ const { authMiddleware } = require('../middleware/auth');
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const MICROSOFT_TENANT_ID = process.env.MICROSOFT_TENANT_ID || 'common';
 const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
-const REDIRECT_URI = process.env.OAUTH_REDIRECT_BASE_URL
-  ? `${process.env.OAUTH_REDIRECT_BASE_URL}/api/oauth/microsoft/callback`
-  : 'https://mailhaven.k2tech.it/api/oauth/microsoft/callback';
+const getBaseUrl = () => process.env.OAUTH_REDIRECT_BASE_URL || process.env.APP_URL || '';
+const REDIRECT_URI = () => { const b = getBaseUrl(); return b ? `${b}/api/oauth/microsoft/callback` : null; };
 
 const SCOPES = [
   'https://outlook.office.com/IMAP.AccessAsUser.All',
@@ -45,7 +44,9 @@ router.get('/microsoft', async (req, res) => {
   const url = new URL(`https://login.microsoftonline.com/${MICROSOFT_TENANT_ID}/oauth2/v2.0/authorize`);
   url.searchParams.set('client_id', MICROSOFT_CLIENT_ID);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('redirect_uri', REDIRECT_URI);
+  const redirectUri = REDIRECT_URI();
+  if (!redirectUri) return res.status(400).send('APP_URL non configurato. Impostalo nelle Impostazioni.');
+  url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('scope', SCOPES);
   url.searchParams.set('state', state);
   url.searchParams.set('prompt', 'select_account');
@@ -75,7 +76,7 @@ router.get('/microsoft/callback', async (req, res) => {
         client_id: MICROSOFT_CLIENT_ID,
         client_secret: MICROSOFT_CLIENT_SECRET,
         code,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: REDIRECT_URI(),
         grant_type: 'authorization_code',
       })
     });
@@ -199,9 +200,7 @@ const getValidToken = async (db, mailbox) => {
 // ═══════════════════════════════════════════════════════════════════════════
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.OAUTH_REDIRECT_BASE_URL
-  ? `${process.env.OAUTH_REDIRECT_BASE_URL}/api/oauth/google/callback`
-  : 'https://mailhaven.k2tech.it/api/oauth/google/callback';
+const GOOGLE_REDIRECT_URI = () => { const b = getBaseUrl(); return b ? `${b}/api/oauth/google/callback` : null; };
 
 const GOOGLE_SCOPES = [
   'https://mail.google.com/',           // IMAP/SMTP full access
@@ -236,7 +235,9 @@ router.get('/google', async (req, res) => {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', GOOGLE_CLIENT_ID);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI);
+  const googleRedirectUri = GOOGLE_REDIRECT_URI();
+  if (!googleRedirectUri) return res.status(400).send('APP_URL non configurato. Impostalo nelle Impostazioni.');
+  url.searchParams.set('redirect_uri', googleRedirectUri);
   url.searchParams.set('scope', GOOGLE_SCOPES);
   url.searchParams.set('state', state);
   url.searchParams.set('access_type', 'offline');   // ottieni refresh_token
@@ -266,7 +267,7 @@ router.get('/google/callback', async (req, res) => {
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
         code,
-        redirect_uri: GOOGLE_REDIRECT_URI,
+        redirect_uri: GOOGLE_REDIRECT_URI(),
         grant_type: 'authorization_code',
       })
     });

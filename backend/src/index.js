@@ -132,7 +132,24 @@ app.locals.db = pool;
 // ── Migration automatica ───────────────────────────────────────────────────
 const migrate = require('./db/migrate');
 pool.connect()
-  .then(client => { client.release(); return migrate(pool); })
+  .then(async client => {
+    client.release();
+    await migrate(pool);
+    // Ripristina APP_URL e OAUTH_REDIRECT_BASE_URL dal DB se non definiti nell'env
+    try {
+      const r = await pool.query("SELECT key, value FROM settings WHERE key IN ('app_url', 'oauth_redirect_base_url')");
+      for (const row of r.rows) {
+        if (row.key === 'app_url' && !process.env.APP_URL && row.value) {
+          process.env.APP_URL = row.value;
+          console.log('[Config] APP_URL caricato dal DB:', row.value);
+        }
+        if (row.key === 'oauth_redirect_base_url' && !process.env.OAUTH_REDIRECT_BASE_URL && row.value) {
+          process.env.OAUTH_REDIRECT_BASE_URL = row.value;
+          console.log('[Config] OAUTH_REDIRECT_BASE_URL caricato dal DB:', row.value);
+        }
+      }
+    } catch(e) { console.warn('[Config] Impossibile caricare app_url dal DB:', e.message); }
+  })
   .catch(e => console.error('[Migration] Errore:', e.message));
 
 // ── Body parsing ───────────────────────────────────────────────────────────

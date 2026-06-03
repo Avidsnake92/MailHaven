@@ -35,6 +35,7 @@ export default function Setup() {
   const [showPwd, setShowPwd]       = useState(false)
 
   // Step 3 — SMTP
+  const [appUrl, setAppUrl]         = useState('')
   const [smtpHost, setSmtpHost]       = useState('')
   const [smtpPort, setSmtpPort]       = useState('465')
   const [smtpSecure, setSmtpSecure]   = useState(true)
@@ -142,6 +143,7 @@ export default function Setup() {
         admin_email:    adminEmail,
         admin_password: adminPwd,
         admin_name:     adminName,
+        app_url:        appUrl.trim() || undefined,
         smtp_host:      skipSmtp ? undefined : smtpHost || undefined,
         smtp_port:      smtpPort,
         smtp_secure:    String(smtpSecure),
@@ -436,6 +438,20 @@ export default function Setup() {
                 <AlertCircle size={14} className="shrink-0 mt-0.5" />
                 <span>Puoi saltare questo step e configurare lo SMTP in seguito dalle Impostazioni.</span>
               </div>
+
+              {/* URL Applicazione */}
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl mb-5 space-y-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">URL pubblico applicazione <span className="text-gray-400 font-normal">(opzionale)</span></label>
+                  <input type="url" value={appUrl} onChange={e => setAppUrl(e.target.value)}
+                    placeholder="https://mailhaven.tuodominio.it"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Necessario per OAuth (Microsoft 365 / Google) e per accesso esterno. Lascia vuoto per installazioni solo interne.
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">

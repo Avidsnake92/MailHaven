@@ -443,6 +443,7 @@ export default function Settings() {
   const [avScanOnOpen, setAvScanOnOpen] = useState(true)
   const [avNotifyOnInfection, setAvNotifyOnInfection] = useState(false)
   const [updatingAv, setUpdatingAv] = useState(false)
+  const [appUrl, setAppUrl] = useState('')
   const [smtpHost, setSmtpHost] = useState('')
   const [smtpPort, setSmtpPort] = useState('465')
   const [smtpSecure, setSmtpSecure] = useState(true)
@@ -494,6 +495,7 @@ export default function Settings() {
       if (s.av_update_time) setAvUpdateTime(s.av_update_time)
       if (s.av_scan_on_open !== undefined) setAvScanOnOpen(s.av_scan_on_open === 'true')
       if (s.av_notify_on_infection !== undefined) setAvNotifyOnInfection(s.av_notify_on_infection === 'true')
+      if (s.app_url) setAppUrl(s.app_url)
       if (s.smtp_host) setSmtpHost(s.smtp_host)
       if (s.smtp_port) setSmtpPort(s.smtp_port)
       if (s.smtp_secure !== undefined) setSmtpSecure(s.smtp_secure === 'true')
@@ -521,6 +523,8 @@ export default function Settings() {
         sync_interval_minutes: syncInterval, sync_enabled: String(syncEnabled),
         av_update_hours: avUpdateSchedule, av_update_time: avUpdateTime,
         av_scan_on_open: String(avScanOnOpen), av_notify_on_infection: String(avNotifyOnInfection),
+        app_url: appUrl.trim(),
+        oauth_redirect_base_url: appUrl.trim(),
         smtp_host: smtpHost, smtp_port: smtpPort, smtp_secure: String(smtpSecure), smtp_user: smtpUser,
         ...(smtpPass ? { smtp_pass: smtpPass } : {}),
       })
@@ -897,6 +901,14 @@ export default function Settings() {
 
         {activeTab === 'smtp' && (
           <div className="space-y-5">
+            {/* URL Applicazione */}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+              <Field label="URL pubblico applicazione">
+                <input type="url" value={appUrl} onChange={e => setAppUrl(e.target.value)}
+                  placeholder="https://mailhaven.tuodominio.it" className={inputClass} />
+              </Field>
+              <p className="text-xs text-gray-500">Necessario per OAuth Microsoft 365 / Google e per accesso esterno. Lascia vuoto per installazioni solo interne.</p>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
                 <Field label="Server SMTP">

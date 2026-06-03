@@ -454,38 +454,7 @@ function ClientsTab({ branding, user }) {
     setLoading(true)
     api.get('/admin/clients').then(r => setClients(r.data)).finally(() => setLoading(false))
   }
-  const [oauthToast, setOauthToast] = useState(null) // { type: 'success'|'error', msg }
-
-  useEffect(() => {
-    load()
-    loadSyncStatus()
-    const interval = setInterval(loadSyncStatus, 5000)
-    // Gestione ritorno callback OAuth
-    const params = new URLSearchParams(window.location.search)
-    const oauthSuccess = params.get('oauth_success')
-    const oauthError = params.get('oauth_error')
-    if (oauthSuccess) {
-      setOauthToast({ type: 'success', msg: `Casella ${oauthSuccess} collegata via OAuth` })
-      window.history.replaceState({}, '', window.location.pathname)
-      setTimeout(() => setOauthToast(null), 5000)
-    } else if (oauthError) {
-      setOauthToast({ type: 'error', msg: `Errore OAuth: ${oauthError}` })
-      window.history.replaceState({}, '', window.location.pathname)
-      setTimeout(() => setOauthToast(null), 8000)
-    }
-    return () => clearInterval(interval)
-  }, [])
-
-  const loadSyncStatus = async () => {
-    try {
-      const res = await api.get('/admin/sync-status')
-      const byMailbox = {}
-      res.data.forEach(log => {
-        if (!byMailbox[log.mailbox_id]) byMailbox[log.mailbox_id] = log
-      })
-      setSyncStatus(byMailbox)
-    } catch {}
-  }
+  useEffect(() => { load() }, [])
 
   const openNew = () => { setForm({ name: '', company: '', active: true }); setEditItem(null); setShowForm(true) }
   const openEdit = (c) => { setForm({ name: c.name, company: c.company || '', active: c.active }); setEditItem(c); setShowForm(true) }
@@ -609,38 +578,7 @@ function UsersTab({ branding, user }) {
     const [u, c] = await Promise.all([api.get('/admin/users'), api.get('/admin/clients')])
     setUsers(u.data); setClients(c.data); setLoading(false)
   }
-  const [oauthToast, setOauthToast] = useState(null) // { type: 'success'|'error', msg }
-
-  useEffect(() => {
-    load()
-    loadSyncStatus()
-    const interval = setInterval(loadSyncStatus, 5000)
-    // Gestione ritorno callback OAuth
-    const params = new URLSearchParams(window.location.search)
-    const oauthSuccess = params.get('oauth_success')
-    const oauthError = params.get('oauth_error')
-    if (oauthSuccess) {
-      setOauthToast({ type: 'success', msg: `Casella ${oauthSuccess} collegata via OAuth` })
-      window.history.replaceState({}, '', window.location.pathname)
-      setTimeout(() => setOauthToast(null), 5000)
-    } else if (oauthError) {
-      setOauthToast({ type: 'error', msg: `Errore OAuth: ${oauthError}` })
-      window.history.replaceState({}, '', window.location.pathname)
-      setTimeout(() => setOauthToast(null), 8000)
-    }
-    return () => clearInterval(interval)
-  }, [])
-
-  const loadSyncStatus = async () => {
-    try {
-      const res = await api.get('/admin/sync-status')
-      const byMailbox = {}
-      res.data.forEach(log => {
-        if (!byMailbox[log.mailbox_id]) byMailbox[log.mailbox_id] = log
-      })
-      setSyncStatus(byMailbox)
-    } catch {}
-  }
+  useEffect(() => { load() }, [])
 
   const openNew = () => { setForm({ email: '', password: '', full_name: '', role: 'user', client_id: '', active: true }); setEditItem(null); setShowForm(true) }
   const openEdit = (u) => { setForm({ email: u.email, password: '', full_name: u.full_name || '', role: u.role, client_id: u.client_id || '', active: u.active }); setEditItem(u); setShowForm(true) }

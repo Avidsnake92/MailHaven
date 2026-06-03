@@ -36,7 +36,7 @@ router.post('/complete', async (req, res) => {
     return res.status(403).json({ error: 'Setup già completato' });
   }
 
-  const { encryption_key, jwt_secret, admin_email, admin_password, admin_name, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
+  const { encryption_key, jwt_secret, admin_email, admin_password, admin_name, app_url, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
 
   if (!encryption_key || encryption_key.length !== 64 || !/^[0-9a-f]+$/i.test(encryption_key))
     return res.status(400).json({ error: 'ENCRYPTION_KEY non valida: deve essere 64 caratteri esadecimali' });
@@ -61,6 +61,7 @@ router.post('/complete', async (req, res) => {
     // Applica in memoria
     process.env.ENCRYPTION_KEY = encryption_key;
     process.env.JWT_SECRET = jwt_secret;
+    if (app_url) { process.env.APP_URL = app_url; process.env.OAUTH_REDIRECT_BASE_URL = app_url; }
 
     // 2. Tenta anche di scrivere nel .env per persistenza al riavvio
     try {
@@ -77,6 +78,7 @@ router.post('/complete', async (req, res) => {
             : c + `\n${k}=${v}`;
           content = set(content, 'ENCRYPTION_KEY', encryption_key);
           content = set(content, 'JWT_SECRET', jwt_secret);
+          if (app_url) { content = set(content, 'APP_URL', app_url); content = set(content, 'OAUTH_REDIRECT_BASE_URL', app_url); }
           fs.writeFileSync(envPath, content, 'utf8');
           break;
         }
@@ -106,6 +108,12 @@ router.post('/complete', async (req, res) => {
       for (const [key, value] of Object.entries(smtpSettings)) {
         await db.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, String(value)]);
       }
+    }
+
+    // 5b. Salva app_url nelle settings
+    if (app_url) {
+      await db.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', ['app_url', app_url]);
+      await db.query('INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', ['oauth_redirect_base_url', app_url]);
     }
 
     // 6. Marca setup come completato
