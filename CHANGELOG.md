@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.0.97] - 2026-06-05
+### Added
+- YARA Scanner: 11 regole per rilevare PE/ELF, macro Office AutoOpen/Shell, PowerShell encoded, VBScript, HTML phishing, ZIP con eseguibili, PDF con JS
+- VirusTotal: hash check SHA-256 come terzo layer AV (attivo se VIRUSTOTAL_API_KEY configurata)
+- Rate limiter automatico VirusTotal: max 4 req/min rispettando tier gratuito (500/giorno)
+- avBatchScanner: architettura a 3 layer — ClamAV + YARA + VirusTotal per ogni allegato
+- Dockerfile: installazione YARA 4.5.5 via apk
+
+## [0.0.96] - 2026-06-05
+### Added
+- Plugin Outlook: manifest servito dinamicamente da /api/plugin/manifest/outlook con URL server corretto
+- Plugin Thunderbird: estensione .xpi scaricabile da /api/plugin/download/thunderbird
+- Plugin entrambi: download EML funzionante via /api/plugin/emails/:id/eml
+- Plugin entrambi: restore compatibile con caselle OAuth (Graph API per M365, Gmail API per Google)
+- Settings Plugin Client: card Outlook e Thunderbird con link download e istruzioni installazione step-by-step
+- Icone PNG 48x96 per estensione Thunderbird
+### Fixed
+- plugin.js restore endpoint: ora usa Graph/Gmail/IMAP in base al provider della casella
+- panel.html Outlook: BASE_URL dinamico da window.location.origin invece di placeholder hardcoded
+- popup.html Thunderbird: aggiunto download EML
+
+
 ## [0.0.95] - 2026-06-04
 ### Added
 - AV: blocco download allegati per email infette (errore 403)
