@@ -292,14 +292,7 @@ const start = async (database) => {
   setTimeout(() => cleanupOldLogs(), 5000);
   setTimeout(() => cleanupExpiredBadges(), 8000);
 
-  const runCheckUpdate = () => {
-    const { exec } = require('child_process');
-    exec('bash /root/mailhaven/check-update.sh', (err) => {
-      if (err) console.log('[Scheduler] check-update skip: ' + err.message.split('\n')[0]);
-    });
-  };
-  setInterval(runCheckUpdate, 30 * 60 * 1000);
-  setTimeout(runCheckUpdate, 10000);
+  // check-update.sh viene eseguito dal cron host ogni 30min
   setTimeout(() => syncAllMailboxes(), 30000);
 
   console.log('IMAP scheduler started');
