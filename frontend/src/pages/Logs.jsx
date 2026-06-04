@@ -86,33 +86,6 @@ function ActivityLog() {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      {avStats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            {label:"Scansionate",val:fmt(avStats.totals?.scanned),color:"text-blue-600",bg:"bg-blue-50"},
-            {label:"Pulite",val:fmt(avStats.totals?.clean),color:"text-green-600",bg:"bg-green-50"},
-            {label:"Infette",val:fmt(avStats.totals?.infected),color:"text-red-600",bg:"bg-red-50"},
-            {label:"In attesa",val:fmt(avStats.totals?.pending),color:"text-amber-600",bg:"bg-amber-50"},
-          ].map(s => (
-            <div key={s.label} className={s.bg+" rounded-xl p-4 text-center"}>
-              <p className={"text-2xl font-bold "+s.color}>{s.val}</p>
-              <p className="text-xs text-gray-500 mt-1">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-      {avStats?.topViruses?.length > 0 && (
-        <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
-          <p className="text-xs font-semibold text-red-700 mb-2">Minacce piu frequenti</p>
-          <div className="flex flex-wrap gap-2">
-            {avStats.topViruses.map(v => (
-              <span key={v.virus} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
-                {v.virus} <strong>({v.count})</strong>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -234,6 +207,33 @@ function AvLog() {
 
   return (
     <div className="space-y-4">
+      {avStats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            {label:"Scansionate",val:fmt(avStats.totals?.scanned),color:"text-blue-600",bg:"bg-blue-50"},
+            {label:"Pulite",val:fmt(avStats.totals?.clean),color:"text-green-600",bg:"bg-green-50"},
+            {label:"Infette",val:fmt(avStats.totals?.infected),color:"text-red-600",bg:"bg-red-50"},
+            {label:"In attesa",val:fmt(avStats.totals?.pending),color:"text-amber-600",bg:"bg-amber-50"},
+          ].map(s => (
+            <div key={s.label} className={s.bg+" rounded-xl p-4 text-center"}>
+              <p className={"text-2xl font-bold "+s.color}>{s.val}</p>
+              <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {avStats?.topViruses?.length > 0 && (
+        <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+          <p className="text-xs font-semibold text-red-700 mb-2">Minacce piu frequenti</p>
+          <div className="flex flex-wrap gap-2">
+            {avStats.topViruses.map(v => (
+              <span key={v.virus} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                {v.virus} <strong>({v.count})</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Shield size={18} className="text-gray-500" />
