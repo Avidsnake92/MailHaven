@@ -101,11 +101,35 @@ const runBatchScan = async (db) => {
               infectedFiles.push(att.filename);
               continue;
             }
-            const result = await scanBuffer(att.content, att.filename);
-            if (!result.clean) {
+            // Layer 1: ClamAV
+            const clamResult = await scanBuffer(att.content, att.filename);
+            if (!clamResult.clean) {
               allClean = false;
-              infectedViruses.push(...(result.viruses || ['Unknown']));
+              infectedViruses.push(...(clamResult.viruses || ['ClamAV.Unknown']));
               infectedFiles.push(att.filename);
+            }
+            // Layer 2: YARA rules
+            try {
+              const { scanBuffer: yaraScan } = require('./yaraScanner');
+              const yaraResult = await yaraScan(att.content, att.filename);
+              if (!yaraResult.clean && !yaraResult.skipped) {
+                allClean = false;
+                infectedViruses.push(...(yaraResult.viruses || ['YARA.Unknown']));
+                if (!infectedFiles.includes(att.filename)) infectedFiles.push(att.filename);
+              }
+            } catch(ye) { console.error('[YARA]', ye.message); }
+            // Layer 3: VirusTotal (solo se API key configurata)
+            if (process.env.VIRUSTOTAL_API_KEY) {
+              try {
+                const { checkHash } = require('./virustotal');
+                const vtResult = await checkHash(att.content, att.filename);
+                if (!vtResult.clean && !vtResult.skipped && !vtResult.unknown) {
+                  allClean = false;
+                  infectedViruses.push(...(vtResult.viruses || ['VT.Unknown']));
+                  if (!infectedFiles.includes(att.filename)) infectedFiles.push(att.filename);
+                  console.log('[VirusTotal] RILEVATO: ' + att.filename + ' - ' + vtResult.detections);
+                }
+              } catch(ve) { console.error('[VT]', ve.message); }
             }
             // Scrivi av_log per ogni allegato scansionato
             await db.query(

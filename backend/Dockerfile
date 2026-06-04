@@ -7,7 +7,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install ClamAV
-RUN apk add --no-cache clamav clamav-daemon clamav-libunrar && \
+RUN apk add --no-cache clamav clamav-daemon clamav-libunrar yara && \
     mkdir -p /var/lib/clamav /run/clamav && \
     chown -R clamav:clamav /var/lib/clamav /run/clamav
 
@@ -17,6 +17,7 @@ COPY backend/src ./src
 COPY backend/public ./public
 COPY backend/package.json ./
 COPY plugins ./plugins
+COPY backend/yara-rules ./yara-rules
 
 # Startup script
 COPY backend/docker-entrypoint.sh /docker-entrypoint.sh
