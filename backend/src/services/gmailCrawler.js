@@ -101,20 +101,7 @@ const syncMailbox = async (mailbox, db) => {
 
       let pageAllKnown = true;
       for (const { id: gmailId } of messages) {
-        // Scarica metadata leggero per ottenere internetMessageId
-        const metaRes = await gmailFetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}?format=metadata&metadataHeaders=Message-Id`,
-          token
-        );
-        if (!metaRes.ok) continue;
-        const meta = await metaRes.json();
-        const msgIdHeader = meta.payload?.headers?.find(h => h.name === 'Message-Id' || h.name === 'Message-ID');
-        const msgId = msgIdHeader?.value || gmailId;
-
-        if (knownIds.has(msgId)) continue;
-        pageAllKnown = false;
-
-        // Raw RFC822 (base64url)
+        // Ottimizzazione: fetch raw unica che include headers + contenuto
         const rawRes = await gmailFetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}?format=raw`, token
         );
@@ -122,7 +109,12 @@ const syncMailbox = async (mailbox, db) => {
         const rawData = await rawRes.json();
         if (!rawData.raw) continue;
 
-        const rawBuffer = Buffer.from(rawData.raw, 'base64');
+        const rawBuffer = Buffer.from(rawData.raw, 'base64url');
+        // Estrai Message-ID dagli snippet headers inline
+        const meta = rawData;
+        const msgIdMatch = rawData.raw ? Buffer.from(rawData.raw,'base64url').toString('utf8',0,2000).match(/Message-ID:\s*([^
+]+)/i) : null;
+        const msgId = msgIdMatch ? msgIdMatch[1].trim() : gmailId;
         const rawGzipped = await gzip(rawBuffer);
         const rawEncrypted = encryptBuffer(rawGzipped);
 
@@ -130,7 +122,7 @@ const syncMailbox = async (mailbox, db) => {
         const internalDate = rawData.internalDate ? new Date(parseInt(rawData.internalDate)) : new Date();
 
         // Estrai mittente e destinatari dagli header
-        const headers = meta.payload?.headers || [];
+        const headers = [];
         const getH = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || null;
         const parseAddr = (str) => {
           if (!str) return [];
@@ -184,4 +176,51 @@ const syncMailbox = async (mailbox, db) => {
   return { total: totalSynced, folders: folderResults };
 };
 
-module.exports = { syncMailbox };
+
+// Elimina messaggi Gmail per RFC822 Message-ID
+const deleteMessages = async (db, mailbox, messageIds) => {
+  if (!messageIds.length) return 0;
+  const token = await getValidToken(db, mailbox);
+  let deleted = 0;
+  for (const msgId of messageIds) {
+    try {
+      const searchRes = await gmailFetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=rfc822msgid:${encodeURIComponent(msgId)}&maxResults=1`,
+        token
+      );
+      if (!searchRes.ok) continue;
+      const data = await searchRes.json();
+      const gmailId = data.messages?.[0]?.id;
+      if (!gmailId) continue;
+      const delRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailId}/trash`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (delRes.ok) deleted++;
+    } catch(e) { console.error('[GmailCrawler] delete error:', e.message); }
+  }
+  return deleted;
+};
+
+// Carica un EML su Gmail via API
+const uploadMessage = async (db, mailbox, emlBuffer, labelName) => {
+  const token = await getValidToken(db, mailbox);
+  const LABEL_IDS = { 'INBOX': 'INBOX', 'Sent': 'SENT', 'inbox': 'INBOX' };
+  const labelId = LABEL_IDS[labelName] || 'INBOX';
+  const raw = emlBuffer.toString('base64url');
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?uploadType=media', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'message/rfc822',
+    },
+    body: emlBuffer,
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gmail upload: ${res.status} ${err}`);
+  }
+  return true;
+};
+
+module.exports = { syncMailbox, deleteMessages, uploadMessage };

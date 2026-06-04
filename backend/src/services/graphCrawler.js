@@ -135,4 +135,64 @@ const syncMailbox = async (mailbox, db) => {
   return { total: totalSynced, folders: folderResults };
 };
 
-module.exports = { syncMailbox };
+
+// Cerca messaggi Graph per RFC822 Message-ID e li elimina
+const deleteMessages = async (db, mailbox, messageIds) => {
+  if (!messageIds.length) return 0;
+  const { getValidToken } = require('./oauthHelper');
+  const { decrypt } = require('./crypto');
+  let token;
+  try {
+    const mb = { ...mailbox, oauth_access_token: mailbox.oauth_access_token };
+    token = await getValidToken(db, mb);
+  } catch(e) { console.error('[GraphCrawler] deleteMessages token error:', e.message); return 0; }
+
+  let deleted = 0;
+  for (const msgId of messageIds) {
+    try {
+      // Cerca per internetMessageId
+      const searchRes = await graphFetch(
+        `https://graph.microsoft.com/v1.0/me/messages?$filter=internetMessageId eq '${encodeURIComponent(msgId)}'&$select=id&$top=1`,
+        token
+      );
+      if (!searchRes.ok) continue;
+      const data = await searchRes.json();
+      const graphId = data.value?.[0]?.id;
+      if (!graphId) continue;
+      // Elimina
+      const delRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${graphId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (delRes.status === 204) deleted++;
+    } catch(e) { console.error('[GraphCrawler] delete error:', e.message); }
+  }
+  return deleted;
+};
+
+// Carica un EML su Microsoft 365 via Graph API
+const uploadMessage = async (db, mailbox, emlBuffer, folderName) => {
+  const { getValidToken } = require('./oauthHelper');
+  const token = await getValidToken(db, mailbox);
+  // Trova folder ID per nome
+  const foldersRes = await graphFetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=100', token);
+  if (!foldersRes.ok) throw new Error('Graph: impossibile ottenere cartelle');
+  const foldersData = await foldersRes.json();
+  const folder = foldersData.value?.find(f =>
+    f.displayName?.toLowerCase() === (folderName||'inbox').toLowerCase()
+  ) || foldersData.value?.find(f => f.wellKnownName === 'inbox');
+  if (!folder) throw new Error('Graph: cartella non trovata: ' + folderName);
+
+  const res = await fetch(`https://graph.microsoft.com/v1.0/me/mailFolders/${folder.id}/messages/$value`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
+    body: emlBuffer,
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Graph upload: ${res.status} ${err}`);
+  }
+  return true;
+};
+
+module.exports = { syncMailbox, deleteMessages, uploadMessage };

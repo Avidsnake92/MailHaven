@@ -84,24 +84,24 @@ const uploadToImap = (config, folder, emlBuffer, sentAt) => {
   });
 };
 
-// Helper: get IMAP config from DB (solo per caselle password — OAuth non supporta restore diretto)
-const getImapConfig = async (db, mailboxEmail) => {
+// Helper: ottieni mailbox completa per restore
+const getMailboxForRestore = async (db, mailboxEmail) => {
   const result = await db.query(
-    'SELECT imap_host, imap_port, imap_tls, imap_user, imap_password_encrypted, oauth_provider FROM mailboxes WHERE email=$1 AND active=true',
+    'SELECT * FROM mailboxes WHERE email=$1 AND active=true',
     [mailboxEmail]
   );
-  if (!result.rows[0]) return null;
-  const row = result.rows[0];
-  if (row.oauth_provider && !row.imap_password_encrypted) {
-    throw new Error(`La casella ${mailboxEmail} usa OAuth — il ripristino IMAP diretto non è supportato per caselle OAuth`);
-  }
-  if (!row.imap_password_encrypted) return null;
+  return result.rows[0] || null;
+};
+
+// Helper: get IMAP config (solo caselle password)
+const getImapConfig = (mailbox) => {
+  if (!mailbox?.imap_password_encrypted) return null;
   return {
-    host: row.imap_host,
-    port: row.imap_port || 993,
-    tls: row.imap_tls !== false,
-    user: row.imap_user || mailboxEmail,
-    password: decrypt(row.imap_password_encrypted),
+    host: mailbox.imap_host,
+    port: mailbox.imap_port || 993,
+    tls: mailbox.imap_tls !== false,
+    user: mailbox.imap_user || mailbox.email,
+    password: decrypt(mailbox.imap_password_encrypted),
   };
 };
 
@@ -112,8 +112,8 @@ router.post('/imap', async (req, res, next) => {
   if (!email_ids?.length) return next(new AppError(ERRORS.MH_1402));
   if (!target_mailbox) return next(new AppError(ERRORS.MH_1503));
   try {
-    const imapConfig = await getImapConfig(db, target_mailbox);
-    if (!imapConfig) return next(new AppError(ERRORS.MH_1204, target_mailbox));
+    const mailbox = await getMailboxForRestore(db, target_mailbox);
+    if (!mailbox) return next(new AppError(ERRORS.MH_1204, target_mailbox));
 
     const allowedIds = await getUserMailboxIds(db, req.user);
     const s = await db.query(`SELECT value FROM settings WHERE key='badge_duration_days'`);
@@ -129,7 +129,19 @@ router.post('/imap', async (req, res, next) => {
         }
         const emlBuffer = Buffer.isBuffer(email.raw) ? email.raw : Buffer.from(email.raw);
         const folder = target_folder || 'INBOX';
-        await uploadToImap(imapConfig, folder, emlBuffer, email.sent_at);
+
+        // Sceglie il metodo di restore in base al provider
+        if (mailbox.oauth_provider === 'microsoft') {
+          const { uploadMessage } = require('../services/graphCrawler');
+          await uploadMessage(db, mailbox, emlBuffer, folder);
+        } else if (mailbox.oauth_provider === 'google') {
+          const { uploadMessage } = require('../services/gmailCrawler');
+          await uploadMessage(db, mailbox, emlBuffer, folder);
+        } else {
+          const imapConfig = getImapConfig(mailbox);
+          if (!imapConfig) throw new Error('Nessuna credenziale IMAP disponibile per questa casella');
+          await uploadToImap(imapConfig, folder, emlBuffer, email.sent_at);
+        }
         await db.query(
           `UPDATE archived_emails
            SET is_restored=true, is_deleted=false, deleted_at=NULL,

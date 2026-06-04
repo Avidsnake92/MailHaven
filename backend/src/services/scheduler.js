@@ -100,7 +100,7 @@ const applyArchivePolicy = async (mailbox, db) => {
   try {
     const params = [mailbox.id, cutoffDate, ...dateFromParams, ...dateToParams];
     const emails = await db.query(
-      `SELECT id, uid, path FROM archived_emails
+      `SELECT id, uid, path, message_id FROM archived_emails
        WHERE mailbox_id=$1 AND sent_at<$2 AND is_deleted=false
        ${dateFromCondition}${dateToCondition}${flaggedCondition}
        LIMIT 100`,
@@ -111,14 +111,23 @@ const applyArchivePolicy = async (mailbox, db) => {
     // Raggruppa per cartella
     const byFolder = {};
     emails.rows.forEach(e => {
-      if (!byFolder[e.path]) byFolder[e.path] = { uids: [], ids: [] };
+      if (!byFolder[e.path]) byFolder[e.path] = { uids: [], ids: [], messageIds: [] };
       byFolder[e.path].uids.push(e.uid);
       byFolder[e.path].ids.push(e.id);
+      if (e.message_id) byFolder[e.path].messageIds.push(e.message_id);
     });
 
-    // Elimina dall'IMAP per ogni cartella
+    // Elimina dal server per ogni cartella (IMAP o API)
     for (const [folder, data] of Object.entries(byFolder)) {
-      await deleteFromImap(mailbox, data.uids, folder);
+      if (mailbox.oauth_provider === 'microsoft') {
+        const { deleteMessages } = require('./graphCrawler');
+        await deleteMessages(db, mailbox, data.messageIds);
+      } else if (mailbox.oauth_provider === 'google') {
+        const { deleteMessages } = require('./gmailCrawler');
+        await deleteMessages(db, mailbox, data.messageIds);
+      } else {
+        await deleteFromImap(mailbox, data.uids, folder);
+      }
     }
 
     // Marca come archiviate da policy — badge permanente
