@@ -3,11 +3,9 @@ const MICROSOFT_TENANT_ID = process.env.MICROSOFT_TENANT_ID || 'common';
 const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
 
 const SCOPES = [
-  'https://outlook.office.com/IMAP.AccessAsUser.All',
+  'https://graph.microsoft.com/Mail.Read',
+  'https://graph.microsoft.com/User.Read',
   'offline_access',
-  'openid',
-  'email',
-  'profile',
 ].join(' ');
 
 const refreshMicrosoftToken = async (db, mailbox) => {

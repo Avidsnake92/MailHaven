@@ -9,7 +9,8 @@ const getBaseUrl = () => process.env.OAUTH_REDIRECT_BASE_URL || process.env.APP_
 const REDIRECT_URI = () => { const b = getBaseUrl(); return b ? `${b}/api/oauth/microsoft/callback` : null; };
 
 const SCOPES = [
-  'https://outlook.office.com/IMAP.AccessAsUser.All',
+  'https://graph.microsoft.com/Mail.Read',
+  'https://graph.microsoft.com/User.Read',
   'offline_access',
   'openid',
   'email',
