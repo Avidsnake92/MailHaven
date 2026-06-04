@@ -73,9 +73,11 @@ router.post('/complete', async (req, res) => {
       for (const envPath of envPaths) {
         if (fs.existsSync(envPath)) {
           let content = fs.readFileSync(envPath, 'utf8');
-          const set = (c, k, v) => new RegExp(`^${k}=.*`, 'm').test(c)
-            ? c.replace(new RegExp(`^${k}=.*`, 'm'), `${k}=${v}`)
-            : c + `\n${k}=${v}`;
+          // Rimuove tutte le occorrenze della chiave e aggiunge il nuovo valore
+          const set = (c, k, v) => {
+            const cleaned = c.split('\n').filter(l => !new RegExp(`^${k}=`).test(l)).join('\n');
+            return cleaned.trimEnd() + `\n${k}=${v}\n`;
+          };
           content = set(content, 'ENCRYPTION_KEY', encryption_key);
           content = set(content, 'JWT_SECRET', jwt_secret);
           if (app_url) { content = set(content, 'APP_URL', app_url); content = set(content, 'OAUTH_REDIRECT_BASE_URL', app_url); }
