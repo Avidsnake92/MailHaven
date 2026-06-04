@@ -165,6 +165,9 @@ const syncAllMailboxes = async () => {
         if (mailbox.oauth_provider === 'microsoft') {
           const { syncMailbox: graphSync } = require('./graphCrawler');
           result = await graphSync(mailbox, db);
+        } else if (mailbox.oauth_provider === 'google') {
+          const { syncMailbox: gmailSync } = require('./gmailCrawler');
+          result = await gmailSync(mailbox, db);
         } else {
           result = await syncMailbox(mailbox, db);
         }

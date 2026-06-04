@@ -524,6 +524,9 @@ router.post('/sync/:mailbox_id', async (req, res) => {
     if (mailbox.oauth_provider === 'microsoft') {
       const { syncMailbox: graphSync } = require('../services/graphCrawler');
       n = await graphSync(mailbox, db);
+    } else if (mailbox.oauth_provider === 'google') {
+      const { syncMailbox: gmailSync } = require('../services/gmailCrawler');
+      n = await gmailSync(mailbox, db);
     } else {
       const { syncMailbox } = require('../services/imapCrawler');
       n = await syncMailbox(mailbox, db);
