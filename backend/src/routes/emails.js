@@ -406,10 +406,19 @@ router.get('/:id/attachment/:index', async (req, res) => {
   try {
     const ids = await getUserMailboxIds(db, req.user);
     const r = await db.query(
-      'SELECT raw, attachments FROM archived_emails WHERE id=$1 AND mailbox_id=ANY($2)',
+      'SELECT raw, attachments, av_status FROM archived_emails WHERE id=$1 AND mailbox_id=ANY($2)',
       [req.params.id, ids]
     );
     if (!r.rows[0]?.raw) return res.status(404).json({ error: 'Email non trovata' });
+
+    // Blocca allegati se email infetta — archivio immutabile ma allegati disarmati
+    if (r.rows[0].av_status === 'infected') {
+      return res.status(403).json({
+        error: 'Download bloccato — allegato potenzialmente pericoloso rilevato da ClamAV.',
+        code: 'MH-1701',
+        infected: true,
+      });
+    }
 
     const rawBuffer = await decompress(r.rows[0].raw);
     const parsed = await simpleParser(rawBuffer);
@@ -463,14 +472,18 @@ router.post('/export', async (req, res) => {
   try {
     const ids = await getUserMailboxIds(db, req.user);
     const r = await db.query(
-      'SELECT id, subject, sent_at, path, raw FROM archived_emails WHERE id=ANY($1) AND mailbox_id=ANY($2)',
+      'SELECT id, subject, sent_at, path, raw, av_status FROM archived_emails WHERE id=ANY($1) AND mailbox_id=ANY($2)',
       [email_ids, ids]
     );
+
+    // Filtra email infette dall'export
+    const safeEmails = r.rows.filter(e => e.av_status !== 'infected');
+    const infectedCount = r.rows.length - safeEmails.length;
 
     if (format === 'mbox') {
       res.setHeader('Content-Type', 'application/mbox');
       res.setHeader('Content-Disposition', 'attachment; filename="export.mbox"');
-      for (const email of r.rows) {
+      for (const email of safeEmails) {
         const from = `From - ${new Date(email.sent_at).toUTCString()}\r\n`;
         res.write(from);
         if (email.raw) {

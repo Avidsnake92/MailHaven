@@ -24,15 +24,9 @@ const start = async (db) => {
   if (avTimer) { clearTimeout(avTimer); avTimer = null; }
 
   try {
-    const r = await db.query("SELECT value FROM settings WHERE key IN ('av_update_hours','av_update_time')");
+    const r = await db.query("SELECT key, value FROM settings WHERE key IN ('av_update_hours','av_update_time')");
     const settings = {};
-    r.rows.forEach(row => {
-      if (row.key) settings[row.key] = row.value;
-    });
-
-    // Rileggi con i nomi corretti
-    const rr = await db.query("SELECT key, value FROM settings WHERE key IN ('av_update_hours','av_update_time')");
-    rr.rows.forEach(row => { settings[row.key] = row.value; });
+    r.rows.forEach(row => { settings[row.key] = row.value; });
 
     const hours = parseInt(settings.av_update_hours || '24');
     const time = settings.av_update_time || '02:00';

@@ -263,16 +263,36 @@ function EmailPreview({ emailId, onClose, branding }) {
         </div>
       </div>
 
+      {/* Banner email infetta */}
+      {content?.isInfected && (
+        <div className="px-5 py-2.5 bg-red-50 border-b border-red-200 shrink-0 flex items-center gap-2">
+          <ShieldAlert size={15} className="text-red-600 shrink-0" />
+          <span className="text-xs text-red-700 font-semibold">Virus rilevato — allegati bloccati per sicurezza. L'email è conservata nell'archivio in sola lettura.</span>
+        </div>
+      )}
+
       {/* Allegati */}
       {content?.attachments?.length > 0 && (
         <div className="px-5 py-2 border-b border-gray-100 shrink-0 bg-gray-50/50">
           <div className="flex items-center gap-1.5 flex-wrap">
             <Paperclip size={11} className="text-gray-400" />
             {content.attachments.map((att, i) => (
-              <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 bg-white border border-gray-200 rounded-md text-gray-600 shadow-sm">
-                {att.filename || `allegato_${i + 1}`}
-                {att.size && <span className="text-gray-400">· {formatBytes(att.size)}</span>}
-              </span>
+              content?.isInfected ? (
+                <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 bg-red-50 border border-red-200 rounded-md text-red-600 shadow-sm" title="Allegato bloccato">
+                  <ShieldAlert size={10} />
+                  {att.filename || `allegato_${i + 1}`}
+                </span>
+              ) : (
+                <button key={i} onClick={() => {
+                  const a = document.createElement('a')
+                  a.href = `/api/emails/${email.id}/attachment/${att.index ?? i}`
+                  a.download = att.filename || 'attachment'
+                  a.click()
+                }} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 bg-white border border-gray-200 rounded-md text-blue-600 hover:bg-blue-50 shadow-sm cursor-pointer">
+                  {att.filename || `allegato_${i + 1}`}
+                  {att.size && <span className="text-gray-400">· {formatBytes(att.size)}</span>}
+                </button>
+              )
             ))}
           </div>
         </div>

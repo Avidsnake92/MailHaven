@@ -1,6 +1,37 @@
 const { simpleParser } = require('mailparser');
 const { decompress } = require('./compression');
 
+// Notifica admin per email infetta
+const notifyInfected = async (db, emailId, mailboxEmail, viruses, filenames) => {
+  try {
+    const setting = await db.query("SELECT value FROM settings WHERE key='av_notify_on_infection'");
+    if (setting.rows[0]?.value !== 'true') return;
+    const { getSmtpConfig, getTransport } = require('./mailer');
+    const cfg = await getSmtpConfig(db);
+    if (!cfg.host || !cfg.user) return;
+    const admins = await db.query("SELECT email FROM users WHERE role='superadmin' AND active=true");
+    const transport = getTransport(cfg);
+    for (const admin of admins.rows) {
+      transport.sendMail({
+        from: `"MailHaven AV" <${cfg.from}>`,
+        to: admin.email,
+        subject: `🚨 [MailHaven] Email infetta rilevata — ${mailboxEmail}`,
+        html: `<div style="font-family:sans-serif;max-width:500px">
+          <h2 style="color:#dc2626">⚠️ Email infetta rilevata</h2>
+          <table style="width:100%;border-collapse:collapse;margin:16px 0">
+            <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">Casella</td><td style="padding:8px">${mailboxEmail}</td></tr>
+            <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">Email ID</td><td style="padding:8px">${emailId}</td></tr>
+            <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">Virus</td><td style="padding:8px;color:#dc2626">${viruses.join(', ')}</td></tr>
+            <tr><td style="padding:8px;background:#f9fafb;font-weight:bold">File</td><td style="padding:8px">${filenames.join(', ')}</td></tr>
+          </table>
+          <p>Gli allegati sono stati bloccati. L'email rimane nell'archivio in sola lettura.</p>
+          <p style="color:#6b7280;font-size:12px">MailHaven Antivirus</p>
+        </div>`,
+      }).catch(() => {});
+    }
+  } catch(e) { console.error('[AV] Notifica errore:', e.message); }
+};
+
 let batchTimer = null;
 let isRunning = false;
 
@@ -25,16 +56,21 @@ const runBatchScan = async (db) => {
     let totalProcessed = 0;
     let totalInfected = 0;
 
+    let lastId = null;
     while (true) {
       const r = await db.query(
-        `SELECT id, raw FROM archived_emails
-         WHERE has_attachments = true AND av_status IS NULL AND raw IS NOT NULL
-         ORDER BY sent_at DESC
-         LIMIT $1 OFFSET $2`,
-        [CHUNK, offset]
+        `SELECT ae.id, ae.raw, m.email as mailbox_email
+         FROM archived_emails ae
+         JOIN mailboxes m ON m.id = ae.mailbox_id
+         WHERE ae.has_attachments = true AND ae.av_status IS NULL AND ae.raw IS NOT NULL
+         ${lastId ? 'AND ae.id > $2' : ''}
+         ORDER BY ae.id ASC
+         LIMIT $1`,
+        lastId ? [CHUNK, lastId] : [CHUNK]
       );
 
       if (r.rows.length === 0) break;
+      lastId = r.rows[r.rows.length - 1].id;
 
       for (const row of r.rows) {
         try {
@@ -43,7 +79,6 @@ const runBatchScan = async (db) => {
           const attachments = parsed.attachments || [];
 
           if (attachments.length === 0) {
-            // Nessun allegato effettivo nel raw — aggiorna has_attachments
             await db.query(
               "UPDATE archived_emails SET av_status='clean', has_attachments=false WHERE id=$1",
               [row.id]
@@ -51,27 +86,50 @@ const runBatchScan = async (db) => {
             continue;
           }
 
+          // Blocco estensioni pericolose
+          const DANGEROUS_EXT = ['.exe','.vbs','.ps1','.bat','.cmd','.scr','.jar','.msi','.com','.pif','.hta','.reg'];
           let allClean = true;
+          const infectedViruses = [];
+          const infectedFiles = [];
+
           for (const att of attachments) {
+            const fname = (att.filename || '').toLowerCase();
+            const ext = fname.substring(fname.lastIndexOf('.'));
+            if (DANGEROUS_EXT.includes(ext)) {
+              allClean = false;
+              infectedViruses.push('DangerousExtension.' + ext.slice(1).toUpperCase());
+              infectedFiles.push(att.filename);
+              continue;
+            }
             const result = await scanBuffer(att.content, att.filename);
-            if (!result.clean) { allClean = false; break; }
+            if (!result.clean) {
+              allClean = false;
+              infectedViruses.push(...(result.viruses || ['Unknown']));
+              infectedFiles.push(att.filename);
+            }
+            // Scrivi av_log per ogni allegato scansionato
+            await db.query(
+              `INSERT INTO av_log (email_id, filename, status, viruses) VALUES ($1,$2,$3,$4)`,
+              [row.id, att.filename, result.clean ? 'clean' : 'infected', result.viruses || []]
+            ).catch(() => {});
           }
 
+          const avStatus = allClean ? 'clean' : 'infected';
           await db.query(
             "UPDATE archived_emails SET av_status=$1 WHERE id=$2",
-            [allClean ? 'clean' : 'infected', row.id]
+            [avStatus, row.id]
           );
 
-          if (!allClean) totalInfected++;
+          if (!allClean) {
+            totalInfected++;
+            await notifyInfected(db, row.id, row.mailbox_email, infectedViruses, infectedFiles);
+            console.log(`[AV Batch] INFETTA: ${row.id} — ${infectedViruses.join(', ')}`);
+          }
           totalProcessed++;
         } catch (err) {
           console.error(`[AV Batch] Errore email ${row.id}:`, err.message);
-          // Non bloccare il batch per un errore singolo
         }
       }
-
-      offset += CHUNK;
-      // Piccola pausa tra chunk per non martellare ClamAV
       await new Promise(r => setTimeout(r, 500));
     }
 
