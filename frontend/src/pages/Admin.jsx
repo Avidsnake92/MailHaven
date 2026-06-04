@@ -227,7 +227,16 @@ function StorageTab({ user }) {
 }
 
 export default function Admin() {
-  const [tab, setTab] = useState(0)
+  const initTab=()=>{const p=new URLSearchParams(window.location.search);if(p.get("oauth_success")||p.get("tab")==="mailboxes")return 2;return 0}
+  const [tab,setTab]=useState(initTab)
+  const [gToast,setGToast]=useState(null)
+
+  useEffect(()=>{
+    const p=new URLSearchParams(window.location.search)
+    const s=p.get("oauth_success");const e=p.get("oauth_error")
+    if(s){setGToast({type:"success",msg:"Casella "+s+" collegata con successo!"});window.history.replaceState({},"",window.location.pathname);setTimeout(()=>setGToast(null),6000)}
+    else if(e){setGToast({type:"error",msg:"Errore OAuth: "+e});window.history.replaceState({},"",window.location.pathname);setTimeout(()=>setGToast(null),8000)}
+  },[])
   const { user } = useAuth()
   const { branding } = useBranding()
 
@@ -256,6 +265,7 @@ export default function Admin() {
       {tab === 1 && <UsersTab branding={branding} user={user} />}
       {tab === 2 && <MailboxesTab branding={branding} user={user} />}
       {tab === 3 && <StorageTab user={user} />}
+      {gToast&&(<div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl text-sm font-semibold ${gToast.type==="success"?"bg-green-600 text-white":"bg-red-600 text-white"}`}>{gToast.type==="success"?<CheckCircle2 size={18}/>:<AlertCircle size={18}/>}{gToast.msg}<button onClick={()=>setGToast(null)} className="ml-2 opacity-70 hover:opacity-100"><X size={14}/></button></div>)}
     </div>
   )
 }
