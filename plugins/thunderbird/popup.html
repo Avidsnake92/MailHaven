@@ -290,6 +290,20 @@ async function doRestore() {
   } catch(e) { msg.innerHTML = `<div class="err">❌ ${e.message}</div>`; }
 }
 
+async function downloadEml() {
+  if (!currentEmailId) return;
+  try {
+    const r = await api('/emails/'+currentEmailId+'/eml');
+    if (!r.ok) throw new Error('Download fallito');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download='email_'+currentEmailId.substring(0,8)+'.eml';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
 function fmt(d) {
   if (!d) return '-';
   return new Date(d).toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'2-digit'});

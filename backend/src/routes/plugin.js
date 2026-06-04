@@ -173,13 +173,12 @@ router.get('/emails/:id', pluginAuth, async (req, res) => {
   }
 });
 
-// ── API per plugin: restore email ─────────────────────────────────────────
+// ── API per plugin: restore email (Graph/Gmail/IMAP) ──────────────────────
 router.post('/emails/:id/restore', pluginAuth, async (req, res) => {
   const db = req.app.locals.db;
   const { target_mailbox, target_folder } = req.body;
   const { decompress } = require('../services/compression');
   const { decrypt } = require('../services/crypto');
-  const Imap = require('imap');
   try {
     const emailR = await db.query('SELECT * FROM archived_emails WHERE id=$1', [req.params.id]);
     if (!emailR.rows[0]?.raw) return res.status(404).json({ error: 'Email non trovata' });
@@ -188,27 +187,89 @@ router.post('/emails/:id/restore', pluginAuth, async (req, res) => {
     const mb = mbR.rows[0];
     const rawBuf = await decompress(emailR.rows[0].raw);
     const folder = target_folder || emailR.rows[0].path || 'INBOX';
-    await new Promise((resolve, reject) => {
-      const imap = new Imap({
-        user: mb.imap_user || mb.email,
-        password: decrypt(mb.imap_password_encrypted),
-        host: mb.imap_host, port: mb.imap_port || 993,
-        tls: mb.imap_tls !== false, tlsOptions: { rejectUnauthorized: false }, connTimeout: 15000,
-      });
-      imap.once('ready', () => {
-        imap.openBox(folder, false, (err) => {
-          const append = () => imap.append(rawBuf, { mailbox: folder, flags: ['\\Seen'] }, (e) => { imap.end(); e ? reject(e) : resolve(); });
-          if (err) imap.addBox(folder, (e) => { if (e) { imap.end(); return reject(e); } append(); });
-          else append();
+
+    if (mb.oauth_provider === 'microsoft') {
+      const { uploadMessage } = require('../services/graphCrawler');
+      await uploadMessage(db, mb, rawBuf, folder);
+    } else if (mb.oauth_provider === 'google') {
+      const { uploadMessage } = require('../services/gmailCrawler');
+      await uploadMessage(db, mb, rawBuf, folder);
+    } else {
+      const Imap = require('imap');
+      await new Promise((resolve, reject) => {
+        const imap = new Imap({
+          user: mb.imap_user || mb.email,
+          password: decrypt(mb.imap_password_encrypted),
+          host: mb.imap_host, port: mb.imap_port || 993,
+          tls: mb.imap_tls !== false, tlsOptions: { rejectUnauthorized: false }, connTimeout: 15000,
         });
+        imap.once('ready', () => {
+          imap.openBox(folder, false, (err) => {
+            const append = () => imap.append(rawBuf, { mailbox: folder, flags: ['\Seen'] }, (e) => { imap.end(); e ? reject(e) : resolve(); });
+            if (err) imap.addBox(folder, (e) => { if (e) { imap.end(); return reject(e); } append(); });
+            else append();
+          });
+        });
+        imap.once('error', reject);
+        imap.connect();
       });
-      imap.once('error', reject);
-      imap.connect();
-    });
+    }
     res.json({ success: true, message: `Email ripristinata in ${folder}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── API per plugin: download EML ───────────────────────────────────────────
+router.get('/emails/:id/eml', pluginAuth, async (req, res) => {
+  const db = req.app.locals.db;
+  const { decompress } = require('../services/compression');
+  try {
+    const r = await db.query('SELECT id, subject, raw FROM archived_emails WHERE id=$1', [req.params.id]);
+    if (!r.rows[0]?.raw) return res.status(404).json({ error: 'Email non trovata' });
+    const rawBuf = await decompress(r.rows[0].raw);
+    const safeName = (r.rows[0].subject || 'email').replace(/[^a-z0-9]/gi,'_').substring(0,50);
+    res.setHeader('Content-Type', 'message/rfc822');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.eml"`);
+    res.send(rawBuf);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Manifest dinamico Outlook (sostituisce MAILVAULT_URL) ──────────────────
+router.get('/manifest/outlook', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const baseUrl = process.env.APP_URL || `http://${req.hostname}:3001`;
+  const manifestPath = path.join(__dirname, '../../plugins/outlook/manifest.xml');
+  try {
+    let manifest = fs.readFileSync(manifestPath, 'utf8');
+    manifest = manifest.replace(/MAILVAULT_URL/g, baseUrl);
+    res.setHeader('Content-Type', 'application/xml');
+    res.send(manifest);
+  } catch(e) { res.status(500).json({ error: 'Manifest non trovato' }); }
+});
+
+// ── Download Thunderbird XPI ───────────────────────────────────────────────
+router.get('/download/thunderbird', authMiddleware, (req, res) => {
+  const path = require('path');
+  const xpi = path.join(__dirname, '../../plugins/thunderbird/mailhaven.xpi');
+  res.download(xpi, 'mailhaven-archive.xpi', (err) => {
+    if (err) res.status(404).json({ error: 'File non trovato. Ricostruire il pacchetto.' });
+  });
+});
+
+router.get('/install-info', authMiddleware, (req, res) => {
+  var baseUrl = process.env.APP_URL || (req.protocol + '://' + req.hostname);
+  res.json({
+    outlook: {
+      manifest_url: baseUrl + '/api/plugin/manifest/outlook',
+      steps: ['Apri Outlook', 'Ottieni componenti aggiuntivi', 'Aggiungi da URL', 'Incolla URL manifest', 'Installa e riavvia']
+    },
+    thunderbird: {
+      xpi_url: baseUrl + '/api/plugin/download/thunderbird',
+      steps: ['Scarica .xpi', 'Thunderbird - Strumenti - Componenti aggiuntivi', 'Installa da file', 'Riavvia']
+    }
+  });
 });
 
 module.exports = router;

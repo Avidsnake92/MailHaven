@@ -100,7 +100,7 @@
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
-  <img class="logo" src="MAILVAULT_URL/logo.svg" alt="MailHaven" onerror="this.style.display='none'">
+  <img class="logo" id="logo" src="" alt="MailHaven" onerror="this.style.display='none'">
   <h2 style="margin-bottom:4px;font-size:18px;color:#1e293b">MailHaven</h2>
   <p style="color:#64748b;font-size:12px;margin-bottom:20px">Accedi per visualizzare l'archivio email</p>
   <div class="form-group">
@@ -185,7 +185,7 @@
 </div>
 
 <script>
-const BASE_URL = 'MAILVAULT_URL';
+const BASE_URL = window.location.origin;
 let token = null;
 let currentEmail = null;
 let currentPage = 1;
@@ -194,7 +194,8 @@ let activeTab = 'search';
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 Office.onReady(() => {
-  token = localStorage.getItem('mh_plugin_token');
+  const lg=document.getElementById("logo"); if(lg) lg.src=window.location.origin+"/logo.svg";
+  token = localStorage.getItem("mh_plugin_token");
   if (token) initMain();
 });
 
@@ -427,9 +428,17 @@ function formatDate(d) {
          date.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
 }
 
-function exportEml() {
+async function exportEml() {
   if (!currentEmail) return;
-  alert('Per scaricare il file EML, usa il pulsante Esporta nell\'interfaccia web di MailHaven.');
+  try {
+    const r = await api(/emails/+currentEmail.id+/eml);
+    if (!r.ok) throw new Error("Download fallito");
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href=url; a.download=(currentEmail.subject||"email").replace(/[^a-z0-9]/gi,"_").substring(0,50)+".eml";
+    a.click(); URL.revokeObjectURL(url);
+  } catch(e) { alert("Errore: "+e.message); }
 }
 </script>
 </body>
