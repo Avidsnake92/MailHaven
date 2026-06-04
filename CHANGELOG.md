@@ -1,5 +1,73 @@
 # Changelog
 
+## [0.0.95] - 2026-06-04
+### Added
+- AV: blocco download allegati per email infette (errore 403)
+- AV: banner rosso Virus rilevato nel viewer email
+- AV: blocco estensioni pericolose senza ClamAV (.exe .vbs .ps1 .bat .cmd .scr .jar .msi)
+- AV: notifica email admin quando virus rilevato (av_notify_on_infection)
+- AV: scrittura av_log per ogni allegato scansionato
+- AV: email infette escluse da export ZIP e MBOX
+### Fixed
+- avBatchScanner: paginazione cursor-based invece di OFFSET
+- avScheduler: rimossa doppia query DB ridondante
+
+## [0.0.94] - 2026-06-04
+### Added
+- Graph API: deleteMessages e uploadMessage per policy e restore M365
+- Gmail API: deleteMessages e uploadMessage per policy e restore Google
+- restore.js: routing automatico Graph/Gmail/IMAP in base al provider
+### Fixed
+- gmailCrawler: ridotte da 3 a 2 fetch per messaggio
+- scheduler.js: policy archiviazione usa Graph/Gmail delete per caselle OAuth
+
+## [0.0.93] - 2026-06-04
+### Added
+- Token OAuth cifrati AES-256 nel DB
+- Badge Token scaduto con link ri-autorizzazione in Admin
+### Fixed
+- admin.js sync manuale: usa Graph/Gmail per caselle OAuth
+- oauthHelper e gmailCrawler: decrypt/encrypt token
+
+## [0.0.92] - 2026-06-04
+### Fixed
+- setup.js: rimuove duplicati nel .env prima di scrivere nuovi valori
+
+## [0.0.91] - 2026-06-04
+### Fixed
+- OAuth Microsoft: scopes da IMAP a Graph API (Mail.Read, User.Read)
+
+## [0.0.90] - 2026-06-04
+### Fixed
+- do-update.sh: risolto detached HEAD permanente con git reset --hard
+
+## [0.0.89] - 2026-06-04
+### Added
+- gmailCrawler.js: crawler Gmail API per caselle Google OAuth
+### Fixed
+- graphCrawler.js: UID SHA-256 stabile per evitare collisioni
+
+## [0.0.88] - 2026-06-04
+### Added
+- graphCrawler.js: crawler Microsoft Graph API sostituisce IMAP XOAUTH2
+- Retry automatico su 429/503
+
+## [0.0.87] - 2026-06-04
+### Fixed
+- Admin: dopo OAuth redirect su tab Caselle Email invece di Clienti
+- Admin: toast globale successo/errore OAuth
+- scheduler: rimossa chiamata check-update.sh dal container
+
+## [0.0.86] - 2026-06-04
+### Added
+- Setup: campo URL pubblico per OAuth e accesso esterno
+- Settings: campo URL pubblico modificabile post-setup
+- docker-compose: .env host montato come volume per scrittura dal setup
+### Fixed
+- oauth.js: REDIRECT_URI dinamico da APP_URL non piu hardcoded
+- index.js: APP_URL caricato dal DB al riavvio container
+- Admin: rimossi oauthToast e loadSyncStatus duplicati da ClientsTab e UsersTab
+
 ## [0.0.85] - 2026-06-04
 ### Fixed
 - SQL Injection in /admin/av-logs — parametro status ora passato come bind parameter
