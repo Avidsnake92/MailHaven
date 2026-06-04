@@ -50,4 +50,10 @@ docker compose up -d >> "$LOG" 2>&1 || die "docker compose up fallito"
 log "aggiorno stato release"
 bash "$INSTALL_DIR/check-update.sh" >> "$LOG" 2>&1 || true
 
+VTAG=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
+VVER=${VTAG#v}
+VBUILD=$(date +%Y%m%d)
+printf '{"version": "%s", "build": "%s"}
+' "$VVER" "$VBUILD" > "$INSTALL_DIR/version.json"
+log "version.json aggiornato: $VVER"
 log "=== Aggiornamento completato ==="
