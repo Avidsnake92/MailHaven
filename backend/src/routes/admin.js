@@ -814,4 +814,42 @@ router.get('/stats/overview', authMiddleware, async (req, res) => {
 });
 
 
+// ---- AV STATISTICS ----
+router.get('/av-stats', async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const [totals, byStatus, recent, topViruses] = await Promise.all([
+      db.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE av_status IS NOT NULL) as scanned,
+          COUNT(*) FILTER (WHERE av_status = 'infected') as infected,
+          COUNT(*) FILTER (WHERE av_status = 'clean') as clean,
+          COUNT(*) FILTER (WHERE has_attachments = true AND av_status IS NULL) as pending
+        FROM archived_emails`),
+      db.query(`
+        SELECT av_status, COUNT(*) as count
+        FROM archived_emails WHERE av_status IS NOT NULL
+        GROUP BY av_status`),
+      db.query(`
+        SELECT a.email_id, a.filename, a.status, a.viruses, a.created_at,
+               ae.subject, ae.sender_email, m.email as mailbox_email
+        FROM av_log a
+        JOIN archived_emails ae ON ae.id::text = a.email_id::text
+        JOIN mailboxes m ON m.id = ae.mailbox_id
+        WHERE a.status = 'infected'
+        ORDER BY a.created_at DESC LIMIT 10`),
+      db.query(`
+        SELECT unnest(viruses) as virus, COUNT(*) as count
+        FROM av_log WHERE status = 'infected'
+        GROUP BY virus ORDER BY count DESC LIMIT 10`),
+    ]);
+    res.json({
+      totals: totals.rows[0],
+      byStatus: byStatus.rows,
+      recentInfected: recent.rows,
+      topViruses: topViruses.rows,
+    });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

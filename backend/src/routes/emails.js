@@ -372,11 +372,36 @@ router.get('/:id/content', async (req, res) => {
   try {
     const ids = await getUserMailboxIds(db, req.user);
     const r = await db.query(
-      'SELECT body_html, body_text, raw, attachments FROM archived_emails WHERE id=$1 AND mailbox_id=ANY($2)',
+      'SELECT body_html, body_text, raw, attachments, av_status, has_attachments FROM archived_emails WHERE id=$1 AND mailbox_id=ANY($2)',
       [req.params.id, ids]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Email non trovata' });
-    const { body_html, body_text, raw, attachments } = r.rows[0];
+    const { body_html, body_text, raw, attachments, av_status, has_attachments } = r.rows[0];
+
+    // Scan on open: se av_status e' null e ha allegati, avvia scan in background
+    if (av_status === null && has_attachments && raw) {
+      const s = await db.query("SELECT value FROM settings WHERE key='av_scan_on_open'");
+      if (s.rows[0]?.value === 'true') {
+        setImmediate(async () => {
+          try {
+            const { scanBuffer } = require('../services/antivirus');
+            const { scanBuffer: yaraScan } = require('../services/yaraScanner');
+            const { decompress: dec } = require('../services/compression');
+            const { simpleParser: sp } = require('mailparser');
+            const rawBuf = await dec(raw);
+            const parsed = await sp(rawBuf);
+            let allClean = true;
+            for (const att of parsed.attachments || []) {
+              const r1 = await scanBuffer(att.content, att.filename);
+              const r2 = await yaraScan(att.content, att.filename);
+              if (!r1.clean || (!r2.skipped && !r2.clean)) { allClean = false; break; }
+            }
+            await db.query('UPDATE archived_emails SET av_status=$1 WHERE id=$2',
+              [allClean ? 'clean' : 'infected', r.rows[0].id || req.params.id]);
+          } catch(e) { console.error('[AV on open]', e.message); }
+        });
+      }
+    }
 
     // Attachments con index per il download
     const atts = (attachments || []).map((a, i) => ({ ...a, index: i }));
@@ -386,8 +411,9 @@ router.get('/:id/content', async (req, res) => {
     const safeText = (body_text && body_text !== 'false') ? body_text : null;
 
     // If we have cached HTML/text use that, otherwise parse raw
+    const infected = av_status === 'infected';
     if (safeHtml || safeText) {
-      return res.json({ html: safeHtml, text: safeText, attachments: atts });
+      return res.json({ html: safeHtml, text: safeText, attachments: atts, isInfected: infected });
     }
 
     if (raw) {

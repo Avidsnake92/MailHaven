@@ -59,7 +59,7 @@ const runBatchScan = async (db) => {
     let lastId = null;
     while (true) {
       const r = await db.query(
-        `SELECT ae.id, ae.raw, m.email as mailbox_email
+        `SELECT ae.id, ae.raw, ae.body_html, ae.body_text, m.email as mailbox_email
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
          WHERE ae.has_attachments = true AND ae.av_status IS NULL AND ae.raw IS NOT NULL
@@ -136,6 +136,22 @@ const runBatchScan = async (db) => {
               `INSERT INTO av_log (email_id, filename, status, viruses) VALUES ($1,$2,$3,$4)`,
               [row.id, att.filename, result.clean ? 'clean' : 'infected', result.viruses || []]
             ).catch(() => {});
+          }
+
+          // YARA scan anche su body HTML (phishing, script offuscati)
+          if (allClean) {
+            try {
+              const { scanBuffer: yaraScan } = require('./yaraScanner');
+              const bodyToScan = Buffer.from((row.body_html || '') + (row.body_text || ''), 'utf8');
+              if (bodyToScan.length > 10) {
+                const bodyResult = await yaraScan(bodyToScan, 'email_body.html');
+                if (!bodyResult.clean && !bodyResult.skipped) {
+                  allClean = false;
+                  infectedViruses.push(...(bodyResult.viruses || ['YARA.BodyThreat']));
+                  infectedFiles.push('corpo email');
+                }
+              }
+            } catch(ye) { console.error('[YARA body]', ye.message); }
           }
 
           const avStatus = allClean ? 'clean' : 'infected';

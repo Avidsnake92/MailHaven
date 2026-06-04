@@ -122,8 +122,15 @@ const syncMailbox = async (mailbox, db) => {
         const internalDate = rawData.internalDate ? new Date(parseInt(rawData.internalDate)) : new Date();
 
         // Estrai mittente e destinatari dagli header
+        // Estrai headers dal raw RFC822 (piu affidabile di meta.payload dopo ottimizzazione)
+        const rawStr = rawBuffer.toString('utf8', 0, Math.min(rawBuffer.length, 4000));
+        const getHeader = (name) => {
+          const re = new RegExp('^' + name + ':\\s*(.+?)\\r?$', 'mi');
+          const m = rawStr.match(re);
+          return m ? m[1].trim() : null;
+        };
         const headers = [];
-        const getH = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || null;
+        const getH = (name) => getHeader(name);
         const parseAddr = (str) => {
           if (!str) return [];
           return str.split(',').map(a => {
