@@ -519,10 +519,15 @@ router.post('/sync/:mailbox_id', async (req, res) => {
     const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.mailbox_id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
     const mailbox = r.rows[0];
-    const { syncMailbox } = require('../services/imapCrawler');
     const { applyArchivePolicy } = require('../services/scheduler');
-    // Attende completamento sync prima di rispondere — così il frontend vede lo spinner
-    const n = await syncMailbox(mailbox, db);
+    let n;
+    if (mailbox.oauth_provider === 'microsoft') {
+      const { syncMailbox: graphSync } = require('../services/graphCrawler');
+      n = await graphSync(mailbox, db);
+    } else {
+      const { syncMailbox } = require('../services/imapCrawler');
+      n = await syncMailbox(mailbox, db);
+    }
     if (applyArchivePolicy) {
       await applyArchivePolicy(mailbox, db).catch(e => console.error('[Policy]', e.message));
     }

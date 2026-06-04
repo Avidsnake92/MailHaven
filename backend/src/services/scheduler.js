@@ -161,7 +161,13 @@ const syncAllMailboxes = async () => {
       const logId = logResult.rows[0].id;
       const startTime = Date.now();
       try {
-        const result = await syncMailbox(mailbox, db);
+        let result;
+        if (mailbox.oauth_provider === 'microsoft') {
+          const { syncMailbox: graphSync } = require('./graphCrawler');
+          result = await graphSync(mailbox, db);
+        } else {
+          result = await syncMailbox(mailbox, db);
+        }
         const synced = typeof result === 'object' ? result.total : result;
         const folderResults = typeof result === 'object' ? result.folders : [];
 
