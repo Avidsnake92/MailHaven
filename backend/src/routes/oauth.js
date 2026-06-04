@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
+const { encrypt, decrypt } = require('../services/crypto');
 
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const MICROSOFT_TENANT_ID = process.env.MICROSOFT_TENANT_ID || 'common';
@@ -128,7 +129,7 @@ router.get('/microsoft/callback', async (req, res) => {
           active=true,
           updated_at=NOW()
         WHERE email=$6`,
-        [tokens.access_token, tokens.refresh_token, expiresAt, refreshExpiresAt, email, email]
+        [encrypt(tokens.access_token), tokens.refresh_token ? encrypt(tokens.refresh_token) : null, expiresAt, refreshExpiresAt, email, email]
       );
     } else {
       // Crea nuova casella
@@ -143,8 +144,8 @@ router.get('/microsoft/callback', async (req, res) => {
           displayName || email,
           client_id,
           email,
-          tokens.access_token,
-          tokens.refresh_token,
+          encrypt(tokens.access_token),
+          tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
           expiresAt,
           refreshExpiresAt
         ]
@@ -309,8 +310,8 @@ router.get('/google/callback', async (req, res) => {
           updated_at=NOW()
         WHERE email=$6`,
         [
-          tokens.access_token,
-          tokens.refresh_token || null,  // Google non sempre rimanda il refresh_token
+          encrypt(tokens.access_token),
+          tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
           expiresAt,
           refreshExpiresAt,
           email,
@@ -332,8 +333,8 @@ router.get('/google/callback', async (req, res) => {
           gUser.name || email,
           client_id,
           email,
-          tokens.access_token,
-          tokens.refresh_token,
+          encrypt(tokens.access_token),
+          encrypt(tokens.refresh_token),
           expiresAt,
           refreshExpiresAt
         ]

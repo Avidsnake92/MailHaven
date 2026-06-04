@@ -275,11 +275,20 @@ router.post('/mailboxes/:id/sync', async (req, res) => {
     const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
     res.json({ message: 'Sincronizzazione avviata' });
-    const { syncMailbox } = require('../services/imapCrawler');
+    const mailbox = r.rows[0];
     setImmediate(async () => {
       try {
-        const n = await syncMailbox(r.rows[0], db);
-        // console.log(`Sync ${r.rows[0].email}: +${n} emails`);
+        let n;
+        if (mailbox.oauth_provider === 'microsoft') {
+          const { syncMailbox: graphSync } = require('../services/graphCrawler');
+          n = await graphSync(mailbox, db);
+        } else if (mailbox.oauth_provider === 'google') {
+          const { syncMailbox: gmailSync } = require('../services/gmailCrawler');
+          n = await gmailSync(mailbox, db);
+        } else {
+          const { syncMailbox } = require('../services/imapCrawler');
+          n = await syncMailbox(mailbox, db);
+        }
       } catch (e) { console.error('Sync error:', e.message); }
     });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }

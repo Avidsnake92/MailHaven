@@ -2,7 +2,7 @@ const zlib = require('zlib');
 const crypto = require('crypto');
 const { promisify } = require('util');
 const gzip = promisify(zlib.gzip);
-const { encryptBuffer } = require('./crypto');
+const { encryptBuffer, decrypt, encrypt } = require('./crypto');
 
 const stableUid = (msgId) => {
   const h = crypto.createHash('sha256').update(msgId).digest();
@@ -17,7 +17,7 @@ const refreshGoogleToken = async (db, mailbox) => {
     body: new URLSearchParams({
       client_id:     process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      refresh_token: mailbox.oauth_refresh_token,
+      refresh_token: (()=>{try{return decrypt(mailbox.oauth_refresh_token)||mailbox.oauth_refresh_token}catch{return mailbox.oauth_refresh_token}})(),
       grant_type:    'refresh_token',
     })
   });
@@ -26,14 +26,14 @@ const refreshGoogleToken = async (db, mailbox) => {
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
   await db.query(
     'UPDATE mailboxes SET oauth_access_token=$1, oauth_expires_at=$2 WHERE id=$3',
-    [tokens.access_token, expiresAt, mailbox.id]
+    [encrypt(tokens.access_token), expiresAt, mailbox.id]
   );
   return tokens.access_token;
 };
 
 const getValidToken = async (db, mailbox) => {
   if (mailbox.oauth_expires_at && new Date(mailbox.oauth_expires_at) > new Date(Date.now() + 60000)) {
-    return mailbox.oauth_access_token;
+    try{return decrypt(mailbox.oauth_access_token)||mailbox.oauth_access_token}catch{return mailbox.oauth_access_token}
   }
   return refreshGoogleToken(db, mailbox);
 };
