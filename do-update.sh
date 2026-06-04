@@ -36,7 +36,10 @@ if docker compose ps --status running mailhaven-db >/dev/null 2>&1; then
   docker compose exec -T mailhaven-db pg_dump -U "${DB_USER:-mailhaven}" "${DB_NAME:-mailhaven}" | gzip > "$BACKUP_FILE" || die "backup database fallito"
 fi
 
-git checkout --force "$TARGET_REF" >> "$LOG" 2>&1 || die "checkout $TARGET_REF fallito"
+git fetch --tags origin >> "$LOG" 2>&1
+git checkout main >> "$LOG" 2>&1 || git checkout -B main origin/main >> "$LOG" 2>&1
+git reset --hard "$TARGET_REF" >> "$LOG" 2>&1 || die "reset a $TARGET_REF fallito"
+git branch --set-upstream-to=origin/main main >> "$LOG" 2>&1 || true
 
 log "build immagini"
 docker compose build --pull >> "$LOG" 2>&1 || die "docker compose build fallito"
