@@ -64,7 +64,7 @@ export default function Login() {
     }
 
     // Controlla quali SSO sono configurati
-    api.get('/oauth/app-config').then(res => {
+    fetch('/api/oauth/app-config/public').then(r => r.json()).then(res => {
       setSsoAvailable({
         microsoft: res.data?.microsoft?.configured || false,
         google: res.data?.google?.configured || false,
