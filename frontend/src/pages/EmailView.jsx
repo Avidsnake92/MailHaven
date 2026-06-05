@@ -103,6 +103,7 @@ export default function EmailView() {
   }
 
   const formatDate = (d) => {
+    if (!d) return "—";
     try { return format(new Date(d), "dd MMMM yyyy 'alle' HH:mm", { locale: it }) } catch { return d }
   }
 

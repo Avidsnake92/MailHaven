@@ -219,6 +219,7 @@ function EmailPreview({ emailId, onClose, branding }) {
   if (!email) return null
 
   const formatDateFull = (d) => {
+    if (!d) return "—";
     try { return format(new Date(d), "dd MMMM yyyy 'alle' HH:mm", { locale: it }) } catch { return d }
   }
 
@@ -498,6 +499,7 @@ export default function Dashboard() {
   }
 
   const formatDateShort = (d) => {
+    if (!d) return "—";
     try {
       const date = new Date(d)
       const now = new Date()
