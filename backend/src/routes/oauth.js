@@ -384,6 +384,156 @@ const getValidGoogleToken = async (db, mailbox) => {
   return await refreshGoogleToken(db, mailbox);
 };
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OAuth App Config — lettura/scrittura credenziali app e connectivity check
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /oauth/app-config — restituisce config attuale (secrets mascherati)
+router.get('/app-config', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'admin'].includes(req.user.role))
+    return res.status(403).json({ error: 'Accesso negato' });
+  const mask = (v) => v ? v.slice(0, 4) + '••••••••' + v.slice(-4) : '';
+  const msClientId = process.env.MICROSOFT_CLIENT_ID || '';
+  const msTenantId = process.env.MICROSOFT_TENANT_ID || '';
+  const msSecret   = process.env.MICROSOFT_CLIENT_SECRET || '';
+  const gClientId  = process.env.GOOGLE_CLIENT_ID || '';
+  const gSecret    = process.env.GOOGLE_CLIENT_SECRET || '';
+  res.json({
+    microsoft: {
+      client_id: msClientId,
+      tenant_id: msTenantId,
+      client_secret_masked: mask(msSecret),
+      configured: !!(msClientId && msTenantId && msSecret),
+    },
+    google: {
+      client_id: gClientId,
+      client_secret_masked: mask(gSecret),
+      configured: !!(gClientId && gSecret),
+    },
+    redirect_uri_microsoft: getBaseUrl() ? getBaseUrl() + '/api/oauth/microsoft/callback' : '',
+    redirect_uri_google:    getBaseUrl() ? getBaseUrl() + '/api/oauth/google/callback' : '',
+  });
+});
+
+// POST /oauth/app-config — salva credenziali nel .env
+router.post('/app-config', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'admin'].includes(req.user.role))
+    return res.status(403).json({ error: 'Accesso negato' });
+  const fs = require('fs');
+  const path = require('path');
+  const envPath = path.resolve('/app/.env');
+  if (!fs.existsSync(envPath)) return res.status(500).json({ error: '.env non trovato' });
+
+  const { provider, client_id, client_secret, tenant_id } = req.body;
+  if (!provider || !client_id || !client_secret)
+    return res.status(400).json({ error: 'Parametri mancanti' });
+
+  let envContent = fs.readFileSync(envPath, 'utf8');
+  const setKey = (content, key, value) => {
+    const escaped = value.replace(/[$]/g, '\$&');
+    const re = new RegExp('^' + key + '=.*$', 'm');
+    return re.test(content)
+      ? content.replace(re, key + '=' + escaped)
+      : content.trimEnd() + '
+' + key + '=' + escaped + '
+';
+  };
+
+  if (provider === 'microsoft') {
+    envContent = setKey(envContent, 'MICROSOFT_CLIENT_ID', client_id);
+    envContent = setKey(envContent, 'MICROSOFT_TENANT_ID', tenant_id || 'common');
+    if (client_secret && !client_secret.includes('•'))
+      envContent = setKey(envContent, 'MICROSOFT_CLIENT_SECRET', client_secret);
+    process.env.MICROSOFT_CLIENT_ID     = client_id;
+    process.env.MICROSOFT_TENANT_ID     = tenant_id || 'common';
+    if (client_secret && !client_secret.includes('•'))
+      process.env.MICROSOFT_CLIENT_SECRET = client_secret;
+  } else if (provider === 'google') {
+    envContent = setKey(envContent, 'GOOGLE_CLIENT_ID', client_id);
+    if (client_secret && !client_secret.includes('•'))
+      envContent = setKey(envContent, 'GOOGLE_CLIENT_SECRET', client_secret);
+    process.env.GOOGLE_CLIENT_ID     = client_id;
+    if (client_secret && !client_secret.includes('•'))
+      process.env.GOOGLE_CLIENT_SECRET = client_secret;
+  } else {
+    return res.status(400).json({ error: 'Provider non valido' });
+  }
+
+  fs.writeFileSync(envPath, envContent, 'utf8');
+  res.json({ ok: true, message: 'Credenziali salvate. Riavvia il backend per applicarle.' });
+});
+
+// POST /oauth/check-connectivity/:provider — test raggiungibilità endpoint OAuth
+router.post('/check-connectivity/:provider', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'admin'].includes(req.user.role))
+    return res.status(403).json({ error: 'Accesso negato' });
+  const https = require('https');
+  const { provider } = req.params;
+
+  let url;
+  if (provider === 'microsoft') {
+    const tid = process.env.MICROSOFT_TENANT_ID || 'common';
+    url = ;
+  } else if (provider === 'google') {
+    url = 'https://accounts.google.com/.well-known/openid-configuration';
+  } else {
+    return res.status(400).json({ error: 'Provider non valido' });
+  }
+
+  const startAt = Date.now();
+  const request = https.get(url, (response) => {
+    let data = '';
+    response.on('data', chunk => { data += chunk; });
+    response.on('end', () => {
+      const ms = Date.now() - startAt;
+      try {
+        const json = JSON.parse(data);
+        const ok = !!json.authorization_endpoint;
+        res.json({ ok, latency_ms: ms, endpoint: json.authorization_endpoint || null });
+      } catch {
+        res.json({ ok: false, latency_ms: ms, error: 'Risposta non valida' });
+      }
+    });
+  });
+  request.on('error', (err) => {
+    res.json({ ok: false, error: err.message, latency_ms: Date.now() - startAt });
+  });
+  request.setTimeout(8000, () => {
+    request.destroy();
+    res.json({ ok: false, error: 'Timeout (8s)', latency_ms: 8000 });
+  });
+});
+
+// GET /oauth/mailboxes-status — stato token OAuth per tutte le caselle
+router.get('/mailboxes-status', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'admin'].includes(req.user.role))
+    return res.status(403).json({ error: 'Accesso negato' });
+  const db = req.app.locals.db;
+  try {
+    const result = await db.query(
+      
+    );
+    const now = new Date();
+    const items = result.rows.map(m => {
+      const expiresAt = m.oauth_expires_at ? new Date(m.oauth_expires_at) : null;
+      const refreshExpiresAt = m.oauth_refresh_expires_at ? new Date(m.oauth_refresh_expires_at) : null;
+      let status = 'ok';
+      if (!expiresAt) status = 'unknown';
+      else if (refreshExpiresAt && refreshExpiresAt < now) status = 'expired';
+      else if (expiresAt < now) status = 'token_expired';
+      return {
+        id: m.id, email: m.email, display_name: m.display_name,
+        provider: m.oauth_provider, status,
+        expires_at: expiresAt, refresh_expires_at: refreshExpiresAt,
+      };
+    });
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 module.exports.getValidToken = getValidToken;
 module.exports.getValidGoogleToken = getValidGoogleToken;

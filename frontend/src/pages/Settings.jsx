@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
-import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle } from 'lucide-react'
+import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle, Cloud, ChevronRight, ExternalLink, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
 
 const TABS = [
   { id: 'sync',     label: 'Sincronizzazione', icon: Database    },
@@ -11,6 +11,7 @@ const TABS = [
   { id: 'plugin',   label: 'Plugin Client',     icon: Puzzle      },
   { id: 'security', label: 'Sicurezza',         icon: ShieldCheck },
   { id: 'update',   label: 'Aggiornamento',     icon: RefreshCw   },
+  { id: 'oauth',    label: 'OAuth / Cloud',     icon: Cloud       },
 ]
 
 // ═══════════════════════════════════════════════════════
@@ -822,6 +823,7 @@ export default function Settings() {
           </div>
         )}
 
+        {activeTab === 'oauth' && <OAuthWizardTab />}
         {activeTab === 'security' && <SecurityTab user={user} />}
         {activeTab === 'update' && <UpdateTab />}
 
@@ -942,7 +944,7 @@ export default function Settings() {
       </div>
 
       <div className="flex items-center gap-4 mt-6">
-        <button onClick={saveSettings} disabled={saving || activeTab === 'update' || activeTab === 'security'}
+        <button onClick={saveSettings} disabled={saving || activeTab === 'update' || activeTab === 'security' || activeTab === 'oauth'}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-60 bg-blue-600 hover:bg-blue-700 transition-colors">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {saving ? 'Salvataggio...' : 'Salva impostazioni'}
