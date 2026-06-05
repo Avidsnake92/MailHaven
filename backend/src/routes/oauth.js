@@ -435,9 +435,7 @@ router.post('/app-config', authMiddleware, async (req, res) => {
     const re = new RegExp('^' + key + '=.*$', 'm');
     return re.test(content)
       ? content.replace(re, key + '=' + escaped)
-      : content.trimEnd() + '
-' + key + '=' + escaped + '
-';
+      : content.trimEnd() + '\n' + key + '=' + escaped + '\n';
   };
 
   if (provider === 'microsoft') {
