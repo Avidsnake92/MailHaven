@@ -472,7 +472,7 @@ router.post('/check-connectivity/:provider', authMiddleware, async (req, res) =>
   let url;
   if (provider === 'microsoft') {
     const tid = process.env.MICROSOFT_TENANT_ID || 'common';
-    url = ;
+    url = `https://login.microsoftonline.com/${tid}/v2.0/.well-known/openid-configuration`;
   } else if (provider === 'google') {
     url = 'https://accounts.google.com/.well-known/openid-configuration';
   } else {
