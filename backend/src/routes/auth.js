@@ -528,7 +528,7 @@ router.get('/oauth/microsoft/callback', async (req, res) => {
     );
     const user = result.rows[0];
     if (!user) {
-      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Utente non trovato. Contatta l'amministratore.')}`);
+      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent("Utente non trovato. Contatta l'amministratore.")}`);
     }
     if (!user.active) {
       return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Account disabilitato.')}`);
@@ -606,7 +606,7 @@ router.get('/oauth/google/callback', async (req, res) => {
     );
     const user = result.rows[0];
     if (!user) {
-      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Utente non trovato. Contatta l'amministratore.')}`);
+      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent("Utente non trovato. Contatta l'amministratore.")}`);
     }
     if (!user.active) {
       return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Account disabilitato.')}`);
