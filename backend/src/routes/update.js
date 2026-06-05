@@ -30,12 +30,17 @@ router.get('/status', requireSuperadmin, async (req, res) => {
     const hasUpdate = gitStatus.currentCommit !== gitStatus.remoteCommit &&
                       gitStatus.remoteCommit !== 'unknown';
 
+    // Versione target (dal tag piu recente)
+    const targetVersion = gitStatus.latestTag ? gitStatus.latestTag.replace(/^v/, '') : null;
+
     res.json({
       current: currentVersion,
       currentCommit: gitStatus.currentCommit,
       remoteCommit: gitStatus.remoteCommit,
       hasUpdate,
       commitsBehind: gitStatus.commitsBehind,
+      targetVersion,
+      latestTag: gitStatus.latestTag,
       latestCommits: gitStatus.latestCommits || [],
       changelog,
     });

@@ -20,6 +20,8 @@ export default function UpdateNotification({ user }) {
       if (!data?.hasUpdate) { setUpdateInfo(null); return }
       setUpdateInfo({
         currentVersion: data.current?.version,
+        targetVersion: data.targetVersion,
+        latestTag: data.latestTag,
         commitsBehind: data.commitsBehind,
         commits: data.latestCommits || [],
       })
@@ -55,10 +57,10 @@ export default function UpdateNotification({ user }) {
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
       <div style={{ flex: 1 }}>
         <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '600', color: '#111827' }}>
-          Aggiornamento disponibile
+          {updateInfo.targetVersion ? `Aggiorna alla v${updateInfo.targetVersion}` : 'Aggiornamento disponibile'}
         </p>
         <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>
-          {updateInfo.commitsBehind} {updateInfo.commitsBehind === 1 ? 'nuova modifica' : 'nuove modifiche'}
+          {updateInfo.currentVersion ? `Versione attuale: v${updateInfo.currentVersion}` : `${updateInfo.commitsBehind} nuove modifiche`}
         </p>
       </div>
       <button

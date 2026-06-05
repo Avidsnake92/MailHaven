@@ -17,7 +17,15 @@ if [ -f .env ]; then
 fi
 
 log "=== Avvio aggiornamento MailHaven ==="
-git fetch --tags origin >> "$LOG" 2>&1 || die "git fetch fallito"
+# Fetch con autenticazione se disponibile
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+if [ -n "$GITHUB_TOKEN" ] && echo "$REMOTE_URL" | grep -q "github.com"; then
+  AUTH_URL=$(echo "$REMOTE_URL" | sed "s|https://[^@]*@|https://|" | sed "s|https://github.com|https://${GITHUB_TOKEN}@github.com|")
+  git fetch --tags "$AUTH_URL" >> "$LOG" 2>&1 || git fetch --tags origin >> "$LOG" 2>&1 || die "git fetch fallito"
+else
+  git fetch --tags origin >> "$LOG" 2>&1 || die "git fetch fallito"
+fi
 
 if [ -z "$TARGET_REF" ]; then
   TARGET_REF="$(git tag --sort=-v:refname | head -n 1 || true)"

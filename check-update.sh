@@ -7,7 +7,20 @@ OUTPUT="$INSTALL_DIR/data/git-status.json"
 mkdir -p "$INSTALL_DIR/data"
 cd "$INSTALL_DIR" || exit 1
 
-git fetch --tags origin --quiet 2>/dev/null || true
+# Fetch con token se disponibile nel remote URL, altrimenti prova senza auth
+if git ls-remote --tags origin > /dev/null 2>&1; then
+  git fetch --tags origin --quiet 2>/dev/null || true
+else
+  # Prova a configurare remote con token da .env
+  if [ -f "$INSTALL_DIR/.env" ]; then
+    GITHUB_TOKEN=$(grep GITHUB_TOKEN "$INSTALL_DIR/.env" 2>/dev/null | cut -d= -f2 | tr -d ' ')
+    REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+    if [ -n "$GITHUB_TOKEN" ] && echo "$REMOTE_URL" | grep -q "github.com"; then
+      AUTHED_URL=$(echo "$REMOTE_URL" | sed "s|https://|https://${GITHUB_TOKEN}@|")
+      git fetch --tags "$AUTHED_URL" --quiet 2>/dev/null || true
+    fi
+  fi
+fi
 
 CURRENT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 LATEST_TAG="$(git tag --sort=-v:refname | head -n 1 2>/dev/null || true)"

@@ -209,7 +209,9 @@ app.use('/api/spam',     require('./routes/spam'));
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+  let version = 'unknown';
+  try { version = require('../version.json').version; } catch {}
+  res.json({ status: 'ok', uptime: process.uptime(), version });
 });
 
 // ── Gestione errori centralizzata ──────────────────────────────────────────

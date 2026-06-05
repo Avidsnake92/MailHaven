@@ -353,7 +353,7 @@ function UpdateTab() {
               </div>
               {status.hasUpdate ? (
                 <span className="text-xs font-semibold px-3 py-1 bg-blue-50 text-blue-700 rounded-full">
-                  {status.commitsBehind} aggiornamenti disponibili
+                  {status.targetVersion ? `v${status.current?.version} ? v${status.targetVersion}` : `${status.commitsBehind} aggiornamenti`}
                 </span>
               ) : (
                 <span className="text-xs font-semibold px-3 py-1 bg-green-50 text-green-700 rounded-full flex items-center gap-1">
@@ -386,7 +386,8 @@ function UpdateTab() {
       {status?.hasUpdate && !confirming && (
         <button onClick={() => setConfirming(true)}
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700">
-          <ArrowDownCircle size={16} /> Aggiorna ora
+          <ArrowDownCircle size={16} />
+          {status.targetVersion ? `Aggiorna alla v${status.targetVersion}` : 'Aggiorna ora'}
         </button>
       )}
 
