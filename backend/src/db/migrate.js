@@ -128,7 +128,21 @@ const migrate = async (db) => {
     console.warn('[Migration] Fix date 1970 skip:', e.message);
   }
 
+
+  // Auto-mark setup_completed se esiste gia un superadmin (aggiornamento da versione vecchia)
+  try {
+    const sc = await db.query("SELECT value FROM settings WHERE key='setup_completed'");
+    if (!sc.rows[0] || sc.rows[0].value !== 'true') {
+      const sa = await db.query("SELECT id FROM users WHERE role='superadmin' AND active=true LIMIT 1");
+      if (sa.rows.length > 0) {
+        await db.query("INSERT INTO settings (key,value) VALUES ('setup_completed','true') ON CONFLICT (key) DO UPDATE SET value='true'");
+        console.log('[Migration] setup_completed recuperato automaticamente (superadmin esistente)');
+      }
+    }
+  } catch(e) { console.warn('[Migration] setup_completed check skip:', e.message); }
+
   console.log('[Migration] Completata');
+
 };
 
 module.exports = migrate;

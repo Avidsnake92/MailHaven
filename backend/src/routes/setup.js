@@ -137,7 +137,7 @@ router.post('/complete', async (req, res) => {
 router.post('/test-smtp', async (req, res) => {
   const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, to } = req.body;
   try {
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: smtp_host, port: parseInt(smtp_port)||587,
       secure: smtp_secure === true || smtp_secure === 'true',
       auth: smtp_user ? { user: smtp_user, pass: smtp_pass } : undefined,

@@ -50,7 +50,7 @@ git reset --hard "$TARGET_REF" >> "$LOG" 2>&1 || die "reset a $TARGET_REF fallit
 git branch --set-upstream-to=origin/main main >> "$LOG" 2>&1 || true
 
 log "build immagini"
-docker compose build --pull >> "$LOG" 2>&1 || die "docker compose build fallito"
+docker compose build --pull mailhaven-backend mailhaven-frontend >> "$LOG" 2>&1 || die "docker compose build fallito"
 
 log "riavvio stack"
 docker compose up -d >> "$LOG" 2>&1 || die "docker compose up fallito"
