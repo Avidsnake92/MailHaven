@@ -406,4 +406,255 @@ router.post('/2fa/disable', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore' }); }
 });
 
+
+// ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+// SSO Login ??? Microsoft 365 e Google
+// ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+
+const https = require('https');
+const querystring = require('querystring');
+
+const getBaseUrl = () => process.env.OAUTH_REDIRECT_BASE_URL || process.env.APP_URL || '';
+const MS_REDIRECT = () => getBaseUrl() + '/api/auth/oauth/microsoft/callback';
+const G_REDIRECT  = () => getBaseUrl() + '/api/auth/oauth/google/callback';
+const FRONTEND_URL = () => getBaseUrl() || 'http://localhost:8080';
+
+// Emette JWT identico al login normale
+const issueJwt = async (db, user, ip) => {
+  const jti = require('crypto').randomBytes(16).toString('hex');
+  const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  const token = require('jsonwebtoken').sign(
+    { id: user.id, email: user.email, role: user.role, client_id: user.client_id,
+      full_name: user.full_name, sessionStart: Date.now(), jti },
+    process.env.JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+  await db.query(
+    `INSERT INTO user_sessions (user_id, jti, ip_address, device_info, expires_at) VALUES ($1,$2,$3,$4,$5)`,
+    [user.id, jti, ip, JSON.stringify({ sso: true }), expiresAt]
+  ).catch(() => {});
+  await db.query('UPDATE users SET last_login=NOW(), failed_attempts=0 WHERE id=$1', [user.id]).catch(() => {});
+  return token;
+};
+
+const fetchJson = (url, headers = {}) => new Promise((resolve, reject) => {
+  const req = https.get(url, { headers }, (res) => {
+    let data = '';
+    res.on('data', c => data += c);
+    res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
+  });
+  req.on('error', reject);
+  req.setTimeout(8000, () => { req.destroy(); reject(new Error('Timeout')); });
+});
+
+const postForm = (url, body) => new Promise((resolve, reject) => {
+  const bodyStr = querystring.stringify(body);
+  const urlObj = new URL(url);
+  const options = {
+    hostname: urlObj.hostname, port: 443,
+    path: urlObj.pathname + urlObj.search,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(bodyStr) },
+  };
+  const req = https.request(options, (res) => {
+    let data = '';
+    res.on('data', c => data += c);
+    res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
+  });
+  req.on('error', reject);
+  req.setTimeout(8000, () => { req.destroy(); reject(new Error('Timeout')); });
+  req.write(bodyStr);
+  req.end();
+});
+
+// ?????? Microsoft SSO ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+
+// GET /auth/oauth/microsoft ??? avvia flusso SSO Microsoft
+router.get('/oauth/microsoft', (req, res) => {
+  const clientId = process.env.MICROSOFT_CLIENT_ID;
+  const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
+  if (!clientId) return res.status(503).send('Microsoft OAuth non configurato');
+  const state = require('crypto').randomBytes(16).toString('hex');
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: MS_REDIRECT(),
+    scope: 'openid profile email User.Read',
+    response_mode: 'query',
+    state,
+  });
+  res.redirect(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params}`);
+});
+
+// GET /auth/oauth/microsoft/callback ??? callback SSO Microsoft
+router.get('/oauth/microsoft/callback', async (req, res) => {
+  const { code, error } = req.query;
+  const db = req.app.locals.db;
+  const ip = getIp(req);
+  const frontendUrl = FRONTEND_URL();
+
+  if (error || !code) {
+    return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent(error || 'access_denied')}`);
+  }
+
+  try {
+    const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
+    // Scambia code con access token
+    const tokens = await postForm(
+      `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+      {
+        client_id: process.env.MICROSOFT_CLIENT_ID,
+        client_secret: process.env.MICROSOFT_CLIENT_SECRET,
+        code,
+        redirect_uri: MS_REDIRECT(),
+        grant_type: 'authorization_code',
+        scope: 'openid profile email User.Read',
+      }
+    );
+    if (!tokens.access_token) {
+      throw new Error(tokens.error_description || 'Token non ricevuto');
+    }
+    // Ottieni profilo utente da Graph
+    const profile = await fetchJson('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,displayName', {
+      Authorization: 'Bearer ' + tokens.access_token,
+    });
+    const email = (profile.mail || profile.userPrincipalName || '').toLowerCase().trim();
+    if (!email) throw new Error('Email non disponibile dal provider');
+
+    // Cerca utente nel DB
+    const result = await db.query(
+      'SELECT id, email, full_name, role, client_id, active, totp_enabled FROM users WHERE LOWER(email)=$1',
+      [email]
+    );
+    const user = result.rows[0];
+    if (!user) {
+      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Utente non trovato. Contatta l'amministratore.')}`);
+    }
+    if (!user.active) {
+      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Account disabilitato.')}`);
+    }
+    if (user.totp_enabled) {
+      // SSO non bypassa 2FA: redirect con token parziale e flag 2fa
+      const partial = require('jsonwebtoken').sign(
+        { id: user.id, email: user.email, sso_partial: true },
+        process.env.JWT_SECRET,
+        { expiresIn: '5m' }
+      );
+      return res.redirect(`${frontendUrl}/login?sso_2fa=${encodeURIComponent(partial)}`);
+    }
+    const token = await issueJwt(db, user, ip);
+    await log(db, user.id, 'LOGIN_SSO', { provider: 'microsoft', email }, ip).catch(() => {});
+    res.redirect(`${frontendUrl}/login?sso_token=${encodeURIComponent(token)}`);
+  } catch (err) {
+    console.error('[SSO Microsoft]', err.message);
+    res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Errore autenticazione: ' + err.message)}`);
+  }
+});
+
+// ?????? Google SSO ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+
+// GET /auth/oauth/google ??? avvia flusso SSO Google
+router.get('/oauth/google', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.status(503).send('Google OAuth non configurato');
+  const state = require('crypto').randomBytes(16).toString('hex');
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: G_REDIRECT(),
+    scope: 'openid email profile',
+    access_type: 'online',
+    state,
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// GET /auth/oauth/google/callback ??? callback SSO Google
+router.get('/oauth/google/callback', async (req, res) => {
+  const { code, error } = req.query;
+  const db = req.app.locals.db;
+  const ip = getIp(req);
+  const frontendUrl = FRONTEND_URL();
+
+  if (error || !code) {
+    return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent(error || 'access_denied')}`);
+  }
+
+  try {
+    // Scambia code con token
+    const tokens = await postForm('https://oauth2.googleapis.com/token', {
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      code,
+      redirect_uri: G_REDIRECT(),
+      grant_type: 'authorization_code',
+    });
+    if (!tokens.access_token) {
+      throw new Error(tokens.error_description || 'Token non ricevuto');
+    }
+    // Ottieni profilo
+    const profile = await fetchJson('https://www.googleapis.com/oauth2/v3/userinfo', {
+      Authorization: 'Bearer ' + tokens.access_token,
+    });
+    const email = (profile.email || '').toLowerCase().trim();
+    if (!email) throw new Error('Email non disponibile dal provider');
+
+    // Cerca utente nel DB
+    const result = await db.query(
+      'SELECT id, email, full_name, role, client_id, active, totp_enabled FROM users WHERE LOWER(email)=$1',
+      [email]
+    );
+    const user = result.rows[0];
+    if (!user) {
+      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Utente non trovato. Contatta l'amministratore.')}`);
+    }
+    if (!user.active) {
+      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Account disabilitato.')}`);
+    }
+    if (user.totp_enabled) {
+      const partial = require('jsonwebtoken').sign(
+        { id: user.id, email: user.email, sso_partial: true },
+        process.env.JWT_SECRET,
+        { expiresIn: '5m' }
+      );
+      return res.redirect(`${frontendUrl}/login?sso_2fa=${encodeURIComponent(partial)}`);
+    }
+    const token = await issueJwt(db, user, ip);
+    await log(db, user.id, 'LOGIN_SSO', { provider: 'google', email }, ip).catch(() => {});
+    res.redirect(`${frontendUrl}/login?sso_token=${encodeURIComponent(token)}`);
+  } catch (err) {
+    console.error('[SSO Google]', err.message);
+    res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Errore autenticazione: ' + err.message)}`);
+  }
+});
+
+
+// POST /auth/2fa/verify-sso ??? verifica 2FA dopo login SSO parziale
+router.post('/2fa/verify-sso', async (req, res) => {
+  const { partial_token, totp_code } = req.body;
+  const db = req.app.locals.db;
+  const ip = getIp(req);
+  if (!partial_token || !totp_code) return res.status(400).json({ error: 'Parametri mancanti' });
+  try {
+    const decoded = require('jsonwebtoken').verify(partial_token, process.env.JWT_SECRET);
+    if (!decoded.sso_partial) return res.status(401).json({ error: 'Token non valido' });
+    const result = await db.query(
+      'SELECT id, email, full_name, role, client_id, active, totp_enabled, totp_secret FROM users WHERE id=$1',
+      [decoded.id]
+    );
+    const user = result.rows[0];
+    if (!user || !user.active) return res.status(401).json({ error: 'Utente non trovato o disabilitato' });
+    if (!user.totp_enabled || !user.totp_secret) return res.status(400).json({ error: '2FA non configurato' });
+    const { decrypt } = require('../services/crypto');
+    const { verifyToken: verifyTotp } = require('../services/totp');
+    const secret = decrypt(user.totp_secret);
+    if (!verifyTotp(secret, totp_code)) return res.status(401).json({ error: 'Codice 2FA non valido', requires_2fa: true });
+    const token = await issueJwt(db, user, ip);
+    await log(db, user.id, 'LOGIN_SSO_2FA', { email: user.email }, ip).catch(() => {});
+    res.json({ token, user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role, client_id: user.client_id } });
+  } catch (err) {
+    res.status(401).json({ error: 'Token SSO scaduto o non valido. Riprova il login.' });
+  }
+});
+
 module.exports = router;
