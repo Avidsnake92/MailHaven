@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.21] - 2026-06-08
+### Fixed
+- **Settings/Aggiornamento**: overlay fullscreen durante update impedisce click su altri tab o link della sidebar
+- **Settings/Aggiornamento**: bottone "Salva impostazioni" nascosto quando la tab aggiornamento ?? attiva
+
 ## [0.1.20] - 2026-06-08
 ### Fixed
 - **Outlook plugin manifest**: replaced SVG icon with PNG (Office Add-in schema requires PNG, rejects SVG)
