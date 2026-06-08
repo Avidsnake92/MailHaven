@@ -70,6 +70,21 @@ const migrate = async (db) => {
   )`);
   await run(`CREATE INDEX IF NOT EXISTS idx_jwt_blacklist_expires ON jwt_blacklist(expires_at)`);
 
+  // Plugin tokens (Outlook/Thunderbird) - tabella mancante su installazioni esistenti
+  await run(`CREATE TABLE IF NOT EXISTS plugin_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL DEFAULT 'Plugin Token',
+    client_type VARCHAR(50) DEFAULT 'generic',
+    last_used_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_plugin_tokens_user ON plugin_tokens(user_id)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_plugin_tokens_token ON plugin_tokens(token)`);
+
+
   // Badge temporizzati
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_type VARCHAR(20) DEFAULT NULL`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS badge_expires_at TIMESTAMP DEFAULT NULL`);
