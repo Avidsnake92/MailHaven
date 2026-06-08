@@ -95,16 +95,26 @@ const runBatchScan = async (db) => {
           for (const att of attachments) {
             const fname = (att.filename || '').toLowerCase();
             const ext = fname.substring(fname.lastIndexOf('.'));
+            let attClean = true;
+            let attViruses = [];
             if (DANGEROUS_EXT.includes(ext)) {
               allClean = false;
-              infectedViruses.push('DangerousExtension.' + ext.slice(1).toUpperCase());
+              attClean = false;
+              attViruses.push('DangerousExtension.' + ext.slice(1).toUpperCase());
+              infectedViruses.push(...attViruses);
               infectedFiles.push(att.filename);
+              await db.query(
+                `INSERT INTO av_log (email_id, filename, status, viruses) VALUES ($1,$2,$3,$4)`,
+                [row.id, att.filename, 'infected', attViruses]
+              ).catch(() => {});
               continue;
             }
             // Layer 1: ClamAV
             const clamResult = await scanBuffer(att.content, att.filename);
             if (!clamResult.clean) {
               allClean = false;
+              attClean = false;
+              attViruses.push(...(clamResult.viruses || ['ClamAV.Unknown']));
               infectedViruses.push(...(clamResult.viruses || ['ClamAV.Unknown']));
               infectedFiles.push(att.filename);
             }
@@ -114,6 +124,8 @@ const runBatchScan = async (db) => {
               const yaraResult = await yaraScan(att.content, att.filename);
               if (!yaraResult.clean && !yaraResult.skipped) {
                 allClean = false;
+                attClean = false;
+                attViruses.push(...(yaraResult.viruses || ['YARA.Unknown']));
                 infectedViruses.push(...(yaraResult.viruses || ['YARA.Unknown']));
                 if (!infectedFiles.includes(att.filename)) infectedFiles.push(att.filename);
               }
@@ -125,6 +137,8 @@ const runBatchScan = async (db) => {
                 const vtResult = await checkHash(att.content, att.filename);
                 if (!vtResult.clean && !vtResult.skipped && !vtResult.unknown) {
                   allClean = false;
+                  attClean = false;
+                  attViruses.push(...(vtResult.viruses || ['VT.Unknown']));
                   infectedViruses.push(...(vtResult.viruses || ['VT.Unknown']));
                   if (!infectedFiles.includes(att.filename)) infectedFiles.push(att.filename);
                   console.log('[VirusTotal] RILEVATO: ' + att.filename + ' - ' + vtResult.detections);
@@ -134,7 +148,7 @@ const runBatchScan = async (db) => {
             // Scrivi av_log per ogni allegato scansionato
             await db.query(
               `INSERT INTO av_log (email_id, filename, status, viruses) VALUES ($1,$2,$3,$4)`,
-              [row.id, att.filename, result.clean ? 'clean' : 'infected', result.viruses || []]
+              [row.id, att.filename, attClean ? 'clean' : 'infected', attViruses]
             ).catch(() => {});
           }
 
