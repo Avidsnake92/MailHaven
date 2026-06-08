@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.19] - 2026-06-08
+### Fixed
+- **Outlook plugin**: `panel.html` returned React SPA instead of plugin UI (nginx `/plugin` not proxied to backend)
+- **Outlook plugin**: manifest URLs used `http://` ??? Office 365 requires HTTPS. Route now auto-detects `X-Forwarded-Proto`
+- **Outlook plugin**: `exportEml()` had regex literals instead of template string (JS syntax error)
+
 ## [0.1.18] - 2026-06-08
 ### Fixed
 - **graphCrawler**: `listFolders` now recursively fetches `childFolders` for complete folder tree sync
