@@ -462,6 +462,29 @@ router.post('/app-config', authMiddleware, async (req, res) => {
   res.json({ ok: true, message: 'Credenziali salvate. Riavvia il backend per applicarle.' });
 });
 
+// GET /oauth/sso-settings ??? stato auto-provisioning SSO
+router.get('/sso-settings', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'admin'].includes(req.user.role))
+    return res.status(403).json({ error: 'Accesso negato' });
+  const db = req.app.locals.db;
+  const r = await db.query("SELECT value FROM settings WHERE key='sso_auto_provision'").catch(() => ({ rows: [] }));
+  res.json({ auto_provision: r.rows[0]?.value === 'true' });
+});
+
+// POST /oauth/sso-settings ??? abilita/disabilita creazione automatica utenti al login SSO
+router.post('/sso-settings', authMiddleware, async (req, res) => {
+  if (!['superadmin', 'admin'].includes(req.user.role))
+    return res.status(403).json({ error: 'Accesso negato' });
+  const db = req.app.locals.db;
+  const { auto_provision } = req.body;
+  await db.query(
+    "INSERT INTO settings (key, value) VALUES ('sso_auto_provision', $1) ON CONFLICT (key) DO UPDATE SET value=$1",
+    [auto_provision ? 'true' : 'false']
+  );
+  res.json({ ok: true });
+});
+
+
 // POST /oauth/check-connectivity/:provider — test raggiungibilità endpoint OAuth
 router.post('/check-connectivity/:provider', authMiddleware, async (req, res) => {
   if (!['superadmin', 'admin'].includes(req.user.role))

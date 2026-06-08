@@ -467,6 +467,29 @@ const postForm = (url, body) => new Promise((resolve, reject) => {
   req.end();
 });
 
+
+// Crea automaticamente un utente al primo login SSO (se abilitato)
+const ssoAutoProvision = async (db, email, displayName, provider) => {
+  const enabled = await db.query("SELECT value FROM settings WHERE key='sso_auto_provision'").catch(() => ({ rows: [] }));
+  if (!enabled.rows[0] || enabled.rows[0].value !== 'true') return null;
+  const randomPwd = require('crypto').randomBytes(24).toString('hex');
+  const hash = await bcrypt.hash(randomPwd, 10);
+  const result = await db.query(
+    `INSERT INTO users (email, password_hash, full_name, role, active)
+     VALUES ($1, $2, $3, 'user', true)
+     ON CONFLICT (email) DO NOTHING
+     RETURNING id, email, full_name, role, client_id, active, totp_enabled`,
+    [email, hash, displayName || email, ]
+  );
+  if (result.rows[0]) {
+    await log(db, result.rows[0].id, 'USER_AUTO_CREATED_SSO', { email, provider }, null).catch(() => {});
+    return result.rows[0];
+  }
+  // Se ON CONFLICT ha bloccato l'inserimento (race condition), rileggi
+  const re = await db.query('SELECT id, email, full_name, role, client_id, active, totp_enabled FROM users WHERE LOWER(email)=$1', [email]);
+  return re.rows[0] || null;
+};
+
 // ?????? Microsoft SSO ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 
 // GET /auth/oauth/microsoft ??? avvia flusso SSO Microsoft
@@ -526,9 +549,12 @@ router.get('/oauth/microsoft/callback', async (req, res) => {
       'SELECT id, email, full_name, role, client_id, active, totp_enabled FROM users WHERE LOWER(email)=$1',
       [email]
     );
-    const user = result.rows[0];
+    let user = result.rows[0];
     if (!user) {
-      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent("Utente non trovato. Contatta l'amministratore.")}`);
+      user = await ssoAutoProvision(db, email, profile.displayName, 'microsoft');
+      if (!user) {
+        return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent("Utente non trovato. Contatta l'amministratore.")}`);
+      }
     }
     if (!user.active) {
       return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Account disabilitato.')}`);
@@ -604,9 +630,12 @@ router.get('/oauth/google/callback', async (req, res) => {
       'SELECT id, email, full_name, role, client_id, active, totp_enabled FROM users WHERE LOWER(email)=$1',
       [email]
     );
-    const user = result.rows[0];
+    let user = result.rows[0];
     if (!user) {
-      return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent("Utente non trovato. Contatta l'amministratore.")}`);
+      user = await ssoAutoProvision(db, email, profile.name, 'google');
+      if (!user) {
+        return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent("Utente non trovato. Contatta l'amministratore.")}`);
+      }
     }
     if (!user.active) {
       return res.redirect(`${frontendUrl}/login?sso_error=${encodeURIComponent('Account disabilitato.')}`);

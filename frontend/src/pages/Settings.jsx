@@ -426,6 +426,322 @@ function UpdateTab() {
 }
 
 
+﻿function OAuthWizardTab() {
+  const [config, setConfig] = useState(null)
+  const [loadingConfig, setLoadingConfig] = useState(true)
+  const [provider, setProvider] = useState('microsoft')
+  const [msForm, setMsForm] = useState({ client_id: '', client_secret: '', tenant_id: '' })
+  const [gForm, setGForm] = useState({ client_id: '', client_secret: '' })
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
+  const [mailboxes, setMailboxes] = useState([])
+  const [autoProvision, setAutoProvision] = useState(false)
+  const [savingAuto, setSavingAuto] = useState(false)
+
+  const loadConfig = () => {
+    setLoadingConfig(true)
+    api.get('/oauth/app-config').then(res => {
+      setConfig(res.data)
+      setMsForm({
+        client_id: res.data.microsoft?.client_id || '',
+        client_secret: res.data.microsoft?.client_secret_masked || '',
+        tenant_id: res.data.microsoft?.tenant_id || '',
+      })
+      setGForm({
+        client_id: res.data.google?.client_id || '',
+        client_secret: res.data.google?.client_secret_masked || '',
+      })
+    }).catch(() => {}).finally(() => setLoadingConfig(false))
+  }
+
+  const loadMailboxes = () => {
+    api.get('/oauth/mailboxes-status').then(res => setMailboxes(res.data || [])).catch(() => {})
+  }
+
+  const loadSsoSettings = () => {
+    api.get('/oauth/sso-settings').then(res => setAutoProvision(!!res.data?.auto_provision)).catch(() => {})
+  }
+
+  useEffect(() => {
+    loadConfig()
+    loadMailboxes()
+    loadSsoSettings()
+  }, [])
+
+  const saveConfig = async () => {
+    setSaving(true)
+    setSaveMsg('')
+    try {
+      const form = provider === 'microsoft' ? msForm : gForm
+      const payload = {
+        provider,
+        client_id: form.client_id,
+        client_secret: form.client_secret,
+        ...(provider === 'microsoft' ? { tenant_id: msForm.tenant_id } : {}),
+      }
+      const res = await api.post('/oauth/app-config', payload)
+      setSaveMsg(res.data?.message || 'Salvato con successo.')
+      loadConfig()
+    } catch (err) {
+      setSaveMsg(err.response?.data?.error || 'Errore durante il salvataggio.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const testConnectivity = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await api.post(`/oauth/check-connectivity/${provider}`)
+      setTestResult(res.data)
+    } catch (err) {
+      setTestResult({ ok: false, error: err.response?.data?.error || 'Errore di connessione' })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const toggleAutoProvision = async () => {
+    setSavingAuto(true)
+    try {
+      const next = !autoProvision
+      await api.post('/oauth/sso-settings', { auto_provision: next })
+      setAutoProvision(next)
+    } catch {}
+    setSavingAuto(false)
+  }
+
+  const StatusBadge = ({ ok, label }) => (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+      ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
+    }`}>
+      {ok ? <Wifi size={12} /> : <WifiOff size={12} />}
+      {label}
+    </span>
+  )
+
+  const inputCls = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2"
+
+  if (loadingConfig) {
+    return <div className="flex items-center justify-center py-16 text-gray-400"><Loader2 className="animate-spin mr-2" size={18}/> Caricamento configurazione...</div>
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Selettore provider */}
+      <div className="flex gap-2">
+        <button onClick={() => { setProvider('microsoft'); setTestResult(null) }}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors ${
+            provider === 'microsoft' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}>
+          <Cloud size={16} /> Microsoft 365
+          {config?.microsoft?.configured && <CheckCircle2 size={14} className="text-emerald-500" />}
+        </button>
+        <button onClick={() => { setProvider('google'); setTestResult(null) }}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors ${
+            provider === 'google' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+          }`}>
+          <Cloud size={16} /> Google Workspace
+          {config?.google?.configured && <CheckCircle2 size={14} className="text-emerald-500" />}
+        </button>
+      </div>
+
+      {provider === 'microsoft' && (
+        <div className="space-y-5">
+          {/* Step 1 */}
+          <div className="p-4 border border-gray-200 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">1</span>
+              Registra l'app su Azure Portal
+            </div>
+            <p className="text-sm text-gray-500 pl-8">
+              Vai su <a href="https://portal.azure.com" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Azure Portal <ExternalLink size={12}/></a> ??? Microsoft Entra ID ??? Registrazioni app ??? Nuova registrazione.
+            </p>
+            <div className="pl-8 text-sm text-gray-500">
+              Imposta come Redirect URI (Web):
+              <div className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded-lg font-mono text-xs break-all">
+                {config?.redirect_uri_microsoft || 'Configura prima l\'URL pubblico applicazione (tab SMTP)'}
+              </div>
+              <div className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded-lg font-mono text-xs break-all">
+                {config?.redirect_uri_microsoft ? config.redirect_uri_microsoft.replace('/oauth/microsoft/callback', '/auth/oauth/microsoft/callback') : ''}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Il primo URI serve per la sincronizzazione caselle, il secondo per il login SSO.</p>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="p-4 border border-gray-200 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">2</span>
+              Inserisci le credenziali
+            </div>
+            <div className="grid grid-cols-2 gap-3 pl-8">
+              <Field label="Application (client) ID">
+                <input className={inputCls} value={msForm.client_id}
+                  onChange={e => setMsForm({ ...msForm, client_id: e.target.value })} placeholder="00000000-0000-0000-0000-000000000000" />
+              </Field>
+              <Field label="Directory (tenant) ID">
+                <input className={inputCls} value={msForm.tenant_id}
+                  onChange={e => setMsForm({ ...msForm, tenant_id: e.target.value })} placeholder="common oppure ID tenant" />
+              </Field>
+            </div>
+            <div className="pl-8">
+              <Field label="Client secret (Valore)">
+                <input type="password" className={inputCls} value={msForm.client_secret}
+                  onChange={e => setMsForm({ ...msForm, client_secret: e.target.value })} placeholder="Inserisci il valore del secret" />
+              </Field>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="p-4 border border-gray-200 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">3</span>
+              Permessi API richiesti
+            </div>
+            <ul className="pl-8 text-sm text-gray-500 space-y-1 list-disc list-inside">
+              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">User.Read</code> (delega) ??? profilo utente per login SSO</li>
+              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">Mail.Read</code> (delega o applicazione) ??? lettura email per sincronizzazione</li>
+              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">offline_access</code> ??? refresh token</li>
+            </ul>
+          </div>
+
+          {/* Step 4 */}
+          <div className="p-4 border border-gray-200 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">4</span>
+              Salva e verifica
+            </div>
+            <div className="pl-8 flex flex-wrap items-center gap-3">
+              <button onClick={saveConfig} disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-60">
+                {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salva credenziali
+              </button>
+              <button onClick={testConnectivity} disabled={testing}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">
+                {testing ? <Loader2 size={14} className="animate-spin"/> : <Wifi size={14}/>} Test connettivit??
+              </button>
+              {config?.microsoft?.configured && (
+                <StatusBadge ok={true} label="Configurato" />
+              )}
+            </div>
+            {saveMsg && <p className="pl-8 text-sm text-gray-500">{saveMsg}</p>}
+            {testResult && (
+              <div className={`ml-8 text-sm px-3 py-2 rounded-lg border ${testResult.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                {testResult.ok ? `Connessione riuscita (${testResult.ms || '?'} ms)` : (testResult.error || 'Connessione fallita')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {provider === 'google' && (
+        <div className="space-y-5">
+          {/* Step 1 */}
+          <div className="p-4 border border-gray-200 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">1</span>
+              Crea le credenziali su Google Cloud Console
+            </div>
+            <p className="text-sm text-gray-500 pl-8">
+              Vai su <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={12}/></a> ??? Credenziali ??? Crea credenziali ??? ID client OAuth (tipo Applicazione web).
+            </p>
+            <div className="pl-8 text-sm text-gray-500">
+              Aggiungi questi URI di reindirizzamento autorizzati:
+              <div className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded-lg font-mono text-xs break-all">
+                {config?.redirect_uri_google || 'Configura prima l\'URL pubblico applicazione (tab SMTP)'}
+              </div>
+              <div className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded-lg font-mono text-xs break-all">
+                {config?.redirect_uri_google ? config.redirect_uri_google.replace('/oauth/google/callback', '/auth/oauth/google/callback') : ''}
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="p-4 border border-gray-200 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">2</span>
+              Inserisci le credenziali
+            </div>
+            <div className="pl-8 space-y-3">
+              <Field label="Client ID">
+                <input className={inputCls} value={gForm.client_id}
+                  onChange={e => setGForm({ ...gForm, client_id: e.target.value })} placeholder="xxxxxxxx.apps.googleusercontent.com" />
+              </Field>
+              <Field label="Client secret">
+                <input type="password" className={inputCls} value={gForm.client_secret}
+                  onChange={e => setGForm({ ...gForm, client_secret: e.target.value })} placeholder="Inserisci il client secret" />
+              </Field>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="p-4 border border-gray-200 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <span className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs">3</span>
+              Salva e verifica
+            </div>
+            <div className="pl-8 flex flex-wrap items-center gap-3">
+              <button onClick={saveConfig} disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-60">
+                {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salva credenziali
+              </button>
+              <button onClick={testConnectivity} disabled={testing}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">
+                {testing ? <Loader2 size={14} className="animate-spin"/> : <Wifi size={14}/>} Test connettivit??
+              </button>
+              {config?.google?.configured && (
+                <StatusBadge ok={true} label="Configurato" />
+              )}
+            </div>
+            {saveMsg && <p className="pl-8 text-sm text-gray-500">{saveMsg}</p>}
+            {testResult && (
+              <div className={`ml-8 text-sm px-3 py-2 rounded-lg border ${testResult.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                {testResult.ok ? `Connessione riuscita (${testResult.ms || '?'} ms)` : (testResult.error || 'Connessione fallita')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SSO auto-provisioning */}
+      <div className="p-4 border border-gray-200 rounded-xl flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-1">Crea automaticamente gli utenti al primo accesso SSO</div>
+          <p className="text-sm text-gray-500">
+            Se attivo, un utente che effettua il login con Microsoft 365 o Google e non esiste ancora in MailHaven viene creato automaticamente con ruolo "Utente".
+            Se disattivo, l'utente deve essere creato manualmente da un amministratore prima di poter accedere via SSO.
+          </p>
+        </div>
+        <button onClick={toggleAutoProvision} disabled={savingAuto}
+          className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoProvision ? 'bg-blue-600' : 'bg-gray-300'} disabled:opacity-60`}>
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoProvision ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      </div>
+
+      {/* Status caselle OAuth */}
+      {mailboxes.length > 0 && (
+        <div className="p-4 border border-gray-200 rounded-xl space-y-3">
+          <div className="text-sm font-semibold text-gray-700">Caselle collegate via OAuth</div>
+          <div className="space-y-2">
+            {mailboxes.map(mb => (
+              <div key={mb.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-sm text-gray-700">{mb.email_address || mb.email}</div>
+                <StatusBadge ok={mb.status === 'ok' || mb.connected} label={mb.status === 'ok' || mb.connected ? 'Connesso' : 'Da riautorizzare'} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+
 export default function Settings() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('sync')
