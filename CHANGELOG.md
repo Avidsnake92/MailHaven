@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.15] - 2026-06-08
+### Fixed
+- AV Batch Scanner: corretto ReferenceError "result is not defined" nella scrittura del log av_log per ogni allegato (variabile non esistente residuo di refactoring a 3 layer ClamAV+YARA+VirusTotal); ora ogni allegato viene loggato correttamente con il proprio esito ed elenco virus rilevati
+
+
 ## [0.1.14] - 2026-06-08
 ### Fixed
 - Bottoni SSO Microsoft 365 / Google non comparivano in login: ripristinato l'endpoint pubblico /oauth/app-config/public (era assente nel codice nonostante fosse documentato, causando 404 silenzioso lato frontend)
