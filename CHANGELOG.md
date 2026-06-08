@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.18] - 2026-06-08
+### Fixed
+- **graphCrawler**: `listFolders` now recursively fetches `childFolders` for complete folder tree sync
+  (sub-folders like Inbox/Glpi, Inbox/helpdesk, INBOX/ok, INBOX/zabb etc. are now synced)
+- **graphCrawler**: `folderPath` uses hierarchical `_path` (Parent/Child) for correct folder display
+- **gmailCrawler**: `pageAllKnown` was never set to `false`, causing only first 50 messages per label
+  to be synced ??? fixed by checking `INSERT ... RETURNING id` result
+
 ## [0.1.17] - 2026-06-08
 ### Fixed
 - Plugin Outlook/Thunderbird: l'endpoint GET /api/plugin/emails restituiva errore SQL "syntax error at end of input" nel conteggio totale email a causa di un typo (conditions.slice(0,-0) che in JavaScript restituisce un array vuoto, generando una clausola WHERE senza condizioni). Testato l'intero flusso end-to-end: login, generazione token, lista caselle ed elenco email ora funzionano correttamente
