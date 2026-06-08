@@ -1,18 +1,25 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <OfficeApp
   xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
   xsi:type="MailApp">
 
   <Id>6d8b4b57-b0d5-4b56-8590-ec7c1f2c8e89</Id>
-  <Version>1.0.0</Version>
+  <Version>1.0.1</Version>
   <ProviderName>K2Tech</ProviderName>
   <DefaultLocale>it-IT</DefaultLocale>
   <DisplayName DefaultValue="MailHaven Archive"/>
   <Description DefaultValue="Accedi all'archivio email MailHaven e ripristina messaggi eliminati direttamente da Outlook."/>
-  <IconUrl DefaultValue="MAILVAULT_URL/logo.svg"/>
-  <HighResolutionIconUrl DefaultValue="MAILVAULT_URL/logo.svg"/>
+
+  <IconUrl DefaultValue="MAILVAULT_URL/outlook-icon.png"/>
+  <HighResolutionIconUrl DefaultValue="MAILVAULT_URL/outlook-icon.png"/>
   <SupportUrl DefaultValue="https://k2tech.it"/>
+
+  <AppDomains>
+    <AppDomain>MAILVAULT_URL</AppDomain>
+  </AppDomains>
 
   <Hosts>
     <Host Name="Mailbox"/>
@@ -40,4 +47,60 @@
   </Rule>
   <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
+  <!-- VersionOverrides per Outlook moderno / Office 365 -->
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.1">
+        <bt:Set Name="Mailbox"/>
+      </bt:Sets>
+    </Requirements>
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <FunctionFile resid="Url"/>
+          <ExtensionPoint xsi:type="MessageReadCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="msgReadGroup">
+                <Label resid="GroupLabel"/>
+                <Control xsi:type="Button" id="msgReadOpenPaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="MAILVAULT_URL/outlook-icon.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="MAILVAULT_URL/outlook-icon.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="MAILVAULT_URL/outlook-icon.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Url" DefaultValue="MAILVAULT_URL/plugin/outlook/panel.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GroupLabel" DefaultValue="MailHaven"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Archivio MailHaven"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Apri l'archivio email MailHaven per cercare e ripristinare messaggi."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+
 </OfficeApp>
+

@@ -22,6 +22,7 @@ services:
       - ./version.json:/app/version.json:ro
       - ./CHANGELOG.md:/app/CHANGELOG.md:ro
       - ./.env:/app/host/.env:rw
+      - ./plugins:/app/plugins:ro
       - mailhaven-uploads:/app/uploads
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
