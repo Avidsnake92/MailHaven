@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.17] - 2026-06-08
+### Fixed
+- Plugin Outlook/Thunderbird: l'endpoint GET /api/plugin/emails restituiva errore SQL "syntax error at end of input" nel conteggio totale email a causa di un typo (conditions.slice(0,-0) che in JavaScript restituisce un array vuoto, generando una clausola WHERE senza condizioni). Testato l'intero flusso end-to-end: login, generazione token, lista caselle ed elenco email ora funzionano correttamente
+
+
 ## [0.1.16] - 2026-06-08
 ### Fixed
 - Tabella plugin_tokens (necessaria per generare token Outlook/Thunderbird) mancava nelle migrazioni: era presente solo in init.sql, quindi i database aggiornati da versioni precedenti a 0.0.96 non la possedevano e la generazione token plugin falliva con errore "relation plugin_tokens does not exist". Aggiunta migrazione di recupero automatico
