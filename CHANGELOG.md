@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.14] - 2026-06-08
+### Fixed
+- Bottoni SSO Microsoft 365 / Google non comparivano in login: ripristinato l'endpoint pubblico /oauth/app-config/public (era assente nel codice nonostante fosse documentato, causando 404 silenzioso lato frontend)
+
+
 ## [0.1.13] - 2026-06-08
 ### Fixed
 - version.json e CHANGELOG non aggiornati nei commit precedenti (0.1.11/0.1.12)
