@@ -142,7 +142,7 @@ router.get('/emails', pluginAuth, async (req, res) => {
        LIMIT $${p} OFFSET $${p+1}`,
       params
     );
-    const count = await db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${conditions.slice(0,-0).join(' AND ')}`, params.slice(0,-2));
+    const count = await db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${conditions.join(' AND ')}`, params.slice(0, -2));
     res.json({ items: r.rows, total: parseInt(count.rows[0].count) });
   } catch (err) {
     res.status(500).json({ error: err.message });
