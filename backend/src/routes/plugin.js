@@ -239,12 +239,21 @@ router.get('/emails/:id/eml', pluginAuth, async (req, res) => {
 router.get('/manifest/outlook', (req, res) => {
   const fs = require('fs');
   const path = require('path');
-  const baseUrl = process.env.APP_URL || `http://${req.hostname}:3001`;
+  // Se APP_URL e' configurato lo usa, altrimenti rileva proto reale (reverse proxy)
+  let baseUrl;
+  if (process.env.APP_URL) {
+    baseUrl = process.env.APP_URL;
+  } else {
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host  = req.headers['x-forwarded-host']  || req.headers['host'] || req.hostname;
+    baseUrl = proto + '://' + host;
+  }
   const manifestPath = path.join(__dirname, '../../plugins/outlook/manifest.xml');
   try {
     let manifest = fs.readFileSync(manifestPath, 'utf8');
     manifest = manifest.replace(/MAILVAULT_URL/g, baseUrl);
     res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Cache-Control', 'no-cache');
     res.send(manifest);
   } catch(e) { res.status(500).json({ error: 'Manifest non trovato' }); }
 });

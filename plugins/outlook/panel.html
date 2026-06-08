@@ -431,7 +431,7 @@ function formatDate(d) {
 async function exportEml() {
   if (!currentEmail) return;
   try {
-    const r = await api(/emails/+currentEmail.id+/eml);
+    const r = await api(`/emails/${currentEmail.id}/eml`);
     if (!r.ok) throw new Error("Download fallito");
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
