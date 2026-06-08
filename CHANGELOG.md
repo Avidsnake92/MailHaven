@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.16] - 2026-06-08
+### Fixed
+- Tabella plugin_tokens (necessaria per generare token Outlook/Thunderbird) mancava nelle migrazioni: era presente solo in init.sql, quindi i database aggiornati da versioni precedenti a 0.0.96 non la possedevano e la generazione token plugin falliva con errore "relation plugin_tokens does not exist". Aggiunta migrazione di recupero automatico
+
+
 ## [0.1.15] - 2026-06-08
 ### Fixed
 - AV Batch Scanner: corretto ReferenceError "result is not defined" nella scrittura del log av_log per ogni allegato (variabile non esistente residuo di refactoring a 3 layer ClamAV+YARA+VirusTotal); ora ogni allegato viene loggato correttamente con il proprio esito ed elenco virus rilevati
