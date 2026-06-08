@@ -389,6 +389,14 @@ const getValidGoogleToken = async (db, mailbox) => {
 // OAuth App Config — lettura/scrittura credenziali app e connectivity check
 // ─────────────────────────────────────────────────────────────────────────────
 
+// GET /oauth/app-config/public - nessuna autenticazione, usato dalla pagina di login per i bottoni SSO
+router.get('/app-config/public', (req, res) => {
+  res.json({
+    microsoft: { configured: !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_TENANT_ID && process.env.MICROSOFT_CLIENT_SECRET) },
+    google:    { configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) },
+  });
+});
+
 // GET /oauth/app-config — restituisce config attuale (secrets mascherati)
 router.get('/app-config', authMiddleware, async (req, res) => {
   if (!['superadmin', 'admin'].includes(req.user.role))
