@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.13] - 2026-06-08
+### Fixed
+- version.json e CHANGELOG non aggiornati nei commit precedenti (0.1.11/0.1.12)
+
+## [0.1.12] - 2026-06-08
+### Added
+- Wizard OAuth in Impostazioni: componente OAuthWizardTab (era referenziato ma mancante) con guida passo-passo per Microsoft 365 e Google, test di connettivita e pannello stato caselle
+- Auto-provisioning utenti SSO: toggle in Impostazioni per creare automaticamente l'utente al primo login con Microsoft 365 / Google
+- Endpoint backend GET/POST /oauth/sso-settings per gestire l'auto-provisioning
+
+## [0.1.11] - 2026-06-08
+### Fixed
+- Pagina di login: bottoni SSO (Microsoft 365 / Google) non comparivano perche veniva chiamato un endpoint autenticato invece di quello pubblico
+- Placeholder del campo password corrotto (mostrava simboli "?" invece dei pallini)
+
+## [0.1.10] - 2026-06-06
+### Fixed
+- Loop di refresh infinito nella pagina di login causato da una chiamata 401 non autenticata (creato endpoint pubblico /oauth/app-config/public e uso di fetch al posto di api)
+
+
 ## [0.0.97] - 2026-06-05
 ### Added
 - YARA Scanner: 11 regole per rilevare PE/ELF, macro Office AutoOpen/Shell, PowerShell encoded, VBScript, HTML phishing, ZIP con eseguibili, PDF con JS
