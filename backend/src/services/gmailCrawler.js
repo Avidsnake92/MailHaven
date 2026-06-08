@@ -145,13 +145,14 @@ const syncMailbox = async (mailbox, db) => {
         const senderEmail = fromMatch ? fromMatch[2].trim() : fromRaw;
 
         try {
-          await db.query(
+          const insertResult = await db.query(
             `INSERT INTO archived_emails
              (mailbox_id, uid, message_id, subject, sender_name, sender_email,
               recipients, cc, bcc, sent_at, path, has_attachments,
               raw, size_bytes, compressed_size_bytes)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-             ON CONFLICT (mailbox_id, uid, path) DO NOTHING`,
+             ON CONFLICT (mailbox_id, uid, path) DO NOTHING
+             RETURNING id`,
             [mailbox.id, uid, msgId,
              getH('Subject') || '(senza oggetto)',
              senderName, senderEmail,
@@ -162,8 +163,11 @@ const syncMailbox = async (mailbox, db) => {
              (meta.payload?.parts?.length > 0) || false,
              rawEncrypted, rawBuffer.length, rawGzipped.length]
           );
-          knownIds.add(msgId);
-          synced++;
+          if (insertResult.rows.length > 0) {
+            knownIds.add(msgId);
+            synced++;
+            pageAllKnown = false; // nuovo messaggio trovato, continua paginazione
+          }
         } catch (e) {
           if (!e.message.includes('unique')) console.error(`[GmailCrawler] save:`, e.message);
         }

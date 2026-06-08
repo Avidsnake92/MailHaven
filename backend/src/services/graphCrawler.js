@@ -26,14 +26,31 @@ const graphFetch = async (url, token, retries = 3) => {
   throw new Error('Graph API: troppi tentativi falliti');
 };
 
-const listFolders = async (token) => {
+const listFolders = async (token, parentId = null, parentPath = '') => {
   const folders = [];
-  let url = 'https://graph.microsoft.com/v1.0/me/mailFolders?$top=100&includeHiddenFolders=true';
+  let url = parentId
+    ? `https://graph.microsoft.com/v1.0/me/mailFolders/${parentId}/childFolders?$top=100&includeHiddenFolders=true`
+    : `https://graph.microsoft.com/v1.0/me/mailFolders?$top=100&includeHiddenFolders=true`;
   while (url) {
     const res = await graphFetch(url, token);
-    if (!res.ok) throw new Error(`Graph listFolders: ${res.status} ${await res.text()}`);
+    if (!res.ok) {
+      console.error(`[GraphCrawler] listFolders error: ${res.status}`);
+      break;
+    }
     const data = await res.json();
-    folders.push(...(data.value || []));
+    for (const folder of (data.value || [])) {
+      const folderPath = parentPath ? `${parentPath}/${folder.displayName}` : folder.displayName;
+      folders.push({ ...folder, _path: folderPath });
+      // Ricorsione su sotto-cartelle
+      if ((folder.childFolderCount || 0) > 0) {
+        try {
+          const children = await listFolders(token, folder.id, folderPath);
+          folders.push(...children);
+        } catch(e) {
+          console.error(`[GraphCrawler] childFolders error for ${folderPath}:`, e.message);
+        }
+      }
+    }
     url = data['@odata.nextLink'] || null;
   }
   return folders;
@@ -56,7 +73,7 @@ const syncMailbox = async (mailbox, db) => {
       continue;
     }
 
-    const folderPath = folder.displayName;
+    const folderPath = folder._path || folder.displayName;
 
     // Message ID già noti per questo mailbox
     const existingR = await db.query(
