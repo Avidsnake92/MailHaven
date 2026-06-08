@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.20] - 2026-06-08
+### Fixed
+- **Outlook plugin manifest**: replaced SVG icon with PNG (Office Add-in schema requires PNG, rejects SVG)
+- **Outlook plugin manifest**: added `VersionOverrides` v1.0 for modern Outlook 365 task pane button in ribbon
+- **Outlook plugin manifest**: added `AppDomains`, bumped internal version to 1.0.1
+- **docker-compose.yml**: `./plugins` now mounted as live volume ??? manifest changes don't require image rebuild
+
 ## [0.1.19] - 2026-06-08
 ### Fixed
 - **Outlook plugin**: `panel.html` returned React SPA instead of plugin UI (nginx `/plugin` not proxied to backend)
