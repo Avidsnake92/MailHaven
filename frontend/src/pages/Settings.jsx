@@ -216,7 +216,7 @@ const TOTAL_DURATION = UPDATE_STEPS.reduce((a, s) => a + s.duration, 0)
 
 
 
-function UpdateProgress({ startVersion }) {
+function UpdateProgress({ startVersion, onComplete }) {
   const [progress, setProgress] = useState(0)
   const [stepIndex, setStepIndex] = useState(0)
   const [done, setDone] = useState(false)
@@ -297,7 +297,7 @@ function UpdateProgress({ startVersion }) {
   )
 }
 
-function UpdateTab() {
+function UpdateTab({ setUpdating }) {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -324,13 +324,15 @@ function UpdateTab() {
       await api.post('/update/run')
       setStarted(true)
       setConfirming(false)
+      if (typeof window !== 'undefined') window.__mhStartVersion = status?.current?.version
+      if (setUpdating) setUpdating(true)
     } catch (err) {
       setError('Errore: ' + (err.response?.data?.error || err.message))
     }
   }
 
   if (started) {
-    return <UpdateProgress startVersion={status?.current?.version} />
+    return <UpdateProgress startVersion={status?.current?.version} onComplete={() => { if (setUpdating) setUpdating(false) }} />
   }
 
   return (
@@ -744,6 +746,7 @@ function UpdateTab() {
 
 export default function Settings() {
   const { user } = useAuth()
+  const [isUpdating, setIsUpdating] = React.useState(false)
   const [activeTab, setActiveTab] = useState('sync')
   const [searchParams] = useSearchParams()
   useEffect(() => { const t = searchParams.get('tab'); if (t) setActiveTab(t) }, [searchParams])
@@ -894,6 +897,14 @@ export default function Settings() {
   const inputClass  = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 
   return (
+    <>
+    {isUpdating && (
+      <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(15,23,42,0.7)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{background:'white',borderRadius:'1rem',padding:'2rem',minWidth:'480px',maxWidth:'90vw',boxShadow:'0 25px 50px -12px rgba(0,0,0,0.5)'}}>
+          <UpdateProgress startVersion={window.__mhStartVersion} onComplete={() => {}} />
+        </div>
+      </div>
+    )}
     <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -1141,7 +1152,7 @@ export default function Settings() {
 
         {activeTab === 'oauth' && <OAuthWizardTab />}
         {activeTab === 'security' && <SecurityTab user={user} />}
-        {activeTab === 'update' && <UpdateTab />}
+        {activeTab === 'update' && <UpdateTab setUpdating={setIsUpdating} />}
 
         {activeTab === 'plugin' && (
           <div className="space-y-6">
@@ -1260,11 +1271,13 @@ export default function Settings() {
       </div>
 
       <div className="flex items-center gap-4 mt-6">
-        <button onClick={saveSettings} disabled={saving || activeTab === 'update' || activeTab === 'security' || activeTab === 'oauth'}
+        {activeTab !== 'update' && (
+        <button onClick={saveSettings} disabled={saving || activeTab === 'security' || activeTab === 'oauth'}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-60 bg-blue-600 hover:bg-blue-700 transition-colors">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {saving ? 'Salvataggio...' : 'Salva impostazioni'}
         </button>
+        )}
         {msg && (
           <span className={`flex items-center gap-1.5 text-sm font-medium ${msgType === 'error' ? 'text-red-600' : 'text-green-600'}`}>
             {msgType === 'error' ? <AlertCircle size={15} /> : <Check size={15} />}
@@ -1273,5 +1286,6 @@ export default function Settings() {
         )}
       </div>
     </div>
+    </>
   )
 }
