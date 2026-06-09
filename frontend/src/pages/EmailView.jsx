@@ -4,12 +4,14 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useBranding } from '../context/BrandingContext'
-import { ArrowLeft, Download, RotateCcw, Paperclip, Loader2, Mail, User, Calendar, Inbox, ChevronDown, AlertTriangle, ShieldCheck, ShieldAlert, X } from "lucide-react"
+import { useAuth } from '../context/AuthContext'
+import { ArrowLeft, Download, RotateCcw, Paperclip, Loader2, Mail, User, Calendar, Inbox, ChevronDown, AlertTriangle, ShieldCheck, ShieldAlert, X, Shield, ShieldOff } from "lucide-react"
 
 export default function EmailView() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { branding } = useBranding()
+  const { user } = useAuth()
   const [email, setEmail] = useState(null)
   const [content, setContent] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -18,6 +20,9 @@ export default function EmailView() {
   const [avScanning, setAvScanning] = useState(false)
   const [restoreEmail, setRestoreEmail] = useState('')
   const [restoring, setRestoring] = useState(false)
+  const [legalHolding, setLegalHolding] = useState(false)
+  const [legalHoldReason, setLegalHoldReason] = useState('')
+  const [showHoldDialog, setShowHoldDialog] = useState(false)
   const [msg, setMsg] = useState('')
   const [showExportMenu, setShowExportMenu] = useState(false)
 
@@ -116,6 +121,26 @@ export default function EmailView() {
 
   const recipients = email.recipients?.map(r => r.email || r.name).join(', ') || ''
 
+  const handleLegalHold = async (enable) => {
+    setLegalHolding(true)
+    try {
+      await api.post('/emails/legal-hold', {
+        email_ids: [id],
+        enable,
+        reason: legalHoldReason || undefined,
+      })
+      setShowHoldDialog(false)
+      setLegalHoldReason('')
+      // Reload email to get updated legal_hold status
+      const res = await api.get(`/emails/${id}`)
+      setEmail(res.data)
+      setMsg(enable ? 'Legal Hold attivato' : 'Legal Hold rimosso')
+    } catch (e) {
+      setMsg('Errore: ' + (e.response?.data?.error || e.message))
+    }
+    setLegalHolding(false)
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6 transition-colors">
@@ -172,6 +197,14 @@ export default function EmailView() {
           </div>
         </div>
 
+        {/* Legal Hold badge */}
+        {email?.legal_hold && (
+          <div className="mx-4 sm:mx-6 mb-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <Shield size={14} className="text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-800 font-semibold">Legal Hold attivo</p>
+            {email?.legal_hold_reason && <p className="text-xs text-amber-600">??? {email.legal_hold_reason}</p>}
+          </div>
+        )}
         {/* Actions */}
         <div className="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center gap-2">
           {/* Export dropdown */}
@@ -210,8 +243,59 @@ export default function EmailView() {
               Invia
             </button>
           </div>
+          {/* Legal Hold - admin only */}
+          {(user?.role === 'admin' || user?.role === 'superadmin') && (
+            <>
+              <div className="w-px h-4 bg-gray-200" />
+              {email?.legal_hold ? (
+                <button onClick={() => handleLegalHold(false)} disabled={legalHolding}
+                  className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300 disabled:opacity-50">
+                  {legalHolding ? <Loader2 size={14} className="animate-spin" /> : <ShieldOff size={14} />}
+                  Rimuovi Hold
+                </button>
+              ) : (
+                <button onClick={() => setShowHoldDialog(true)} disabled={legalHolding}
+                  className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 disabled:opacity-50">
+                  <Shield size={14} /> Legal Hold
+                </button>
+              )}
+            </>
+          )}
           {msg && <span className={`text-sm font-medium ${msg.includes('Errore') ? 'text-red-600' : 'text-green-600'}`}>{msg}</span>}
         </div>
+
+        {/* Legal Hold Dialog */}
+        {showHoldDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Shield size={20} className="text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Attiva Legal Hold</h3>
+                  <p className="text-xs text-gray-500">L'email non potr?? essere eliminata</p>
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Motivo (opzionale)</label>
+                <input value={legalHoldReason} onChange={e => setLegalHoldReason(e.target.value)}
+                  placeholder="Es: Indagine interna, Contenzioso n??123..."
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-amber-400" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => { setShowHoldDialog(false); setLegalHoldReason('') }}
+                  className="flex-1 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
+                  Annulla
+                </button>
+                <button onClick={() => handleLegalHold(true)} disabled={legalHolding}
+                  className="flex-1 py-2 text-sm font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-60">
+                  {legalHolding ? 'Attivazione...' : 'Attiva Hold'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Attachments */}
         {content?.attachments?.length > 0 && (

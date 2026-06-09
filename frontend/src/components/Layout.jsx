@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle, Search } from 'lucide-react'
+import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle, Search, ShieldOff, Upload } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout, refreshAvatar } = useAuth()
@@ -54,6 +54,8 @@ export default function Layout() {
       {(user?.role === 'admin' || user?.role === 'superadmin') && (<>
         {sectionLabel('Amministrazione')}
         <NavLink to="/admin" className={navClass}><Users size={17} /> Gestione</NavLink>
+        <NavLink to="/legal-hold" className={navClass}><ShieldOff size={17} /> Legal Hold</NavLink>
+        <NavLink to="/import" className={navClass}><Upload size={17} /> Importa Email</NavLink>
         <button onClick={() => setLogsOpen(o => !o)}
           className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium w-full text-left text-gray-600 hover:bg-gray-100 transition-all">
           <Activity size={17} /><span className="flex-1">Log</span>

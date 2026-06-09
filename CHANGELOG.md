@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.26] - 2026-06-09
+### Added
+- **Legal Hold**: protezione email da eliminazione per conservazione legale
+  - Badge visibile nel viewer, dialog con motivo, blocco delete manuale e da policy
+  - Pagina dedicata `/legal-hold` con lista email protette e rimozione bulk
+  - Voce nel menu laterale (admin/superadmin)
+- **Importa Email**: nuova pagina `/import` per importare archivi esistenti
+  - Formati supportati: PST (Outlook), EML, ZIP di EML, MBOX (Thunderbird/Gmail)
+  - Deduplicazione automatica su Message-ID
+  - File fino a 500 MB, preservazione struttura cartelle
+### Fixed
+- **nginx**: aggiunto `X-Forwarded-Host` ??? il manifest Outlook genera ora URL HTTPS
+  automaticamente anche senza `APP_URL` configurato nel `.env`
+
 ## [0.1.25] - 2026-06-09
 ### Fixed
 - **Security**: Export ZIP includeva email infette (usava `r.rows` invece di `safeEmails`)

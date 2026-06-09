@@ -590,6 +590,18 @@ router.post('/delete', authMiddleware, async (req, res, next) => {
   const { email_ids } = req.body;
   if (!email_ids?.length) return next(new AppError(ERRORS.MH_1402));
   try {
+    // Blocca email in Legal Hold
+    const held = await db.query(
+      `SELECT id FROM archived_emails WHERE id=ANY($1::uuid[]) AND legal_hold=true`,
+      [email_ids]
+    );
+    if (held.rows.length > 0) {
+      return res.status(403).json({
+        error: `${held.rows.length} email non eliminabili: Legal Hold attivo`,
+        code: 'MH-1801',
+        blocked_ids: held.rows.map(r => r.id),
+      });
+    }
     const s = await db.query(`SELECT value FROM settings WHERE key='badge_duration_days'`);
     const days = parseInt(s.rows[0]?.value || '30');
     await db.query(
@@ -678,5 +690,65 @@ router.post('/delete-imap', authMiddleware, async (req, res, next) => {
 });
 
 
+
+
+// POST /emails/legal-hold ??? imposta/rimuovi Legal Hold (solo admin/superadmin)
+router.post('/legal-hold', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  const { email_ids, enable, reason } = req.body;
+  if (!['admin', 'superadmin'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
+  if (!email_ids?.length) return res.status(400).json({ error: 'Nessuna email selezionata' });
+  try {
+    if (enable) {
+      await db.query(
+        `UPDATE archived_emails
+         SET legal_hold=true, legal_hold_reason=$1, legal_hold_by=$2, legal_hold_at=NOW(),
+             is_deleted=false, deleted_at=NULL, badge_type=NULL, badge_expires_at=NULL
+         WHERE id=ANY($3::uuid[])`,
+        [reason || null, req.user.id, email_ids]
+      );
+    } else {
+      await db.query(
+        `UPDATE archived_emails
+         SET legal_hold=false, legal_hold_reason=NULL, legal_hold_by=NULL, legal_hold_at=NULL
+         WHERE id=ANY($1::uuid[])`,
+        [email_ids]
+      );
+    }
+    res.json({ ok: true, count: email_ids.length, enabled: !!enable });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
+// GET /emails/legal-hold/list ??? lista email in legal hold (solo admin/superadmin)
+router.get('/legal-hold/list', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  if (!['admin', 'superadmin'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
+  const { page = 1, limit = 50 } = req.query;
+  const offset = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
+  try {
+    const [items, count] = await Promise.all([
+      db.query(
+        `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email, ae.sent_at,
+                ae.path, ae.legal_hold_reason, ae.legal_hold_at,
+                m.email as mailbox_email,
+                u.full_name as held_by_name
+         FROM archived_emails ae
+         JOIN mailboxes m ON m.id = ae.mailbox_id
+         LEFT JOIN users u ON u.id = ae.legal_hold_by
+         WHERE ae.legal_hold = true
+         ORDER BY ae.legal_hold_at DESC
+         LIMIT $1 OFFSET $2`,
+        [parseInt(limit), offset]
+      ),
+      db.query(`SELECT COUNT(*) FROM archived_emails WHERE legal_hold = true`),
+    ]);
+    res.json({
+      items: items.rows,
+      total: parseInt(count.rows[0].count),
+      totalPages: Math.ceil(parseInt(count.rows[0].count) / parseInt(limit)),
+      page: parseInt(page),
+    });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
 
 module.exports = router;

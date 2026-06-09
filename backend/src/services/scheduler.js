@@ -102,6 +102,7 @@ const applyArchivePolicy = async (mailbox, db) => {
     const emails = await db.query(
       `SELECT id, uid, path, message_id FROM archived_emails
        WHERE mailbox_id=$1 AND sent_at<$2 AND is_deleted=false
+       AND (legal_hold IS NULL OR legal_hold = false)
        ${dateFromCondition}${dateToCondition}${flaggedCondition}
        LIMIT 100`,
       params

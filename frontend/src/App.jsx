@@ -17,6 +17,10 @@ import Backup from './pages/Backup'
 import Antispam from './pages/Antispam'
 import GlobalSearch from './pages/GlobalSearch'
 import Profile from './pages/Profile'
+import LegalHold from './pages/LegalHold'
+import Import from './pages/Import'
+import LegalHold from './pages/LegalHold'
+import Import from './pages/Import'
 import Layout from './components/Layout'
 import UpdateNotification from './components/UpdateNotification'
 import api from './services/api'
@@ -80,6 +84,12 @@ function AppContent() {
           } />
           <Route path="admin" element={
             <ProtectedRoute roles={['admin', 'superadmin']}><Admin /></ProtectedRoute>
+          } />
+          <Route path="legal-hold" element={
+            <ProtectedRoute roles={['admin', 'superadmin']}><LegalHold /></ProtectedRoute>
+          } />
+          <Route path="import" element={
+            <ProtectedRoute roles={['admin', 'superadmin']}><Import /></ProtectedRoute>
           } />
           <Route path="logs" element={
             <ProtectedRoute roles={['admin', 'superadmin']}><Logs /></ProtectedRoute>
