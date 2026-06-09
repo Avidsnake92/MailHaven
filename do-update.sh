@@ -1,67 +1,50 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+# do-update.sh — aggiorna MailHaven con downtime minimo
+# Sequenza: git pull → build backend → wait healthy → build frontend
+# Il frontend continua a servire (anche con 502 → pagina manutenzione)
+# durante il restart del backend (~30-60s).
+
+set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-/root/mailhaven}"
 LOG="$INSTALL_DIR/data/update.log"
-TARGET_REF="${1:-${RELEASE_REF:-}}"
+TRIGGER="$INSTALL_DIR/data/update.trigger"
 
 mkdir -p "$INSTALL_DIR/data"
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
-die() { log "ERRORE: $*"; exit 1; }
+cd "$INSTALL_DIR"
 
-cd "$INSTALL_DIR" || die "directory $INSTALL_DIR non trovata"
-if [ -f .env ]; then
-  set -a
-  . ./.env
-  set +a
-fi
+echo "[$(date '+%H:%M:%S')] === Avvio aggiornamento MailHaven ===" | tee -a "$LOG"
 
-log "=== Avvio aggiornamento MailHaven ==="
-# Fetch con autenticazione se disponibile
-GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
-if [ -n "$GITHUB_TOKEN" ] && echo "$REMOTE_URL" | grep -q "github.com"; then
-  AUTH_URL=$(echo "$REMOTE_URL" | sed "s|https://[^@]*@|https://|" | sed "s|https://github.com|https://${GITHUB_TOKEN}@github.com|")
-  git fetch --tags "$AUTH_URL" >> "$LOG" 2>&1 || git fetch --tags origin >> "$LOG" 2>&1 || die "git fetch fallito"
-else
-  git fetch --tags origin >> "$LOG" 2>&1 || die "git fetch fallito"
-fi
+# ── 1. Git pull ──────────────────────────────────────────────────────────
+echo "[$(date '+%H:%M:%S')] git pull origin main..." | tee -a "$LOG"
+git pull origin main --quiet 2>&1 | tee -a "$LOG"
 
-if [ -z "$TARGET_REF" ]; then
-  TARGET_REF="$(git tag --sort=-v:refname | head -n 1 || true)"
-fi
-[ -n "$TARGET_REF" ] || TARGET_REF="origin/main"
+# ── 2. Build + restart BACKEND ───────────────────────────────────────────
+echo "[$(date '+%H:%M:%S')] Build backend..." | tee -a "$LOG"
+docker compose up -d --build --no-deps mailhaven-backend 2>&1 | tee -a "$LOG"
 
-CURRENT_REF="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-log "versione corrente: $CURRENT_REF"
-log "target update: $TARGET_REF"
+# Aspetta che il backend sia healthy (max 120s)
+echo "[$(date '+%H:%M:%S')] Attendo che il backend sia healthy..." | tee -a "$LOG"
+for i in $(seq 1 24); do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' mailhaven-backend 2>/dev/null || echo "unknown")
+  if [ "$STATUS" = "healthy" ]; then
+    echo "[$(date '+%H:%M:%S')] Backend healthy dopo ${i}x5s." | tee -a "$LOG"
+    break
+  fi
+  if [ "$i" = "24" ]; then
+    echo "[$(date '+%H:%M:%S')] WARN: backend non healthy dopo 120s (status=$STATUS), continuo comunque." | tee -a "$LOG"
+  fi
+  sleep 5
+done
 
-BACKUP_DIR="$INSTALL_DIR/data/pre-update"
-mkdir -p "$BACKUP_DIR"
-if docker compose ps --status running mailhaven-db >/dev/null 2>&1; then
-  BACKUP_FILE="$BACKUP_DIR/db-$(date '+%Y%m%d-%H%M%S').sql.gz"
-  log "backup database: $BACKUP_FILE"
-  docker compose exec -T mailhaven-db pg_dump -U "${DB_USER:-mailhaven}" "${DB_NAME:-mailhaven}" | gzip > "$BACKUP_FILE" || die "backup database fallito"
-fi
+# ── 3. Build + restart FRONTEND ──────────────────────────────────────────
+echo "[$(date '+%H:%M:%S')] Build frontend..." | tee -a "$LOG"
+docker compose up -d --build --no-deps mailhaven-frontend 2>&1 | tee -a "$LOG"
 
-git fetch --tags origin >> "$LOG" 2>&1
-git checkout main >> "$LOG" 2>&1 || git checkout -B main origin/main >> "$LOG" 2>&1
-git reset --hard "$TARGET_REF" >> "$LOG" 2>&1 || die "reset a $TARGET_REF fallito"
-git branch --set-upstream-to=origin/main main >> "$LOG" 2>&1 || true
+# ── 4. Aggiorna git-status.json ──────────────────────────────────────────
+bash "$INSTALL_DIR/check-update.sh" 2>&1 | tee -a "$LOG" || true
 
-log "build immagini"
-docker compose build --pull mailhaven-backend mailhaven-frontend >> "$LOG" 2>&1 || die "docker compose build fallito"
+# ── 5. Rimuovi trigger ───────────────────────────────────────────────────
+rm -f "$TRIGGER"
 
-log "riavvio stack"
-docker compose up -d >> "$LOG" 2>&1 || die "docker compose up fallito"
-
-log "aggiorno stato release"
-bash "$INSTALL_DIR/check-update.sh" >> "$LOG" 2>&1 || true
-
-VTAG=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
-VVER=${VTAG#v}
-VBUILD=$(date +%Y%m%d)
-printf '{"version": "%s", "build": "%s"}
-' "$VVER" "$VBUILD" > "$INSTALL_DIR/version.json"
-log "version.json aggiornato: $VVER"
-log "=== Aggiornamento completato ==="
+echo "[$(date '+%H:%M:%S')] === Aggiornamento completato ===" | tee -a "$LOG"
