@@ -1,50 +1,68 @@
 #!/usr/bin/env bash
 # do-update.sh — aggiorna MailHaven con downtime minimo
-# Sequenza: git pull → build backend → wait healthy → build frontend
-# Il frontend continua a servire (anche con 502 → pagina manutenzione)
-# durante il restart del backend (~30-60s).
+# Il DB non viene mai toccato durante il build (il volume persiste).
+# Il backup è opzionale e gira in background senza bloccare l'update.
 
 set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-/root/mailhaven}"
 LOG="$INSTALL_DIR/data/update.log"
 TRIGGER="$INSTALL_DIR/data/update.trigger"
+BACKUP_DIR="$INSTALL_DIR/data/backups"
 
-mkdir -p "$INSTALL_DIR/data"
+mkdir -p "$INSTALL_DIR/data" "$BACKUP_DIR"
 cd "$INSTALL_DIR"
 
-echo "[$(date '+%H:%M:%S')] === Avvio aggiornamento MailHaven ===" | tee -a "$LOG"
+log() { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG"; }
+
+log "=== Avvio aggiornamento MailHaven ==="
+log "versione corrente: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 # ── 1. Git pull ──────────────────────────────────────────────────────────
-echo "[$(date '+%H:%M:%S')] git pull origin main..." | tee -a "$LOG"
+log "git pull origin main..."
 git pull origin main --quiet 2>&1 | tee -a "$LOG"
+log "target: $(git rev-parse --short HEAD)"
 
-# ── 2. Build + restart BACKEND ───────────────────────────────────────────
-echo "[$(date '+%H:%M:%S')] Build backend..." | tee -a "$LOG"
+# ── 2. Backup DB in BACKGROUND (non blocca l'update) ────────────────────
+# Il volume postgres persiste tra i build — il backup è precauzionale.
+# Con 3+ GB può richiedere 10-15 minuti, quindi gira in parallelo.
+BACKUP_FILE="$BACKUP_DIR/db-$(date +%Y%m%d-%H%M%S).sql.gz"
+log "backup DB avviato in background → $BACKUP_FILE"
+(
+  docker exec mailhaven-db pg_dump -U mailhaven mailhaven \
+    | gzip > "$BACKUP_FILE" \
+    && echo "[$(date '+%H:%M:%S')] backup completato: $BACKUP_FILE" >> "$LOG" \
+    || echo "[$(date '+%H:%M:%S')] backup fallito (non bloccante)" >> "$LOG"
+  # Mantieni solo gli ultimi 3 backup
+  ls -t "$BACKUP_DIR"/db-*.sql.gz 2>/dev/null | tail -n +4 | xargs rm -f 2>/dev/null || true
+) &
+BACKUP_PID=$!
+
+# ── 3. Build + restart BACKEND ───────────────────────────────────────────
+log "build backend..."
 docker compose up -d --build --no-deps mailhaven-backend 2>&1 | tee -a "$LOG"
 
-# Aspetta che il backend sia healthy (max 120s)
-echo "[$(date '+%H:%M:%S')] Attendo che il backend sia healthy..." | tee -a "$LOG"
+# Aspetta healthy (max 120s)
+log "attendo backend healthy..."
 for i in $(seq 1 24); do
-  STATUS=$(docker inspect --format='{{.State.Health.Status}}' mailhaven-backend 2>/dev/null || echo "unknown")
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' mailhaven-backend 2>/dev/null || echo unknown)
   if [ "$STATUS" = "healthy" ]; then
-    echo "[$(date '+%H:%M:%S')] Backend healthy dopo ${i}x5s." | tee -a "$LOG"
-    break
+    log "backend healthy (${i}x5s)"; break
   fi
-  if [ "$i" = "24" ]; then
-    echo "[$(date '+%H:%M:%S')] WARN: backend non healthy dopo 120s (status=$STATUS), continuo comunque." | tee -a "$LOG"
-  fi
+  [ "$i" = "24" ] && log "WARN: backend non healthy dopo 120s (status=$STATUS)"
   sleep 5
 done
 
-# ── 3. Build + restart FRONTEND ──────────────────────────────────────────
-echo "[$(date '+%H:%M:%S')] Build frontend..." | tee -a "$LOG"
+# ── 4. Build + restart FRONTEND ──────────────────────────────────────────
+log "build frontend..."
 docker compose up -d --build --no-deps mailhaven-frontend 2>&1 | tee -a "$LOG"
 
-# ── 4. Aggiorna git-status.json ──────────────────────────────────────────
+# ── 5. Aggiorna git-status.json ──────────────────────────────────────────
 bash "$INSTALL_DIR/check-update.sh" 2>&1 | tee -a "$LOG" || true
 
-# ── 5. Rimuovi trigger ───────────────────────────────────────────────────
+# Rimuovi trigger
 rm -f "$TRIGGER"
 
-echo "[$(date '+%H:%M:%S')] === Aggiornamento completato ===" | tee -a "$LOG"
+log "=== Aggiornamento completato ==="
+log "backup DB in corso in background (PID $BACKUP_PID) — non chiudere il terminale se vuoi aspettarlo"
+log "oppure: wait $BACKUP_PID && echo 'backup done'"
