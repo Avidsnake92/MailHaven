@@ -67,6 +67,14 @@ const syncMailbox = async (mailbox, db) => {
   let totalSynced = 0;
   const folderResults = [];
 
+  // Message ID gia noti -- caricati UNA VOLTA prima del loop (performance)
+    // Message ID già noti per questo mailbox
+    const existingR = await db.query(
+      'SELECT message_id FROM archived_emails WHERE mailbox_id=$1 AND message_id IS NOT NULL',
+      [mailbox.id]
+    );
+    const knownIds = new Set(existingR.rows.map(r => r.message_id));
+
   for (const folder of folders) {
     if (EXCLUDED_WELL_KNOWN.includes(folder.wellKnownName)) {
       folderResults.push({ folder: folder.displayName, skipped: true });
@@ -75,12 +83,6 @@ const syncMailbox = async (mailbox, db) => {
 
     const folderPath = folder._path || folder.displayName;
 
-    // Message ID già noti per questo mailbox
-    const existingR = await db.query(
-      'SELECT message_id FROM archived_emails WHERE mailbox_id=$1 AND message_id IS NOT NULL',
-      [mailbox.id]
-    );
-    const knownIds = new Set(existingR.rows.map(r => r.message_id));
 
     let synced = 0;
     let url = `https://graph.microsoft.com/v1.0/me/mailFolders/${folder.id}/messages` +

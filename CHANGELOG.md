@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.25] - 2026-06-09
+### Fixed
+- **Security**: Export ZIP includeva email infette (usava `r.rows` invece di `safeEmails`)
+- **Security**: Endpoint `/emails/storage` con `mailbox_id` non verificava l'accesso dell'utente
+- **Bug**: Ordinamento email (`sort_by`/`sort_dir`) definito ma ignorato nella query SQL
+- **Bug**: `OFFSET` negativo se `page=0` causava errore DB in ricerca e lista email
+- **Performance**: `graphCrawler` ricalcolava `knownIds` per ogni cartella (1 query ora invece di N)
+- **Security/Consistency**: `imapCrawler` salvava email in chiaro invece di cifrato+compresso
+- **Accuracy**: `imapCrawler` contava email archiviate anche su `ON CONFLICT DO NOTHING`
+- **Bug**: `scheduler` policy con solo `date_to` usava indice parametro SQL errato (crash)
+
 ## [0.1.24] - 2026-06-09
 ### Fixed
 - **UID overflow**: readUInt32BE produce valori 0-4.3B, PostgreSQL INTEGER max 2.1B

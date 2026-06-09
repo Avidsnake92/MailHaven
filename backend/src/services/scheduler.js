@@ -84,7 +84,7 @@ const applyArchivePolicy = async (mailbox, db) => {
   let dateToCondition = '';
   let dateToParams = [];
   if (filter.date_to_enabled) {
-    const paramIdx = dateFromParams.length > 0 ? '$5' : '$4';
+    const paramIdx = `$${3 + dateFromParams.length}`;
     if (filter.date_to_type === 'date' && filter.date_to) {
       dateToCondition = ` AND sent_at <= ${paramIdx}`;
       dateToParams = [new Date(filter.date_to)];

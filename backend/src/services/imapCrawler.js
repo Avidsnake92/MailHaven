@@ -365,14 +365,15 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       return; // non incrementare processed
                     }
                   }
-                  await db.query(
+                  const insertRes = await db.query(
                     `INSERT INTO archived_emails 
                      (mailbox_id, uid, message_id, subject, sender_name, sender_email,
                       recipients, cc, bcc, sent_at, path, has_attachments, attachments,
                       raw, body_html, body_text, headers, spam_score, size_bytes, is_restored, compressed_size_bytes,
                       is_pec, pec_type)
                      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
-                     ON CONFLICT (mailbox_id, uid, path) DO NOTHING`,
+                     ON CONFLICT (mailbox_id, uid, path) DO NOTHING
+                     RETURNING id`,
                     [
                       mailbox.id, uid,
                       parsed.messageId || null,
@@ -386,7 +387,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       folderPath,
                       attachments.length > 0,
                       JSON.stringify(attachments),
-                      raw,
+                      rawCompressed,
                       sanitizeText(parsed.html),
                       sanitizeText(parsed.text),
                       JSON.stringify(headers),
@@ -398,7 +399,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       pecType,
                     ]
                   );
-                  processed++;
+                  if (insertRes.rowCount > 0) processed++;
                 } catch (e) {
                   console.error(`Error saving email uid ${uid}:`, e.message);
                 }

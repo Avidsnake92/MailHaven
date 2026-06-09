@@ -42,8 +42,10 @@ router.get('/storage', async (req, res) => {
     let filter = 'WHERE ae.mailbox_id=ANY($1)';
     let params = [ids];
     if (mailbox_id) {
+      const mid = parseInt(mailbox_id);
+      if (!ids.includes(mid)) return res.status(403).json({ error: 'Accesso negato' });
       filter = 'WHERE ae.mailbox_id=$1';
-      params = [mailbox_id];
+      params = [mid];
     }
     const r = await db.query(
       `SELECT
@@ -137,7 +139,7 @@ router.get('/global-search', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
   const { search, page = 1, limit = 30, from_date, to_date } = req.query;
   if (!search || search.trim().length < 2) return res.status(400).json({ error: 'Query troppo corta (min 2 caratteri)', code: 'MH-1406' });
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const offset = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
   try {
     let mailboxFilter = '';
     let extraParams = [];
@@ -203,7 +205,7 @@ router.get('/', async (req, res) => {
   const ALLOWED_SORT = ['sent_at', 'subject', 'sender_email'];
   const safeSortBy = ALLOWED_SORT.includes(sort_by) ? `ae.${sort_by}` : 'ae.sent_at';
   const safeSortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const offset = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
 
   try {
     const accessibleIds = await getUserMailboxIds(db, req.user);
@@ -253,7 +255,7 @@ router.get('/', async (req, res) => {
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
          WHERE ${where}
-         ORDER BY ae.sent_at DESC
+         ORDER BY ${safeSortBy} ${safeSortDir}
          LIMIT $${p} OFFSET $${p+1}`,
         [...params, parseInt(limit), offset]
       )
@@ -526,7 +528,7 @@ router.post('/export', async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="export.zip"');
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.pipe(res);
-    for (const email of r.rows) {
+    for (const email of safeEmails) {
       if (email.raw) {
         const rawBuffer = await decompress(email.raw);
         const safeName = (email.subject || 'email').replace(/[^a-z0-9]/gi, '_').substring(0, 50);
