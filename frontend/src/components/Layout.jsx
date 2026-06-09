@@ -51,6 +51,7 @@ export default function Layout() {
       <NavLink to="/" end className={navClass}><Mail size={17} /> Email Archiviate</NavLink>
       <NavLink to="/global-search" className={navClass}><Search size={17} /> Ricerca Globale</NavLink>
       <NavLink to="/antispam" className={navClass}><ShieldAlert size={17} /> Antispam</NavLink>
+      <NavLink to="/themes" className={navClass}><Palette size={17} /> Temi</NavLink>
       {(user?.role === 'admin' || user?.role === 'superadmin') && (<>
         {sectionLabel('Amministrazione')}
         <NavLink to="/admin" className={navClass}><Users size={17} /> Gestione</NavLink>
