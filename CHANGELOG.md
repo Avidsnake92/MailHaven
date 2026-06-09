@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.28] - 2026-06-09
+### Added
+- **Installer Outlook EXE**: `plugins/outlook/MailHaven-Outlook-Setup.exe` — wizard
+  grafico per installare il plugin Outlook Classic senza privilegi admin, registra
+  il manifest via chiave registro HKCU, supporta URL server personalizzato e
+  disinstallazione dal Pannello di Controllo
+- **Pagina manutenzione durante aggiornamento**: durante il restart del backend
+  l'utente vede una pagina branded "Aggiornamento in corso" con spinner e
+  riconnessione automatica ogni 5 secondi invece della 502 del browser
+- **do-update.sh sequenziale**: backup DB in background (non bloccante),
+  rebuild backend → attesa healthy → rebuild frontend
+
+### Fixed
+- **Eliminazione casella di posta asincrona**: il delete ora risponde 202 subito
+  e cancella in background; la UI mostra "Eliminazione in corso..." animato
+  con polling ogni 2 secondi fino alla scomparsa dalla lista
+- **Rate limiting**: gli utenti autenticati (JWT valido) non hanno più limiti
+  sulle chiamate API; l'authLimiter (20 req/15min) si applica solo a
+  `/auth/login` e `/auth/2fa/verify-sso` per bloccare brute force
+- **check-update.sh**: confronta ora con `origin/main` invece del commit del tag,
+  eliminando i falsi positivi "aggiornamenti disponibili" dopo hotfix post-release
+- **Verifica aggiornamenti 502**: retry automatico dopo 3s su 502/503 con
+  messaggi human-friendly (backend in restart, permessi, offline)
+- **Dockerfile CMD**: corretta sintassi CMD con path tra virgolette
+- **Manifest Outlook Version**: formato 4-part `1.0.0.1` richiesto da Office
+
 ## [0.1.26] - 2026-06-09
 ### Added
 - **Legal Hold**: protezione email da eliminazione per conservazione legale
