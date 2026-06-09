@@ -1,7 +1,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY backend/package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --prefer-offline 2>/dev/null || npm install --legacy-peer-deps
+RUN npm cache clean --force 2>/dev/null || true
 
 FROM node:20-alpine
 WORKDIR /app
@@ -24,4 +25,4 @@ COPY backend/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3001
-CMD ["/docker-entrypoint.sh"]
+CMD [/docker-entrypoint.sh]
