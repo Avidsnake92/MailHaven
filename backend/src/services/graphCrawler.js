@@ -8,7 +8,7 @@ const { getValidToken } = require('./oauthHelper');
 // UID stabile da message_id (evita collisioni con hash CRC32-like)
 const stableUid = (msgId) => {
   const h = crypto.createHash('sha256').update(msgId).digest();
-  return h.readUInt32BE(0);
+  return h.readInt32BE(0); // INT32 firmato: compatibile con PostgreSQL INTEGER
 };
 
 const graphFetch = async (url, token, retries = 3) => {

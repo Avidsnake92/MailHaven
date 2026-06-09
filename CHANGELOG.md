@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.24] - 2026-06-09
+### Fixed
+- **UID overflow**: readUInt32BE produce valori 0-4.3B, PostgreSQL INTEGER max 2.1B
+  Migliaia di email Graph API non venivano inserite. Fix: readInt32BE (INT32 firmato)
+  + migrazione DB uid BIGINT
+
 ## [0.1.22] - 2026-06-09
 ### Fixed
 - **Plugin tab**: URL manifest e download usavano `.replace(':8080',':3001')` che non funzionava in produzione

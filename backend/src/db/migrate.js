@@ -1,7 +1,10 @@
 const migrate = async (db) => {
   const run = async (sql) => { try { await db.query(sql); } catch(e) { console.warn('[Migration] Skip:', e.message.split('\n')[0]); } };
 
-  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS compressed_size_bytes BIGINT DEFAULT 0`);
+  // UID overflow fix: INTEGER max 2.1B, readUInt32BE produce valori fino 4.3B
+  await run(`ALTER TABLE archived_emails ALTER COLUMN uid TYPE BIGINT`);
+  await run(`ALTER TABLE archived_emails ALTER COLUMN uid SET NOT NULL`);
+    await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS compressed_size_bytes BIGINT DEFAULT 0`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_restored BOOLEAN DEFAULT false`);

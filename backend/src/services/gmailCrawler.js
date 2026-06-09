@@ -6,7 +6,7 @@ const { encryptBuffer, decrypt, encrypt } = require('./crypto');
 
 const stableUid = (msgId) => {
   const h = crypto.createHash('sha256').update(msgId).digest();
-  return h.readUInt32BE(0);
+  return h.readInt32BE(0); // INT32 firmato: compatibile con PostgreSQL INTEGER
 };
 
 // Refresh token Google
