@@ -1,0 +1,17 @@
+{
+  "name": "MailHaven",
+  "short_name": "MailHaven",
+  "description": "Archivio email sicuro e conforme",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b132b",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
