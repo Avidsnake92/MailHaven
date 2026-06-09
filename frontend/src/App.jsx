@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { BrandingProvider } from './context/BrandingContext'
-import { ThemeProvider } from './context/ThemeContext'
 import { useState, useEffect, useCallback } from 'react'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
@@ -20,7 +19,6 @@ import GlobalSearch from './pages/GlobalSearch'
 import Profile from './pages/Profile'
 import LegalHold from './pages/LegalHold'
 import Import from './pages/Import'
-import Themes from './pages/Themes'
 import Layout from './components/Layout'
 import UpdateNotification from './components/UpdateNotification'
 import api from './services/api'
@@ -91,7 +89,6 @@ function AppContent() {
           <Route path="import" element={
             <ProtectedRoute roles={['admin', 'superadmin']}><Import /></ProtectedRoute>
           } />
-          <Route path="themes" element={<Themes />} />
           <Route path="logs" element={
             <ProtectedRoute roles={['admin', 'superadmin']}><Logs /></ProtectedRoute>
           } />
@@ -108,13 +105,11 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider>
       <BrandingProvider>
         <AuthProvider>
           <AppContent />
         </AuthProvider>
       </BrandingProvider>
-      </ThemeProvider>
     </BrowserRouter>
   )
 }

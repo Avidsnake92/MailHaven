@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle, Search, ShieldOff, Upload, Palette } from 'lucide-react'
+import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle, Search, ShieldOff, Upload } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout, refreshAvatar } = useAuth()
@@ -51,7 +51,6 @@ export default function Layout() {
       <NavLink to="/" end className={navClass}><Mail size={17} /> Email Archiviate</NavLink>
       <NavLink to="/global-search" className={navClass}><Search size={17} /> Ricerca Globale</NavLink>
       <NavLink to="/antispam" className={navClass}><ShieldAlert size={17} /> Antispam</NavLink>
-      <NavLink to="/themes" className={navClass}><Palette size={17} /> Temi</NavLink>
       {(user?.role === 'admin' || user?.role === 'superadmin') && (<>
         {sectionLabel('Amministrazione')}
         <NavLink to="/admin" className={navClass}><Users size={17} /> Gestione</NavLink>
