@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.22] - 2026-06-09
+### Fixed
+- **Plugin tab**: URL manifest e download usavano `.replace(':8080',':3001')` che non funzionava in produzione
+  (il backend non e' esposto direttamente ??? nginx gestisce il proxy). Ora usa `window.location.origin`
+- **Plugin tab**: aggiunto box con URL manifest e bottone "Copia" per facilitare installazione Outlook
+- **Produzione**: impostare `APP_URL=https://mailhaven.k2tech.it` nel `.env` per URL HTTPS nel manifest
+
 ## [0.1.21] - 2026-06-08
 ### Fixed
 - **Settings/Aggiornamento**: overlay fullscreen durante update impedisce click su altri tab o link della sidebar
