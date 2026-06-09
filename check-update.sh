@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+# check-update.sh — confronta HEAD con origin/main (non con il tag)
+# Il tag serve solo per visualizzare il numero di versione target
 
 INSTALL_DIR="${INSTALL_DIR:-/root/mailhaven}"
 OUTPUT="$INSTALL_DIR/data/git-status.json"
@@ -7,36 +8,37 @@ OUTPUT="$INSTALL_DIR/data/git-status.json"
 mkdir -p "$INSTALL_DIR/data"
 cd "$INSTALL_DIR" || exit 1
 
-# Fetch con token se disponibile nel remote URL, altrimenti prova senza auth
+# ── Fetch remoto (silenzioso, non blocca lo script se fallisce) ────────────
+_fetch_ok=0
 if git ls-remote --tags origin > /dev/null 2>&1; then
-  git fetch --tags origin --quiet 2>/dev/null || true
+  git fetch --tags --quiet origin 2>/dev/null && _fetch_ok=1 || true
 else
-  # Prova a configurare remote con token da .env
+  # Prova con token GitHub da .env
   if [ -f "$INSTALL_DIR/.env" ]; then
-    GITHUB_TOKEN=$(grep GITHUB_TOKEN "$INSTALL_DIR/.env" 2>/dev/null | cut -d= -f2 | tr -d ' ')
+    GITHUB_TOKEN=$(grep 'GITHUB_TOKEN' "$INSTALL_DIR/.env" 2>/dev/null | cut -d= -f2 | tr -d ' "' | head -1 || true)
     REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
     if [ -n "$GITHUB_TOKEN" ] && echo "$REMOTE_URL" | grep -q "github.com"; then
       AUTHED_URL=$(echo "$REMOTE_URL" | sed "s|https://|https://${GITHUB_TOKEN}@|")
-      git fetch --tags "$AUTHED_URL" --quiet 2>/dev/null || true
+      git fetch --tags --quiet "$AUTHED_URL" 2>/dev/null && _fetch_ok=1 || true
     fi
   fi
 fi
 
+# ── Versione corrente (HEAD) ───────────────────────────────────────────────
 CURRENT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-LATEST_TAG="$(git tag --sort=-v:refname | head -n 1 2>/dev/null || true)"
 
-if [ -n "$LATEST_TAG" ]; then
-  REMOTE="$(git rev-parse --short "$LATEST_TAG" 2>/dev/null || echo unknown)"
-  BEHIND="$(git rev-list HEAD.."$LATEST_TAG" --count 2>/dev/null || echo 0)"
-  LOG_REF="$LATEST_TAG"
-else
-  REMOTE="$(git rev-parse --short origin/main 2>/dev/null || echo unknown)"
-  BEHIND="$(git rev-list HEAD..origin/main --count 2>/dev/null || echo 0)"
-  LOG_REF="origin/main"
-fi
+# ── Confronto con origin/main (non col tag) ───────────────────────────────
+# hasUpdate = true solo se origin/main ha commit che HEAD non ha
+REMOTE_COMMIT="$(git rev-parse --short origin/main 2>/dev/null || echo unknown)"
+BEHIND="$(git rev-list HEAD..origin/main --count 2>/dev/null || echo 0)"
 
+# ── Ultimo tag (solo per mostrare il numero di versione target nella UI) ──
+LATEST_TAG="$(git tag --sort=-v:refname 2>/dev/null | head -n 1 || true)"
+LOG_REF="${LATEST_TAG:-origin/main}"
+
+# ── Scrivi JSON ───────────────────────────────────────────────────────────
 python3 - << PYEOF
-import subprocess, json
+import subprocess, json, os
 
 install_dir = '$INSTALL_DIR'
 log_ref = '$LOG_REF'
@@ -46,7 +48,7 @@ try:
         ['git', 'log', '--oneline', '-5', log_ref],
         capture_output=True, text=True, cwd=install_dir
     )
-    for line in result.stdout.strip().split('\\n'):
+    for line in result.stdout.strip().split('\n'):
         if not line.strip():
             continue
         parts = line.split(' ', 1)
@@ -54,15 +56,17 @@ try:
 except Exception:
     pass
 
+behind_raw = '$BEHIND'
 data = {
-    'currentCommit': '$CURRENT',
-    'remoteCommit': '$REMOTE',
-    'latestTag': '$LATEST_TAG',
-    'commitsBehind': int('$BEHIND') if '$BEHIND'.isdigit() else 0,
-    'latestCommits': commits,
+    'currentCommit':  '$CURRENT',
+    'remoteCommit':   '$REMOTE_COMMIT',
+    'latestTag':      '$LATEST_TAG',
+    'commitsBehind':  int(behind_raw) if behind_raw.isdigit() else 0,
+    'latestCommits':  commits,
+    'fetchOk':        bool(int('$_fetch_ok')),
 }
 with open('$OUTPUT', 'w', encoding='utf-8') as f:
     json.dump(data, f)
 PYEOF
 
-echo "[check-update] current=$CURRENT remote=$REMOTE tag=$LATEST_TAG behind=$BEHIND"
+echo "[check-update] current=$CURRENT remote=$REMOTE_COMMIT tag=$LATEST_TAG behind=$BEHIND fetch_ok=$_fetch_ok"

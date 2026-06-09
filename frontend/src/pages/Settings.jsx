@@ -305,13 +305,28 @@ function UpdateTab({ setUpdating }) {
   const [backupConfirmed, setBackupConfirmed] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
-  const loadStatus = async () => {
+  const loadStatus = async (attempt = 1) => {
     setLoading(true); setError('')
     try {
       const res = await api.get('/update/status')
       setStatus(res.data)
     } catch (err) {
-      setError('Impossibile verificare aggiornamenti: ' + (err.response?.data?.error || err.message))
+      const status = err.response?.status
+      // Retry automatico una volta su 502/503 (backend in restart)
+      if ((status === 502 || status === 503) && attempt === 1) {
+        setTimeout(() => loadStatus(2), 3000)
+        setError('Backend in avvio, riprovo tra 3 secondi...')
+        return
+      }
+      if (status === 502 || status === 503) {
+        setError('Il backend non risponde (502). Riprova tra qualche secondo.')
+      } else if (status === 403) {
+        setError('Permessi insufficienti per verificare gli aggiornamenti.')
+      } else if (!navigator.onLine) {
+        setError('Nessuna connessione internet.')
+      } else {
+        setError('Impossibile verificare aggiornamenti: ' + (err.response?.data?.error || err.message))
+      }
     }
     setLoading(false)
   }
