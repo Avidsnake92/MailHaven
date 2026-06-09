@@ -432,6 +432,15 @@ function Modal({ title, onClose, children }) {
   )
 }
 
+function DotDot() {
+  const [dots, setDots] = React.useState('.')
+  React.useEffect(() => {
+    const t = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 400)
+    return () => clearInterval(t)
+  }, [])
+  return <span className="inline-block w-5 text-left">{dots}</span>
+}
+
 function ConfirmDelete({ name, onConfirm, onCancel }) {
   return (
     <Modal title="Conferma eliminazione" onClose={onCancel}>
@@ -759,6 +768,13 @@ function UsersTab({ branding, user }) {
           </div>
         </Modal>
       )}
+      {deleteError && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl shadow-lg px-4 py-3 max-w-sm">
+          <AlertCircle size={18} className="text-red-600 shrink-0" />
+          <p className="text-sm text-red-800">{deleteError}</p>
+          <button onClick={() => setDeleteError(null)} className="ml-auto text-red-400 hover:text-red-600"><X size={14} /></button>
+        </div>
+      )}
       {deleteItem && <ConfirmDelete name={deleteItem.email} onConfirm={handleDelete} onCancel={() => setDeleteItem(null)} />}
     </>
   )
@@ -842,6 +858,8 @@ function MailboxesTab({ branding, user }) {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [deleteItem, setDeleteItem] = useState(null)
+  const [deletingIds, setDeletingIds] = useState(new Set())
+  const [deleteError, setDeleteError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
@@ -960,16 +978,43 @@ function MailboxesTab({ branding, user }) {
   }
 
   const handleDelete = async () => {
-    try { await api.delete(`/admin/mailboxes/${deleteItem.id}`) } catch { }
-    // Pulizia localStorage — evita che Dashboard provi a caricare una casella eliminata
+    const id = deleteItem.id
+    const email = deleteItem.email
+    setDeleteItem(null)
+    setDeleteError(null)
+    setDeletingIds(prev => new Set([...prev, id]))
+    try {
+      await api.delete(`/admin/mailboxes/${id}`)
+    } catch (e) {
+      setDeleteError(e.response?.data?.error || 'Errore durante l\'eliminazione')
+      setDeletingIds(prev => { const s = new Set(prev); s.delete(id); return s })
+      return
+    }
+    // Pulizia localStorage
     try {
       const saved = JSON.parse(localStorage.getItem('mv_dashboard_state') || '{}')
-      if (saved.selectedMailboxId === deleteItem.id) {
+      if (saved.selectedMailboxId === id) {
         delete saved.selectedMailboxId
         localStorage.setItem('mv_dashboard_state', JSON.stringify(saved))
       }
     } catch {}
-    setDeleteItem(null); load()
+    // Poll until mailbox disappears
+    const poll = setInterval(async () => {
+      try {
+        const res = await api.get('/admin/mailboxes')
+        const still = res.data.find(m => m.id === id)
+        if (!still || still.status !== 'deleting') {
+          clearInterval(poll)
+          setDeletingIds(prev => { const s = new Set(prev); s.delete(id); return s })
+          load()
+        } else if (still.status === 'error_deleting') {
+          clearInterval(poll)
+          setDeletingIds(prev => { const s = new Set(prev); s.delete(id); return s })
+          setDeleteError(`Errore nell'eliminazione di ${email}`)
+          load()
+        }
+      } catch { /* ignore poll errors */ }
+    }, 2000)
   }
 
   const handleToggleActive = async (m) => {
@@ -1098,7 +1143,16 @@ function MailboxesTab({ branding, user }) {
                           {m.has_password ? 'IMAP configurato' : 'IMAP mancante'}
                         </span>
                       )}
-                      {m.active === false && (
+                      {deletingIds.has(m.id) && (
+                        <>
+                          <span className="text-gray-300">·</span>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-600">
+                            <Loader2 size={10} className="animate-spin" />
+                            Eliminazione in corso<DotDot />
+                          </span>
+                        </>
+                      )}
+                    {!deletingIds.has(m.id) && m.active === false && (
                         <>
                           <span className="text-gray-300">·</span>
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400">
@@ -1294,6 +1348,13 @@ function MailboxesTab({ branding, user }) {
             </div>
           </div>
         </Modal>
+      )}
+      {deleteError && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl shadow-lg px-4 py-3 max-w-sm">
+          <AlertCircle size={18} className="text-red-600 shrink-0" />
+          <p className="text-sm text-red-800">{deleteError}</p>
+          <button onClick={() => setDeleteError(null)} className="ml-auto text-red-400 hover:text-red-600"><X size={14} /></button>
+        </div>
       )}
       {deleteItem && <ConfirmDelete name={deleteItem.email} onConfirm={handleDelete} onCancel={() => setDeleteItem(null)} />}
     </>

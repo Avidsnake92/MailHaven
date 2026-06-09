@@ -257,12 +257,26 @@ router.patch('/mailboxes/:id/toggle', async (req, res, next) => {
 router.delete('/mailboxes/:id', async (req, res, next) => {
   const db = req.app.locals.db;
   try {
-    const exists = await db.query('SELECT id FROM mailboxes WHERE id=$1', [req.params.id]);
+    const exists = await db.query('SELECT id, email FROM mailboxes WHERE id=$1', [req.params.id]);
     if (!exists.rows.length) throw new AppError(ERRORS.MH_1201);
-    await db.query('DELETE FROM spam_cache WHERE mailbox_id=$1', [req.params.id]);
-    await db.query('DELETE FROM archived_emails WHERE mailbox_id=$1', [req.params.id]);
-    await db.query('DELETE FROM mailboxes WHERE id=$1', [req.params.id]);
-    res.json({ message: 'Casella eliminata' });
+    // Check legal hold
+    const held = await db.query('SELECT id FROM archived_emails WHERE mailbox_id=$1 AND legal_hold=true LIMIT 1', [req.params.id]);
+    if (held.rows.length > 0) return res.status(409).json({ error: 'Casella contiene email in Legal Hold. Rimuovi il Legal Hold prima di eliminare.' });
+    // Mark as deleting immediately so UI can show progress
+    await db.query("UPDATE mailboxes SET status='deleting' WHERE id=$1", [req.params.id]);
+    res.status(202).json({ message: 'Eliminazione in corso', async: true });
+    // Background deletion (non-blocking)
+    setImmediate(async () => {
+      try {
+        await db.query('DELETE FROM spam_cache WHERE mailbox_id=$1', [req.params.id]);
+        await db.query('DELETE FROM archived_emails WHERE mailbox_id=$1', [req.params.id]);
+        await db.query('DELETE FROM mailboxes WHERE id=$1', [req.params.id]);
+        console.log('[delete-mailbox]', exists.rows[0].email, 'eliminata');
+      } catch (e) {
+        console.error('[delete-mailbox] errore:', e.message);
+        try { await db.query("UPDATE mailboxes SET status='error_deleting' WHERE id=$1", [req.params.id]); } catch {}
+      }
+    });
   } catch (err) {
     next(err instanceof AppError ? err : new AppError(ERRORS.MH_1203, err.message));
   }
