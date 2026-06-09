@@ -1160,14 +1160,19 @@ export default function Settings() {
               <h3 className="text-sm font-semibold text-gray-800 mb-1">Plugin per client email</h3>
               <p className="text-xs text-gray-500 mb-4">Installa il plugin nel tuo client email per accedere all'archivio MailHaven direttamente da Outlook o Thunderbird.</p>
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <a href={`${window.location.origin.replace(':8080',':3001')}/api/plugin/manifest/outlook`}
-                  download="mailhaven-outlook-manifest.xml"
-                  className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
-                  <img src="/outlook-icon.png" className="w-12 h-12 object-contain" alt="Outlook" />
+                <div className="flex flex-col gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 transition-colors text-center">
+                  <img src="/outlook-icon.png" className="w-12 h-12 object-contain mx-auto" alt="Outlook" />
                   <span className="text-sm font-semibold text-gray-800">Outlook Add-in</span>
-                  <span className="text-xs text-gray-500">Scarica manifest XML</span>
-                </a>
-                <a href={`${window.location.origin.replace(':8080',':3001')}/api/plugin/download/thunderbird`}
+                  <span className="text-xs text-gray-500 mb-1">Installa via URL manifest in Outlook</span>
+                  <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+                    <span className="text-xs font-mono text-gray-600 truncate flex-1">{window.location.origin}/api/plugin/manifest/outlook</span>
+                    <button onClick={() => { navigator.clipboard.writeText(window.location.origin+'/api/plugin/manifest/outlook'); showMsg('URL copiato!') }}
+                      className="text-blue-600 hover:text-blue-700 shrink-0 text-xs font-semibold px-1">Copia</button>
+                  </div>
+                  <a href={`${window.location.origin}/api/plugin/manifest/outlook`} download="mailhaven-manifest.xml"
+                    className="text-xs text-gray-400 hover:text-gray-600 underline">oppure scarica XML</a>
+                </div>
+                <a href={`${window.location.origin}/api/plugin/download/thunderbird`}
                   download="mailhaven-thunderbird.json"
                   className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
                   <img src="/thunderbird-icon.png" className="w-12 h-12 object-contain" alt="Thunderbird" />
