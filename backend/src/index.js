@@ -81,16 +81,34 @@ app.use(cors({
 }));
 
 // ── Rate limiting ──────────────────────────────────────────────────────────
+const jwt = require('jsonwebtoken');
+
+// Verifica leggera del JWT senza invocare il middleware completo
+const isAuthenticated = (req) => {
+  try {
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith('Bearer ')) {
+      jwt.verify(auth.slice(7), process.env.JWT_SECRET);
+      return true;
+    }
+  } catch {}
+  return false;
+};
+
+// Limiter globale: SOLO per richieste non autenticate
+// (chi è già loggato non ha limiti di chiamate API)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Troppe richieste, riprova tra poco', code: 'MH-1903' },
-  skip: (req) => req.path === '/health',
+  skip: (req) => req.path === '/health' || isAuthenticated(req),
 });
 app.use('/api/', limiter);
 
+// Limiter per endpoint di autenticazione pubblici (login, 2FA senza token)
+// Blocca brute force su credenziali da client non autenticati
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -106,7 +124,9 @@ const authLimiter = rateLimit({
     });
   },
 });
+// Applica SOLO agli endpoint pubblici soggetti a brute force
 app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/2fa/verify-sso', authLimiter);
 
 const PORT = process.env.PORT || 3001;
 
