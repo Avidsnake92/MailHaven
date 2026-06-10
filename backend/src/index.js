@@ -16,7 +16,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // React dev build
+      scriptSrc: ["'self'", "'unsafe-inline'"], // build statico Vite, niente eval in produzione
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       fontSrc: ["'self'", 'data:'],
@@ -127,6 +127,7 @@ const authLimiter = rateLimit({
 // Applica SOLO agli endpoint pubblici soggetti a brute force
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/2fa/verify-sso', authLimiter);
+app.use('/api/plugin/login', authLimiter);
 
 const PORT = process.env.PORT || 3001;
 

@@ -3,6 +3,37 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { encrypt, decrypt } = require('../services/crypto');
 
+const crypto = require('crypto');
+const STATE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minuti
+
+// Firma lo state OAuth con HMAC-SHA256 (chiave JWT_SECRET) per evitare forging/CSRF
+const signState = (payload) => {
+  const data = JSON.stringify(payload);
+  const b64 = Buffer.from(data).toString('base64url');
+  const sig = crypto.createHmac('sha256', process.env.JWT_SECRET).update(b64).digest('base64url');
+  return `${b64}.${sig}`;
+};
+
+// Verifica firma e scadenza dello state OAuth, ritorna il payload o null se non valido
+const verifyState = (state) => {
+  if (!state || typeof state !== 'string') return null;
+  const parts = state.split('.');
+  if (parts.length !== 2) return null;
+  const [b64, sig] = parts;
+  const expectedSig = crypto.createHmac('sha256', process.env.JWT_SECRET).update(b64).digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.from(b64, 'base64url').toString());
+  } catch (e) {
+    return null;
+  }
+  if (!payload.ts || Date.now() - payload.ts > STATE_MAX_AGE_MS) return null;
+  return payload;
+};
+
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const MICROSOFT_TENANT_ID = process.env.MICROSOFT_TENANT_ID || 'common';
 const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
@@ -37,11 +68,11 @@ router.get('/microsoft', async (req, res) => {
     return res.status(401).send('Token mancante - effettua il login prima');
   }
 
-  const state = Buffer.from(JSON.stringify({
+  const state = signState({
     user_id: userId,
     client_id: client_id || null,
     ts: Date.now()
-  })).toString('base64');
+  });
 
   const url = new URL(`https://login.microsoftonline.com/${MICROSOFT_TENANT_ID}/oauth2/v2.0/authorize`);
   url.searchParams.set('client_id', MICROSOFT_CLIENT_ID);
@@ -67,7 +98,10 @@ router.get('/microsoft/callback', async (req, res) => {
 
   try {
     // Decodifica state
-    const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+    const stateData = verifyState(state);
+    if (!stateData) {
+      return res.redirect('/admin?oauth_error=' + encodeURIComponent('State non valido o scaduto, riprova') + '&tab=mailboxes');
+    }
     const { user_id, client_id } = stateData;
 
     // Scambia code con token
@@ -228,11 +262,11 @@ router.get('/google', async (req, res) => {
     return res.status(401).send('Token mancante - effettua il login prima');
   }
 
-  const state = Buffer.from(JSON.stringify({
+  const state = signState({
     user_id: userId,
     client_id: client_id || null,
     ts: Date.now()
-  })).toString('base64');
+  });
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', GOOGLE_CLIENT_ID);
@@ -258,7 +292,10 @@ router.get('/google/callback', async (req, res) => {
   }
 
   try {
-    const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+    const stateData = verifyState(state);
+    if (!stateData) {
+      return res.redirect('/admin?oauth_error=' + encodeURIComponent('State non valido o scaduto, riprova') + '&tab=mailboxes');
+    }
     const { user_id, client_id } = stateData;
 
     // Scambia code con token
