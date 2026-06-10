@@ -95,6 +95,18 @@ const isAuthenticated = (req) => {
   return false;
 };
 
+// Estrae l'id utente dal JWT, se presente e valido
+const getUserId = (req) => {
+  try {
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith('Bearer ')) {
+      const decoded = jwt.verify(auth.slice(7), process.env.JWT_SECRET);
+      return decoded.id;
+    }
+  } catch {}
+  return null;
+};
+
 // Limiter globale: SOLO per richieste non autenticate
 // (chi è già loggato non ha limiti di chiamate API)
 const limiter = rateLimit({
@@ -106,6 +118,20 @@ const limiter = rateLimit({
   skip: (req) => req.path === '/health' || isAuthenticated(req),
 });
 app.use('/api/', limiter);
+
+// Limiter generoso per utenti autenticati, per evitare abusi da account compromessi
+// o script impazziti (chiave per utente, non per IP, cosi' un ufficio con NAT
+// condiviso non si blocca a vicenda)
+const authedLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Troppe richieste, riprova tra poco', code: 'MH-1903' },
+  skip: (req) => req.path === '/health' || !isAuthenticated(req),
+  keyGenerator: (req) => String(getUserId(req)),
+});
+app.use('/api/', authedLimiter);
 
 // Limiter per endpoint di autenticazione pubblici (login, 2FA senza token)
 // Blocca brute force su credenziali da client non autenticati
