@@ -692,7 +692,7 @@ router.post('/delete-imap', authMiddleware, async (req, res, next) => {
 
 
 
-// POST /emails/legal-hold ??? imposta/rimuovi Legal Hold (solo admin/superadmin)
+// POST /emails/legal-hold — imposta/rimuovi Legal Hold (solo admin/superadmin)
 router.post('/legal-hold', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
   const { email_ids, enable, reason } = req.body;
@@ -719,7 +719,7 @@ router.post('/legal-hold', authMiddleware, async (req, res, next) => {
   } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
 });
 
-// GET /emails/legal-hold/list ??? lista email in legal hold (solo admin/superadmin)
+// GET /emails/legal-hold/list — lista email in legal hold (solo admin/superadmin)
 router.get('/legal-hold/list', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
   if (!['admin', 'superadmin'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
