@@ -37,6 +37,8 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
+    volumes:
+      - ./data/update-status.json:/usr/share/nginx/html/update-status.json:ro
     networks:
       - mailhaven-net
     depends_on:

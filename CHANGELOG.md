@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.30] - 2026-06-10
+### Added
+- **Barra di progresso reale per gli aggiornamenti**: `do-update.sh` scrive lo
+  stato corrente (step, percentuale, messaggio) in `data/update-status.json`,
+  servito staticamente da nginx anche durante il riavvio dei container.
+  Il frontend mostra il progresso reale invece di una stima a tempo fisso, e
+  un messaggio "Aggiornamento completato con successo!" prima del ricaricamento
+  automatico della pagina
+
+### Fixed
+- **Pannello di aggiornamento duplicato**: rimossa la visualizzazione "a specchio"
+  del progresso aggiornamento dietro al modal
+- **Commenti con encoding errato** in `emails.js` (sezione Legal Hold)
+
 ## [0.1.29] - 2026-06-10
 ### Security
 - **Rate limiting su `/api/plugin/login`**: applicato l'`authLimiter` (20 tentativi/15min)

@@ -49,9 +49,24 @@ router.get('/status', requireSuperadmin, async (req, res) => {
   }
 });
 
+// GET /update/progress — stato in tempo reale dell'aggiornamento (file scritto da do-update.sh)
+router.get('/progress', requireSuperadmin, async (req, res) => {
+  const STATUS_FILE = path.join(APP_DIR, 'data', 'update-status.json');
+  try {
+    res.json(JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')));
+  } catch {
+    res.json({ step: 'idle', progress: 0, message: '' });
+  }
+});
+
 // POST /update/run
 router.post('/run', requireSuperadmin, async (req, res) => {
   res.json({ started: true, message: 'Aggiornamento avviato. Il server si riavvierà a breve.' });
+  // Stato iniziale, prima ancora che do-update.sh parta
+  try {
+    fs.writeFileSync(path.join(APP_DIR, 'data', 'update-status.json'),
+      JSON.stringify({ step: 'queued', progress: 1, message: 'Aggiornamento in coda...', ts: new Date().toISOString() }));
+  } catch {}
   // Crea file trigger — il cron sull'host lo rileva e lancia do-update.sh
   setTimeout(() => {
     const fs = require('fs');

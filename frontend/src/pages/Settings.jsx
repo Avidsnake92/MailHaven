@@ -205,59 +205,60 @@ function SecurityTab({ user }) {
 // ═══════════════════════════════════════════════════════
 // UpdateTab — con animazioni, barra progresso, avviso backup
 // ═══════════════════════════════════════════════════════
+// Step dell'aggiornamento, in ordine — devono corrispondere agli "step" scritti
+// da do-update.sh in data/update-status.json (servito staticamente da nginx)
 const UPDATE_STEPS = [
-  { id: 'fetch',   label: 'Download aggiornamenti',   duration: 30  },
-  { id: 'install', label: 'Installazione dipendenze', duration: 60  },
-  { id: 'build',   label: 'Compilazione frontend',    duration: 120 },
-  { id: 'restart', label: 'Riavvio servizi',          duration: 30  },
-  { id: 'done',    label: 'Aggiornamento completato', duration: 10  },
+  { id: 'queued',          label: 'In coda...' },
+  { id: 'pull',            label: 'Download aggiornamenti' },
+  { id: 'backend_build',   label: 'Compilazione backend' },
+  { id: 'backend_restart', label: 'Riavvio backend' },
+  { id: 'frontend_build',  label: 'Compilazione frontend' },
+  { id: 'done',            label: 'Aggiornamento completato' },
 ]
-const TOTAL_DURATION = UPDATE_STEPS.reduce((a, s) => a + s.duration, 0)
-
-
 
 function UpdateProgress({ startVersion, onComplete }) {
-  const [progress, setProgress] = useState(0)
-  const [stepIndex, setStepIndex] = useState(0)
+  const [status, setStatus] = useState({ step: 'queued', progress: 1, message: 'In coda...' })
   const [done, setDone] = useState(false)
-  const [elapsed, setElapsed] = useState(0)
-
-  useEffect(() => {
-    const start = Date.now()
-    const timer = setInterval(() => {
-      const secs = Math.floor((Date.now() - start) / 1000)
-      setElapsed(secs)
-      setProgress(Math.min(Math.round((secs / TOTAL_DURATION) * 100), 99))
-      let acc = 0
-      for (let i = 0; i < UPDATE_STEPS.length; i++) {
-        acc += UPDATE_STEPS[i].duration
-        if (secs < acc) { setStepIndex(i); break }
-        setStepIndex(UPDATE_STEPS.length - 1)
-      }
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     const poll = setInterval(async () => {
       try {
-        // Legge version.json direttamente — più affidabile di /api/health
-        const res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
+        const res = await fetch('/update-status.json?t=' + Date.now(), { cache: 'no-store' })
         const data = await res.json()
-        if (startVersion && data.version && data.version !== startVersion) {
-          setDone(true); setProgress(100)
+        if (data.step === 'error') {
+          setFailed(true)
           clearInterval(poll)
-          setTimeout(() => window.location.reload(), 2000)
+          return
+        }
+        setStatus(data)
+        if (data.step === 'done' && data.progress >= 100) {
+          setDone(true)
+          clearInterval(poll)
+          setTimeout(() => window.location.reload(), 2500)
         }
       } catch {
-        // Backend non raggiungibile — normale durante riavvio, aspetta
+        // Backend/nginx non raggiungibile — normale durante il riavvio, riprova
       }
-    }, 8000)
+    }, 1500)
     const timeout = setTimeout(() => { clearInterval(poll); window.location.reload() }, 6 * 60 * 1000)
     return () => { clearInterval(poll); clearTimeout(timeout) }
   }, [startVersion])
 
-  const remaining = Math.max(0, TOTAL_DURATION - elapsed)
+  const stepIndex = Math.max(0, UPDATE_STEPS.findIndex(s => s.id === status.step))
+  const progress = done ? 100 : status.progress || 0
+
+  if (failed) {
+    return (
+      <div className="space-y-4 py-2 text-center">
+        <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+          <AlertCircle size={22} className="text-red-600" />
+        </div>
+        <h2 className="text-base font-bold text-gray-900">Aggiornamento fallito</h2>
+        <p className="text-sm text-gray-500">Controlla i log sul server (data/update.log) e riprova.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5 py-2">
@@ -265,8 +266,9 @@ function UpdateProgress({ startVersion, onComplete }) {
         <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">
           {done ? <CheckCircle2 size={22} className="text-green-600" /> : <RefreshCw size={22} className="text-blue-600 animate-spin" />}
         </div>
-        <h2 className="text-base font-bold text-gray-900">{done ? 'Completato! Ricarico...' : 'Aggiornamento in corso...'}</h2>
-        {!done && <p className="text-xs text-gray-400 mt-1">Rimanente: ~{Math.floor(remaining/60)}m {remaining%60}s</p>}
+        <h2 className="text-base font-bold text-gray-900">{done ? 'Aggiornamento completato con successo!' : 'Aggiornamento in corso...'}</h2>
+        {!done && <p className="text-xs text-gray-400 mt-1">{status.message}</p>}
+        {done && <p className="text-xs text-gray-400 mt-1">Ricarico la pagina...</p>}
       </div>
       <div>
         <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -274,7 +276,7 @@ function UpdateProgress({ startVersion, onComplete }) {
           <span className="font-semibold" style={{color: done ? '#16a34a' : '#2563eb'}}>{progress}%</span>
         </div>
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-1000" style={{
+          <div className="h-full rounded-full transition-all duration-500" style={{
             width: `${progress}%`,
             background: done ? 'linear-gradient(90deg,#16a34a,#22c55e)' : 'linear-gradient(90deg,#2563eb,#6366f1)'
           }} />
@@ -292,7 +294,7 @@ function UpdateProgress({ startVersion, onComplete }) {
           )
         })}
       </div>
-      <p className="text-center text-xs text-gray-400">Ricarica automatica al completamento</p>
+      {!done && <p className="text-center text-xs text-gray-400">Ricarica automatica al completamento</p>}
     </div>
   )
 }

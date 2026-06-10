@@ -89,6 +89,9 @@ ENV
 start_stack() {
   cd "$INSTALL_DIR"
   mkdir -p data
+  # Necessario PRIMA del primo "docker compose up": il file viene montato nel
+  # container frontend, se non esiste Docker crea una directory al suo posto
+  [ -f data/update-status.json ] || echo '{"step":"idle","progress":0,"message":""}' > data/update-status.json
   docker compose build --pull
   docker compose up -d
   bash "$INSTALL_DIR/check-update.sh" || true
