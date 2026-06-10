@@ -347,7 +347,9 @@ function UpdateTab({ setUpdating }) {
   }
 
   if (started) {
-    return <UpdateProgress startVersion={status?.current?.version} onComplete={() => { if (setUpdating) setUpdating(false) }} />
+    // Il progresso e' mostrato dal modal globale (vedi isUpdating in fondo al file);
+    // qui non renderizziamo nulla per evitare il doppione "a specchio" dietro al modal
+    return null
   }
 
   return (
