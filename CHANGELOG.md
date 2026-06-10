@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.29] - 2026-06-10
+### Security
+- **Rate limiting su `/api/plugin/login`**: applicato l'`authLimiter` (20 tentativi/15min)
+  anche al login del plugin Outlook, per bloccare il brute force sulle credenziali
+- **Rate limit per utenti autenticati**: aggiunto un limite generoso (3000 richieste/15min,
+  per utente e non per IP) come rete di sicurezza contro account compromessi o script
+  impazziti, senza introdurre attriti nell'uso normale
+- **OAuth state firmato**: lo state dei flussi OAuth Microsoft e Google e' ora firmato
+  con HMAC-SHA256 (chiave JWT_SECRET), verificato con confronto a tempo costante e
+  scaduto dopo 10 minuti — previene forging/CSRF sul callback OAuth
+- **CSP irrigidita**: rimosso `'unsafe-eval'` da `script-src` (non necessario nella
+  build statica di produzione)
+- **Script `rotate-secrets.sh`**: nuovo script per ruotare `JWT_SECRET` e `DB_PASSWORD`
+  (con backup di `.env`, `ALTER ROLE` su Postgres e riavvio coordinato dei container)
+
+### Fixed
+- **`backend/src/routes/import.js`**: rimosso BOM UTF-8 e ripulita una riga di commento
+  con encoding corrotto
+- **Typo `.env`**: corretto `VIROSTOTAL_API_KEY` → `VIRUSTOTAL_API_KEY` (la chiave
+  VirusTotal era ignorata e la scansione antivirus esterna risultava disattivata)
+
 ## [0.1.28] - 2026-06-09
 ### Added
 - **Installer Outlook EXE**: `plugins/outlook/MailHaven-Outlook-Setup.exe` — wizard
