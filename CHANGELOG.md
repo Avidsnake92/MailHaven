@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.32] - 2026-06-22
+### Fixed
+- **Pagina Utenti in crash (schermata bianca)**: in `UsersTab` (Admin.jsx) il toast
+  di errore usava `deleteError`/`setDeleteError` senza il relativo `useState`,
+  causando un `ReferenceError`. Aggiunto lo stato e collegato `handleDelete` per
+  mostrare l'eventuale errore (es. 403 su utenti di altri clienti) invece di
+  ignorarlo silenziosamente.
 ## [0.1.31] - 2026-06-22
 ### Security
 - **Isolamento multi-tenant (MSP)**: le route di amministrazione e l'API plugin

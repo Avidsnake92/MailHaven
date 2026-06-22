@@ -591,6 +591,7 @@ function UsersTab({ branding, user }) {
   const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'user', client_id: '', active: true })
   const [saving, setSaving] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -612,7 +613,12 @@ function UsersTab({ branding, user }) {
   }
 
   const handleDelete = async () => {
-    try { await api.delete(`/admin/users/${deleteItem.id}`) } catch { }
+    try {
+      await api.delete(`/admin/users/${deleteItem.id}`)
+      setDeleteError(null)
+    } catch (e) {
+      setDeleteError(e.response?.data?.error || 'Errore durante l\'eliminazione dell\'utente')
+    }
     setDeleteItem(null); load()
   }
 
