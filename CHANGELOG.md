@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.33] - 2026-06-22
+### Changed
+- **Menu laterale consolidato**: la navigazione è ora compatta con gruppi a
+  comparsa. Sezione "Principale" (Dashboard, Email Archiviate, Ricerca Globale,
+  Antispam) sempre visibile; gruppi collassabili "Amministrazione" (Utenti e
+  Caselle, Legal Hold, Importa Email) e "Sistema" (Backup + tab Impostazioni).
+- **Sezione Log dedicata** con i tre tipi: Accessi, Sync Mail, Antivirus.
+- **Segnalazioni** spostata in fondo come voce autonoma, con icona bug.
+- Voce "Gestione" rinominata in "Utenti e Caselle". Nessuna route modificata.
 ## [0.1.32] - 2026-06-22
 ### Fixed
 - **Pagina Utenti in crash (schermata bianca)**: in `UsersTab` (Admin.jsx) il toast

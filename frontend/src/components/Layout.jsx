@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle, Search, ShieldOff, Upload } from 'lucide-react'
+import { Mail, Settings, Users, LogOut, Activity, ShieldCheck, HardDrive, Menu, X, ShieldAlert, BarChart2, ClipboardList, LayoutDashboard, Flag, RefreshCw, Shield, ChevronDown, ChevronRight, Database, Puzzle, Search, ShieldOff, Upload, Bug, KeyRound } from 'lucide-react'
 
 export default function Layout() {
   const { user, logout, refreshAvatar } = useAuth()
@@ -10,10 +10,12 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [logsOpen, setLogsOpen] = useState(
-    location.pathname === '/logs' || location.pathname === '/audit'
-  )
-  const [settingsOpen, setSettingsOpen] = useState(location.pathname === '/settings')
+  const adminPaths = ['/admin', '/legal-hold', '/import']
+  const logPaths = ['/logs', '/audit']
+  const sistemaPaths = ['/backup', '/settings']
+  const [adminOpen, setAdminOpen] = useState(adminPaths.some(p => location.pathname.startsWith(p)))
+  const [logOpen, setLogOpen] = useState(logPaths.some(p => location.pathname.startsWith(p)))
+  const [sistemaOpen, setSistemaOpen] = useState(sistemaPaths.some(p => location.pathname.startsWith(p)))
 
   // Aggiorna avatar quando si torna sulla sidebar (es. dopo cambio in Profile)
   useEffect(() => {
@@ -22,8 +24,9 @@ export default function Layout() {
 
   useEffect(() => { setSidebarOpen(false) }, [location.pathname])
   useEffect(() => {
-    if (location.pathname === '/logs' || location.pathname === '/audit') setLogsOpen(true)
-    if (location.pathname === '/settings') setSettingsOpen(true)
+    if (adminPaths.some(p => location.pathname.startsWith(p))) setAdminOpen(true)
+    if (logPaths.some(p => location.pathname.startsWith(p))) setLogOpen(true)
+    if (sistemaPaths.some(p => location.pathname.startsWith(p))) setSistemaOpen(true)
   }, [location.pathname])
   useEffect(() => {
     if (!sidebarOpen) return
@@ -44,47 +47,64 @@ export default function Layout() {
   )
 
   const avatarUrl = user?.avatar_url || null
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
+  const isSuper = user?.role === 'superadmin'
+
+  // Header di un gruppo a comparsa
+  const groupBtn = (label, Icon, open, toggle) => (
+    <button onClick={toggle}
+      className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold w-full text-left text-gray-700 hover:bg-gray-100 transition-all">
+      <Icon size={17} /><span className="flex-1">{label}</span>
+      {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+    </button>
+  )
+  // Stato attivo per i sotto-link verso i tab di /settings
+  const settingsTab = (tab) => () => subNavClass({ isActive: location.pathname === '/settings' && location.search === `?tab=${tab}` })
+  // Stato attivo per i sotto-link verso i tab di /logs (activity = anche default senza query)
+  const logTab = (tab) => () => subNavClass({ isActive: location.pathname === '/logs' && (location.search === `?tab=${tab}` || (tab === 'activity' && location.search === '')) })
 
   const NavItems = () => (
     <>
+      {sectionLabel('Principale')}
       <NavLink to="/dashboard" className={navClass}><LayoutDashboard size={17} /> Dashboard</NavLink>
       <NavLink to="/" end className={navClass}><Mail size={17} /> Email Archiviate</NavLink>
       <NavLink to="/global-search" className={navClass}><Search size={17} /> Ricerca Globale</NavLink>
       <NavLink to="/antispam" className={navClass}><ShieldAlert size={17} /> Antispam</NavLink>
-      {(user?.role === 'admin' || user?.role === 'superadmin') && (<>
-        {sectionLabel('Amministrazione')}
-        <NavLink to="/admin" className={navClass}><Users size={17} /> Gestione</NavLink>
-        <NavLink to="/legal-hold" className={navClass}><ShieldOff size={17} /> Legal Hold</NavLink>
-        <NavLink to="/import" className={navClass}><Upload size={17} /> Importa Email</NavLink>
-        <button onClick={() => setLogsOpen(o => !o)}
-          className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium w-full text-left text-gray-600 hover:bg-gray-100 transition-all">
-          <Activity size={17} /><span className="flex-1">Log</span>
-          {logsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        {logsOpen && <div className="space-y-0.5">
-          <NavLink to="/logs?tab=activity" className={({ isActive }) => subNavClass({ isActive: isActive && (location.search === '?tab=activity' || location.search === '') })}><Activity size={15} /> Attività</NavLink>
-          <NavLink to="/logs?tab=sync" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=sync' })}><RefreshCw size={15} /> Sync</NavLink>
-          <NavLink to="/logs?tab=av" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=av' })}><Shield size={15} /> Antivirus</NavLink>
+
+      {isAdmin && (<>
+        {sectionLabel('Gestione')}
+        {groupBtn('Amministrazione', Users, adminOpen, () => setAdminOpen(o => !o))}
+        {adminOpen && <div className="space-y-0.5">
+          <NavLink to="/admin" className={subNavClass}><Users size={15} /> Utenti e Caselle</NavLink>
+          <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>
+          <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>
+        </div>}
+        {groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
+        {logOpen && <div className="space-y-0.5">
+          <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Accessi</NavLink>
+          <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>
+          <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>
         </div>}
       </>)}
-      {user?.role === 'superadmin' && (<>
-        {sectionLabel('Sistema')}
-        <NavLink to="/backup" className={navClass}><HardDrive size={17} /> Backup</NavLink>
-        <button onClick={() => setSettingsOpen(o => !o)}
-          className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium w-full text-left text-gray-600 hover:bg-gray-100 transition-all">
-          <Settings size={17} /><span className="flex-1">Impostazioni</span>
-          {settingsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        {settingsOpen && <div className="space-y-0.5">
-          <NavLink to="/settings?tab=sync" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=sync' })}><Database size={15} /> Sincronizzazione</NavLink>
-          <NavLink to="/settings?tab=av" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=av' })}><Shield size={15} /> Antivirus</NavLink>
-          <NavLink to="/settings?tab=smtp" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=smtp' })}><Mail size={15} /> Notifiche Email</NavLink>
-          <NavLink to="/settings?tab=plugin" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=plugin' })}><Puzzle size={15} /> Plugin Client</NavLink>
-          <NavLink to="/settings?tab=security" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=security' })}><ShieldCheck size={15} /> Sicurezza</NavLink>
-          <NavLink to="/settings?tab=update" className={({ isActive }) => subNavClass({ isActive: isActive && location.search === '?tab=update' })}><RefreshCw size={15} /> Aggiornamento</NavLink>
+
+      {isSuper && (<>
+        {groupBtn('Sistema', Settings, sistemaOpen, () => setSistemaOpen(o => !o))}
+        {sistemaOpen && <div className="space-y-0.5">
+          <NavLink to="/backup" className={subNavClass}><HardDrive size={15} /> Backup</NavLink>
+          <NavLink to="/settings?tab=sync" className={settingsTab('sync')}><Database size={15} /> Sincronizzazione</NavLink>
+          <NavLink to="/settings?tab=av" className={settingsTab('av')}><Shield size={15} /> Antivirus</NavLink>
+          <NavLink to="/settings?tab=smtp" className={settingsTab('smtp')}><Mail size={15} /> Notifiche Email</NavLink>
+          <NavLink to="/settings?tab=plugin" className={settingsTab('plugin')}><Puzzle size={15} /> Plugin Client</NavLink>
+          <NavLink to="/settings?tab=security" className={settingsTab('security')}><ShieldCheck size={15} /> Sicurezza</NavLink>
+          <NavLink to="/settings?tab=update" className={settingsTab('update')}><RefreshCw size={15} /> Aggiornamenti</NavLink>
         </div>}
-        <NavLink to="/reports" className={navClass}><Flag size={17} /> Segnalazioni</NavLink>
       </>)}
+
+      {isSuper && (
+        <div className="pt-2 mt-2 border-t border-gray-100">
+          <NavLink to="/reports" className={navClass}><Bug size={17} /> Segnalazioni</NavLink>
+        </div>
+      )}
     </>
   )
 
