@@ -145,6 +145,7 @@ function StorageTab({ user }) {
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Originale</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Compresso</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-40">Quota</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">Risparmio</th>
               </tr>
             </thead>
@@ -152,10 +153,23 @@ function StorageTab({ user }) {
               {clients.map(c => (
                 <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.name}</td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-600">{c.mailboxCount}</td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">{c.mailboxCount}{c.maxMailboxes != null ? ` / ${c.maxMailboxes}` : ''}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-600">{c.emailCount.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right text-sm text-gray-600">{formatBytes(c.originalBytes)}</td>
                   <td className="px-4 py-3 text-right text-sm font-medium">{formatBytes(c.compressedBytes)}</td>
+                  <td className="px-4 py-3">
+                    {c.quotaBytes != null ? (
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-0.5">
+                          <span className={c.overQuota ? 'font-semibold text-red-600' : 'text-gray-500'}>{c.usagePercent ?? 0}%{c.overQuota ? ' • superata' : ''}</span>
+                          <span className="text-gray-400">{formatBytes(c.compressedBytes)} / {formatBytes(c.quotaBytes)}</span>
+                        </div>
+                        <BarUsage percent={c.usagePercent ?? 100} />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-300">∞ illimitato</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-green-600">{c.compressionRatio}%</span>
@@ -172,6 +186,7 @@ function StorageTab({ user }) {
                 <td className="px-4 py-3 text-right text-sm font-bold">{totalEmails.toLocaleString()}</td>
                 <td className="px-4 py-3 text-right text-sm font-bold">{formatBytes(totalOriginal)}</td>
                 <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">{formatBytes(totalCompressed)}</td>
+                <td className="px-4 py-3"></td>
                 <td className="px-4 py-3 text-sm font-bold text-green-600">{totalRatio}%</td>
               </tr>
             </tfoot>
@@ -466,8 +481,9 @@ function ClientsTab({ branding, user }) {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [deleteItem, setDeleteItem] = useState(null)
-  const [form, setForm] = useState({ name: '', company: '', active: true })
+  const [form, setForm] = useState({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' })
   const [saving, setSaving] = useState(false)
+  const GB = 1024 * 1024 * 1024
 
   const load = () => {
     setLoading(true)
@@ -475,14 +491,28 @@ function ClientsTab({ branding, user }) {
   }
   useEffect(() => { load() }, [])
 
-  const openNew = () => { setForm({ name: '', company: '', active: true }); setEditItem(null); setShowForm(true) }
-  const openEdit = (c) => { setForm({ name: c.name, company: c.company || '', active: c.active }); setEditItem(c); setShowForm(true) }
+  const openNew = () => { setForm({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' }); setEditItem(null); setShowForm(true) }
+  const openEdit = (c) => {
+    setForm({
+      name: c.name, company: c.company || '', active: c.active,
+      quota_gb: c.quota_bytes != null ? +(c.quota_bytes / GB).toFixed(2) : '',
+      max_mailboxes: c.max_mailboxes ?? '',
+      max_users: c.max_users ?? '',
+    })
+    setEditItem(c); setShowForm(true)
+  }
 
   const handleSave = async () => {
     setSaving(true)
+    const payload = {
+      name: form.name, company: form.company, active: form.active,
+      quota_bytes: form.quota_gb === '' || form.quota_gb === null ? null : Math.round(Number(form.quota_gb) * GB),
+      max_mailboxes: form.max_mailboxes === '' ? null : Number(form.max_mailboxes),
+      max_users: form.max_users === '' ? null : Number(form.max_users),
+    }
     try {
-      if (editItem) await api.put(`/admin/clients/${editItem.id}`, form)
-      else await api.post('/admin/clients', form)
+      if (editItem) await api.put(`/admin/clients/${editItem.id}`, payload)
+      else await api.post('/admin/clients', payload)
       setShowForm(false); load()
     } catch { } finally { setSaving(false) }
   }
@@ -561,6 +591,29 @@ function ClientsTab({ branding, user }) {
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} />
                 </button>
                 <span className="text-xs text-gray-500">{form.active ? 'Attivo' : 'Disabilitato'}</span>
+              </div>
+            )}
+            {user.role === 'superadmin' && (
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Quote</p>
+                <p className="text-xs text-gray-400 mb-3">Lascia vuoto per illimitato. Al superamento si blocca la creazione di nuove risorse, mai l'archiviazione.</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Spazio (GB)</label>
+                    <input type="number" min="0" step="0.5" value={form.quota_gb} onChange={e => setForm({ ...form, quota_gb: e.target.value })}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Caselle max</label>
+                    <input type="number" min="0" step="1" value={form.max_mailboxes} onChange={e => setForm({ ...form, max_mailboxes: e.target.value })}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Utenti max</label>
+                    <input type="number" min="0" step="1" value={form.max_users} onChange={e => setForm({ ...form, max_users: e.target.value })}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" />
+                  </div>
+                </div>
               </div>
             )}
             <div className="flex gap-3 pt-2">

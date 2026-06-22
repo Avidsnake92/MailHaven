@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS clients (
   company VARCHAR(255),
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
-  active BOOLEAN DEFAULT true
+  active BOOLEAN DEFAULT true,
+  quota_bytes BIGINT DEFAULT NULL,
+  max_mailboxes INTEGER DEFAULT NULL,
+  max_users INTEGER DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS users (

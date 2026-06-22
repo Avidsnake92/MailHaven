@@ -46,6 +46,41 @@ const checkUser = async (db, req, res, userId) => {
 // client_id effettivo: un admin può operare solo sul proprio cliente.
 const scopedClientId = (req, requested) => isSuper(req) ? (requested ?? null) : req.user.client_id;
 
+// Normalizza un valore quota dal body: '' / null / non-numerico → null (illimitato).
+const normLimit = (v) => {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+};
+
+// Controllo limiti cliente PRIMA di creare nuove risorse (caselle/utenti).
+// Filosofia MSP: non si blocca MAI l'ingest delle email; si blocca solo il
+// provisioning di nuove risorse quando il cliente è oltre i limiti.
+// Ritorna una stringa-errore se va bloccato, altrimenti null.
+const checkClientLimits = async (db, clientId, { addMailbox = false, addUser = false } = {}) => {
+  if (!clientId) return null; // risorse senza cliente: nessun limite
+  const c = (await db.query('SELECT quota_bytes, max_mailboxes, max_users FROM clients WHERE id=$1', [clientId])).rows[0];
+  if (!c) return null;
+  if (addMailbox && c.max_mailboxes != null) {
+    const n = (await db.query('SELECT COUNT(*)::int AS n FROM mailboxes WHERE client_id=$1', [clientId])).rows[0].n;
+    if (n >= c.max_mailboxes) return `Limite caselle del cliente raggiunto (${c.max_mailboxes}).`;
+  }
+  if (addUser && c.max_users != null) {
+    const n = (await db.query('SELECT COUNT(*)::int AS n FROM users WHERE client_id=$1', [clientId])).rows[0].n;
+    if (n >= c.max_users) return `Limite utenti del cliente raggiunto (${c.max_users}).`;
+  }
+  if ((addMailbox || addUser) && c.quota_bytes != null) {
+    const used = (await db.query(
+      `SELECT COALESCE(SUM(ae.compressed_size_bytes),0)::bigint AS used
+       FROM archived_emails ae JOIN mailboxes m ON m.id=ae.mailbox_id WHERE m.client_id=$1`, [clientId]
+    )).rows[0].used;
+    if (BigInt(used) >= BigInt(c.quota_bytes)) {
+      return 'Quota di spazio del cliente superata: impossibile aggiungere nuove risorse (l\'archiviazione delle caselle esistenti continua comunque).';
+    }
+  }
+  return null;
+};
+
 router.use(authMiddleware);
 router.use(requireRole('admin', 'superadmin'));
 
@@ -60,20 +95,26 @@ router.get('/clients', async (req, res) => {
 
 router.post('/clients', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company } = req.body;
+  const { name, company, quota_bytes, max_mailboxes, max_users } = req.body;
   try {
-    const result = await db.query('INSERT INTO clients (name, company) VALUES ($1, $2) RETURNING *', [name, company]);
+    const result = await db.query(
+      'INSERT INTO clients (name, company, quota_bytes, max_mailboxes, max_users) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [name, company, normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users)]
+    );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
 router.put('/clients/:id', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, active } = req.body;
+  const { name, company, active, quota_bytes, max_mailboxes, max_users } = req.body;
   try {
     const result = await db.query(
-      'UPDATE clients SET name=$1, company=$2, active=$3, updated_at=NOW() WHERE id=$4 RETURNING *',
-      [name, company, active !== undefined ? active : true, req.params.id]
+      `UPDATE clients SET name=$1, company=$2, active=$3,
+         quota_bytes=$4, max_mailboxes=$5, max_users=$6, updated_at=NOW()
+       WHERE id=$7 RETURNING *`,
+      [name, company, active !== undefined ? active : true,
+       normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users), req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -121,6 +162,8 @@ router.post('/users', validate(schemas.createUser), async (req, res, next) => {
     const hash = await bcrypt.hash(password, 10);
     // Un admin può creare utenti solo nel proprio cliente.
     const ownerClientId = scopedClientId(req, client_id);
+    const limitErr = await checkClientLimits(db, ownerClientId, { addUser: true });
+    if (limitErr) return res.status(409).json({ error: limitErr, code: 'MH-1109' });
     const result = await db.query(
       'INSERT INTO users (email, password_hash, full_name, role, client_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, full_name, role, client_id',
       [email, hash, full_name, role, ownerClientId]
@@ -248,6 +291,8 @@ router.post('/mailboxes', async (req, res) => {
   const ip = getIp(req);
   try {
     const ownerClientId = scopedClientId(req, client_id);
+    const limitErr = await checkClientLimits(db, ownerClientId, { addMailbox: true });
+    if (limitErr) return res.status(409).json({ error: limitErr, code: 'MH-1206' });
     const result = await db.query(
       `INSERT INTO mailboxes (client_id, email, display_name, imap_host, imap_port, imap_tls, imap_user, imap_password_encrypted)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, email, display_name, client_id`,
@@ -471,6 +516,8 @@ router.get('/storage/clients', async (req, res) => {
       // Tutti i clienti
       query = `
         SELECT c.id, c.name, c.company,
+          c.quota_bytes, c.max_mailboxes, c.max_users,
+          (SELECT COUNT(*) FROM users u WHERE u.client_id = c.id) as user_count,
           COUNT(DISTINCT m.id) as mailbox_count,
           COUNT(ae.id) as email_count,
           COALESCE(SUM(ae.size_bytes), 0) as original_bytes,
@@ -478,12 +525,14 @@ router.get('/storage/clients', async (req, res) => {
         FROM clients c
         LEFT JOIN mailboxes m ON m.client_id = c.id
         LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
-        GROUP BY c.id, c.name, c.company
+        GROUP BY c.id, c.name, c.company, c.quota_bytes, c.max_mailboxes, c.max_users
         ORDER BY compressed_bytes DESC`;
     } else {
       // Solo il cliente dell'admin
       query = `
         SELECT c.id, c.name, c.company,
+          c.quota_bytes, c.max_mailboxes, c.max_users,
+          (SELECT COUNT(*) FROM users u WHERE u.client_id = c.id) as user_count,
           COUNT(DISTINCT m.id) as mailbox_count,
           COUNT(ae.id) as email_count,
           COALESCE(SUM(ae.size_bytes), 0) as original_bytes,
@@ -492,23 +541,34 @@ router.get('/storage/clients', async (req, res) => {
         LEFT JOIN mailboxes m ON m.client_id = c.id
         LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
         WHERE c.id = $1
-        GROUP BY c.id, c.name, c.company`;
+        GROUP BY c.id, c.name, c.company, c.quota_bytes, c.max_mailboxes, c.max_users`;
       params = [user.client_id];
     }
     const r = await db.query(query, params);
-    res.json(r.rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      company: row.company,
-      mailboxCount: parseInt(row.mailbox_count || 0),
-      emailCount: parseInt(row.email_count || 0),
-      originalBytes: parseInt(row.original_bytes || 0),
-      compressedBytes: parseInt(row.compressed_bytes || 0),
-      savedBytes: parseInt(row.original_bytes || 0) - parseInt(row.compressed_bytes || 0),
-      compressionRatio: parseInt(row.original_bytes) > 0
-        ? Math.round(((parseInt(row.original_bytes) - parseInt(row.compressed_bytes)) / parseInt(row.original_bytes)) * 100)
-        : 0,
-    })));
+    res.json(r.rows.map(row => {
+      const compressed = parseInt(row.compressed_bytes || 0);
+      const quotaBytes = row.quota_bytes != null ? parseInt(row.quota_bytes) : null;
+      return {
+        id: row.id,
+        name: row.name,
+        company: row.company,
+        mailboxCount: parseInt(row.mailbox_count || 0),
+        userCount: parseInt(row.user_count || 0),
+        emailCount: parseInt(row.email_count || 0),
+        originalBytes: parseInt(row.original_bytes || 0),
+        compressedBytes: compressed,
+        savedBytes: parseInt(row.original_bytes || 0) - compressed,
+        compressionRatio: parseInt(row.original_bytes) > 0
+          ? Math.round(((parseInt(row.original_bytes) - compressed) / parseInt(row.original_bytes)) * 100)
+          : 0,
+        // Quote MSP (null = illimitato)
+        quotaBytes,
+        maxMailboxes: row.max_mailboxes != null ? parseInt(row.max_mailboxes) : null,
+        maxUsers: row.max_users != null ? parseInt(row.max_users) : null,
+        usagePercent: quotaBytes && quotaBytes > 0 ? Math.round((compressed / quotaBytes) * 100) : null,
+        overQuota: quotaBytes != null && compressed >= quotaBytes,
+      };
+    }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

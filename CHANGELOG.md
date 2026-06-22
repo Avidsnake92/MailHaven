@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.34] - 2026-06-23
+### Added
+- **Quote per cliente (MSP)**: nuovi limiti su `clients` — spazio (`quota_bytes`),
+  numero caselle (`max_mailboxes`) e utenti (`max_users`). NULL = illimitato.
+  - Enforcement commerciale: la creazione di nuove caselle/utenti viene bloccata
+    (409) al superamento del limite o della quota di spazio; l'archiviazione delle
+    email esistenti non viene MAI interrotta.
+  - `GET /admin/storage/clients` espone uso vs quota (percentuale, over-quota, conteggi).
+  - UI: form Cliente con sezione Quote (solo superadmin) e colonna Quota con barra
+    di utilizzo in Storage → Per cliente.
 ## [0.1.33] - 2026-06-22
 ### Changed
 - **Menu laterale consolidato**: la navigazione è ora compatta con gruppi a

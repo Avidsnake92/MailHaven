@@ -167,6 +167,11 @@ const migrate = async (db) => {
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS legal_hold_at TIMESTAMP`);
   await run(`CREATE INDEX IF NOT EXISTS idx_archived_emails_legal_hold ON archived_emails(legal_hold) WHERE legal_hold = true`);
 
+  // Quote per cliente (MSP) — NULL = illimitato
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS quota_bytes BIGINT DEFAULT NULL`);
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS max_mailboxes INTEGER DEFAULT NULL`);
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS max_users INTEGER DEFAULT NULL`);
+
     console.log('[Migration] Completata');
 
 };
