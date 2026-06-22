@@ -83,7 +83,7 @@ const pluginAuth = async (req, res, next) => {
   const db = req.app.locals.db;
   try {
     const r = await db.query(
-      'SELECT pt.*, u.id as user_id, u.email, u.full_name, u.role, u.active FROM plugin_tokens pt JOIN users u ON pt.user_id=u.id WHERE pt.token=$1',
+      'SELECT pt.*, u.id as user_id, u.email, u.full_name, u.role, u.active, u.client_id FROM plugin_tokens pt JOIN users u ON pt.user_id=u.id WHERE pt.token=$1',
       [token]
     );
     if (!r.rows[0]) return res.status(401).json({ error: 'Token non valido' });
@@ -92,11 +92,29 @@ const pluginAuth = async (req, res, next) => {
     if (!pt.active) return res.status(401).json({ error: 'Account disabilitato' });
     // Aggiorna last_used
     await db.query('UPDATE plugin_tokens SET last_used_at=NOW() WHERE id=$1', [pt.id]);
-    req.user = { id: pt.user_id, email: pt.email, full_name: pt.full_name, role: pt.role };
+    req.user = { id: pt.user_id, email: pt.email, full_name: pt.full_name, role: pt.role, client_id: pt.client_id };
     next();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+// Caselle accessibili dall'utente del token plugin (admin confinato al proprio cliente).
+const getPluginMailboxIds = async (db, user) => {
+  if (user.role === 'superadmin') {
+    const r = await db.query('SELECT id FROM mailboxes WHERE active=true');
+    return r.rows.map(r => r.id);
+  }
+  if (user.role === 'admin') {
+    const r = await db.query('SELECT id FROM mailboxes WHERE client_id=$1 AND active=true', [user.client_id]);
+    return r.rows.map(r => r.id);
+  }
+  const r = await db.query(
+    `SELECT m.id FROM mailboxes m JOIN user_mailboxes um ON um.mailbox_id=m.id
+     WHERE um.user_id=$1 AND m.active=true`,
+    [user.id]
+  );
+  return r.rows.map(r => r.id);
 };
 
 // ── API per plugin: caselle accessibili ──────────────────────────────────
@@ -104,8 +122,13 @@ router.get('/mailboxes', pluginAuth, async (req, res) => {
   const db = req.app.locals.db;
   try {
     let r;
-    if (req.user.role === 'superadmin' || req.user.role === 'admin') {
+    if (req.user.role === 'superadmin') {
       r = await db.query('SELECT id, email, display_name FROM mailboxes WHERE active=true ORDER BY email');
+    } else if (req.user.role === 'admin') {
+      r = await db.query(
+        'SELECT id, email, display_name FROM mailboxes WHERE client_id=$1 AND active=true ORDER BY email',
+        [req.user.client_id]
+      );
     } else {
       r = await db.query(
         `SELECT m.id, m.email, m.display_name FROM mailboxes m
@@ -126,6 +149,10 @@ router.get('/emails', pluginAuth, async (req, res) => {
   const { mailbox_id, search, from_date, to_date, page = 1, limit = 20 } = req.query;
   const offset = (page - 1) * limit;
   try {
+    const allowedIds = await getPluginMailboxIds(db, req.user);
+    if (!allowedIds.includes(Number(mailbox_id))) {
+      return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    }
     const conditions = ['ae.mailbox_id=$1', 'ae.is_restored=false'];
     const params = [mailbox_id];
     let p = 2;
@@ -154,9 +181,10 @@ router.get('/emails/:id', pluginAuth, async (req, res) => {
   const db = req.app.locals.db;
   const { decompress } = require('../services/compression');
   try {
+    const allowedIds = await getPluginMailboxIds(db, req.user);
     const r = await db.query(
-      'SELECT id, subject, sender_name, sender_email, recipients, sent_at, path, body_html, body_text, raw, attachments FROM archived_emails WHERE id=$1',
-      [req.params.id]
+      'SELECT id, subject, sender_name, sender_email, recipients, sent_at, path, body_html, body_text, raw, attachments FROM archived_emails WHERE id=$1 AND mailbox_id=ANY($2)',
+      [req.params.id, allowedIds]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Email non trovata' });
     const email = r.rows[0];
@@ -180,11 +208,14 @@ router.post('/emails/:id/restore', pluginAuth, async (req, res) => {
   const { decompress } = require('../services/compression');
   const { decrypt } = require('../services/crypto');
   try {
-    const emailR = await db.query('SELECT * FROM archived_emails WHERE id=$1', [req.params.id]);
+    const allowedIds = await getPluginMailboxIds(db, req.user);
+    const emailR = await db.query('SELECT * FROM archived_emails WHERE id=$1 AND mailbox_id=ANY($2)', [req.params.id, allowedIds]);
     if (!emailR.rows[0]?.raw) return res.status(404).json({ error: 'Email non trovata' });
     const mbR = await db.query('SELECT * FROM mailboxes WHERE email=$1 AND active=true', [target_mailbox]);
     if (!mbR.rows[0]) return res.status(404).json({ error: 'Casella non trovata o non configurata' });
     const mb = mbR.rows[0];
+    // La casella di destinazione deve essere tra quelle consentite all'utente.
+    if (!allowedIds.includes(mb.id)) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
     const rawBuf = await decompress(emailR.rows[0].raw);
     const folder = target_folder || emailR.rows[0].path || 'INBOX';
 

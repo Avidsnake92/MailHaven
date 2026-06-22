@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.31] - 2026-06-22
+### Security
+- **Isolamento multi-tenant (MSP)**: le route di amministrazione e l'API plugin
+  applicano ora controlli di proprietà per `client_id`, non solo per ruolo. Un
+  utente `admin` (referente di un singolo cliente) è confinato al proprio cliente
+  e non può più leggere, modificare o eliminare caselle, utenti o email di altri
+  clienti.
+  - `admin.js`: `GET /mailboxes` e `GET /sync-status` filtrati per cliente;
+    `PUT/DELETE/toggle/sync/pause/sync-status/policy /mailboxes/:id` verificano la
+    proprietà della casella; `POST/PUT /mailboxes` e `POST /users` forzano il
+    `client_id` dell'admin; impedita l'escalation di privilegi via `PUT /users/:id`
+    (un admin non può più promuovere a `admin`/`superadmin` né spostare utenti tra
+    clienti); assegnazione caselle↔utenti e `unlock` verificano la proprietà.
+  - `restore.js`: `POST /export/mailbox` valida la casella richiesta contro quelle
+    consentite (prima qualunque utente poteva esportare qualsiasi casella).
+  - `plugin.js`: `pluginAuth` espone `client_id`; `/mailboxes`, `/emails`,
+    `/emails/:id`, `/emails/:id/restore` ora scoped sulle caselle consentite.
+  - `getUserMailboxIds` di `spam.js` e `restore.js` allineato a `emails.js`
+    (l'admin vede solo le caselle del proprio cliente, non tutte).
 ## [0.1.30] - 2026-06-10
 ### Added
 - **Barra di progresso reale per gli aggiornamenti**: `do-update.sh` scrive lo

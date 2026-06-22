@@ -29,8 +29,12 @@ const getEmailFromDb = async (db, id, allowedMailboxIds) => {
 
 // Helper: get allowed mailbox IDs for user
 const getUserMailboxIds = async (db, user) => {
-  if (user.role === 'superadmin' || user.role === 'admin') {
+  if (user.role === 'superadmin') {
     const r = await db.query('SELECT id FROM mailboxes WHERE active=true');
+    return r.rows.map(r => r.id);
+  }
+  if (user.role === 'admin') {
+    const r = await db.query('SELECT id FROM mailboxes WHERE client_id=$1 AND active=true', [user.client_id]);
     return r.rows.map(r => r.id);
   }
   const r = await db.query(
@@ -235,6 +239,10 @@ router.post('/export/mailbox', async (req, res) => {
   const { mailbox_id } = req.body;
   const db = req.app.locals.db;
   try {
+    const allowedIds = await getUserMailboxIds(db, req.user);
+    if (!allowedIds.includes(Number(mailbox_id))) {
+      return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    }
     const mbResult = await db.query('SELECT * FROM mailboxes WHERE id=$1', [mailbox_id]);
     if (!mbResult.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
     const mailbox = mbResult.rows[0];

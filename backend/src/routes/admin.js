@@ -18,6 +18,34 @@ const validatePassword = (password) => {
 
 const getIp = (req) => { const fwd = req.headers['x-forwarded-for']; return fwd ? fwd.split(',')[0].trim() : req.socket.remoteAddress; };
 
+// ── Scoping multi-tenant ───────────────────────────────────────
+// Il superadmin ha accesso pieno; un 'admin' è confinato al proprio client_id.
+const isSuper = (req) => req.user.role === 'superadmin';
+
+// Verifica che la casella esista e appartenga al cliente dell'admin.
+// Scrive direttamente la risposta d'errore e ritorna null se non autorizzato.
+const checkMailbox = async (db, req, res, mailboxId) => {
+  const r = await db.query('SELECT client_id FROM mailboxes WHERE id=$1', [mailboxId]);
+  if (!r.rows.length) { res.status(404).json({ error: 'Casella non trovata', code: 'MH-1201' }); return null; }
+  if (!isSuper(req) && r.rows[0].client_id !== req.user.client_id) {
+    res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return null;
+  }
+  return r.rows[0];
+};
+
+// Verifica che l'utente target esista e appartenga al cliente dell'admin.
+const checkUser = async (db, req, res, userId) => {
+  const r = await db.query('SELECT client_id, role FROM users WHERE id=$1', [userId]);
+  if (!r.rows.length) { res.status(404).json({ error: 'Utente non trovato', code: 'MH-1101' }); return null; }
+  if (!isSuper(req) && r.rows[0].client_id !== req.user.client_id) {
+    res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return null;
+  }
+  return r.rows[0];
+};
+
+// client_id effettivo: un admin può operare solo sul proprio cliente.
+const scopedClientId = (req, requested) => isSuper(req) ? (requested ?? null) : req.user.client_id;
+
 router.use(authMiddleware);
 router.use(requireRole('admin', 'superadmin'));
 
@@ -91,9 +119,11 @@ router.post('/users', validate(schemas.createUser), async (req, res, next) => {
     const pwdError = validatePassword(password)
     if (pwdError) return next(new AppError(ERRORS.MH_1103, pwdError));
     const hash = await bcrypt.hash(password, 10);
+    // Un admin può creare utenti solo nel proprio cliente.
+    const ownerClientId = scopedClientId(req, client_id);
     const result = await db.query(
       'INSERT INTO users (email, password_hash, full_name, role, client_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, full_name, role, client_id',
-      [email, hash, full_name, role, client_id || null]
+      [email, hash, full_name, role, ownerClientId]
     );
     const newUser = result.rows[0];
 
@@ -133,18 +163,28 @@ router.put('/users/:id', async (req, res) => {
   const db = req.app.locals.db;
   const { full_name, role, active, client_id, password } = req.body;
   try {
+    const target = await checkUser(db, req, res, req.params.id);
+    if (!target) return;
+    // Un admin non può promuovere oltre 'user' né spostare l'utente di cliente.
+    let effectiveRole = role;
+    let effectiveClientId = scopedClientId(req, client_id);
+    if (!isSuper(req)) {
+      if (role && role !== 'user') return res.status(403).json({ error: 'Permessi insufficienti', code: 'MH-1004' });
+      effectiveRole = 'user';
+      effectiveClientId = target.client_id;
+    }
     if (password) {
       const pwdError = validatePassword(password)
       if (pwdError) return res.status(400).json({ error: pwdError })
       const hash = await bcrypt.hash(password, 10);
       await db.query(
         'UPDATE users SET full_name=$1, role=$2, active=$3, client_id=$4, password_hash=$5, updated_at=NOW() WHERE id=$6',
-        [full_name, role, active, client_id || null, hash, req.params.id]
+        [full_name, effectiveRole, active, effectiveClientId, hash, req.params.id]
       );
     } else {
       await db.query(
         'UPDATE users SET full_name=$1, role=$2, active=$3, client_id=$4, updated_at=NOW() WHERE id=$5',
-        [full_name, role, active, client_id || null, req.params.id]
+        [full_name, effectiveRole, active, effectiveClientId, req.params.id]
       );
     }
     res.json({ message: 'Utente aggiornato' });
@@ -185,6 +225,8 @@ router.post('/mailboxes/test-imap', async (req, res) => {
 router.get('/mailboxes', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    const filter = isSuper(req) ? '' : 'WHERE m.client_id = $1';
+    const params = isSuper(req) ? [] : [req.user.client_id];
     const result = await db.query(
       `SELECT m.id, m.client_id, m.email, m.display_name,
               m.imap_host, m.imap_port, m.imap_tls, m.imap_user, m.active,
@@ -192,7 +234,8 @@ router.get('/mailboxes', async (req, res) => {
               m.sync_paused, m.oauth_provider, m.oauth_refresh_expires_at,
               c.name as client_name,
               (SELECT COUNT(*) FROM archived_emails ae WHERE ae.mailbox_id = m.id) as email_count
-       FROM mailboxes m LEFT JOIN clients c ON m.client_id = c.id ORDER BY m.email`
+       FROM mailboxes m LEFT JOIN clients c ON m.client_id = c.id ${filter} ORDER BY m.email`,
+      params
     );
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -204,10 +247,11 @@ router.post('/mailboxes', async (req, res) => {
   const { encrypt } = require('../services/crypto');
   const ip = getIp(req);
   try {
+    const ownerClientId = scopedClientId(req, client_id);
     const result = await db.query(
-      `INSERT INTO mailboxes (client_id, email, display_name, imap_host, imap_port, imap_tls, imap_user, imap_password_encrypted) 
+      `INSERT INTO mailboxes (client_id, email, display_name, imap_host, imap_port, imap_tls, imap_user, imap_password_encrypted)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, email, display_name, client_id`,
-      [client_id, email, display_name,
+      [ownerClientId, email, display_name,
        imap_host || `mail.${email.split('@')[1]}`,
        imap_port || 993, imap_tls !== false,
        imap_user || email,
@@ -223,18 +267,22 @@ router.put('/mailboxes/:id', async (req, res, next) => {
   const { client_id, email, display_name, active, imap_host, imap_port, imap_tls, imap_user, imap_password } = req.body;
   const { encrypt } = require('../services/crypto');
   try {
+    const owned = await checkMailbox(db, req, res, req.params.id);
+    if (!owned) return;
+    // Un admin non può riassegnare la casella ad un altro cliente.
+    const ownerClientId = isSuper(req) ? scopedClientId(req, client_id) : owned.client_id;
     if (imap_password) {
       await db.query(
         `UPDATE mailboxes SET client_id=$1, email=$2, display_name=$3,
          active=$4, imap_host=$5, imap_port=$6, imap_tls=$7, imap_user=$8, imap_password_encrypted=$9 WHERE id=$10`,
-        [client_id, email, display_name, active !== undefined ? active : true,
+        [ownerClientId, email, display_name, active !== undefined ? active : true,
          imap_host, imap_port || 993, imap_tls !== false, imap_user || email, encrypt(imap_password), req.params.id]
       );
     } else {
       await db.query(
         `UPDATE mailboxes SET client_id=$1, email=$2, display_name=$3,
          active=$4, imap_host=$5, imap_port=$6, imap_tls=$7, imap_user=$8 WHERE id=$9`,
-        [client_id, email, display_name, active !== undefined ? active : true,
+        [ownerClientId, email, display_name, active !== undefined ? active : true,
          imap_host, imap_port || 993, imap_tls !== false, imap_user || email, req.params.id]
       );
     }
@@ -246,6 +294,7 @@ router.put('/mailboxes/:id', async (req, res, next) => {
 router.patch('/mailboxes/:id/toggle', async (req, res, next) => {
   const db = req.app.locals.db;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
     const r = await db.query('SELECT id, active FROM mailboxes WHERE id=$1', [req.params.id]);
     if (!r.rows.length) return next(new AppError(ERRORS.MH_1201));
     const newActive = !r.rows[0].active;
@@ -257,6 +306,7 @@ router.patch('/mailboxes/:id/toggle', async (req, res, next) => {
 router.delete('/mailboxes/:id', async (req, res, next) => {
   const db = req.app.locals.db;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
     const exists = await db.query('SELECT id, email FROM mailboxes WHERE id=$1', [req.params.id]);
     if (!exists.rows.length) throw new AppError(ERRORS.MH_1201);
     // Check legal hold
@@ -286,6 +336,7 @@ router.delete('/mailboxes/:id', async (req, res, next) => {
 router.post('/mailboxes/:id/sync', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
     const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
     res.json({ message: 'Sincronizzazione avviata' });
@@ -312,6 +363,7 @@ router.post('/mailboxes/:id/sync', async (req, res) => {
 router.post('/mailboxes/:id/pause', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
     const { paused } = req.body;
     await db.query('UPDATE mailboxes SET sync_paused=$1 WHERE id=$2', [paused, req.params.id]);
     res.json({ success: true, sync_paused: paused });
@@ -321,10 +373,14 @@ router.post('/mailboxes/:id/pause', async (req, res) => {
 router.get('/sync-status', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    const filter = isSuper(req) ? '' : 'WHERE m.client_id = $1';
+    const params = isSuper(req) ? [] : [req.user.client_id];
     const r = await db.query(
       `SELECT sl.*, m.email as mailbox_email FROM sync_log sl
        JOIN mailboxes m ON m.id = sl.mailbox_id
-       ORDER BY sl.started_at DESC LIMIT 50`
+       ${filter}
+       ORDER BY sl.started_at DESC LIMIT 50`,
+      params
     );
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -334,6 +390,7 @@ router.get('/sync-status', async (req, res) => {
 router.get('/mailboxes/:id/sync-status', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
     const r = await db.query(
       `SELECT sl.*, m.email as mailbox_email
        FROM sync_log sl
@@ -352,8 +409,13 @@ router.post('/users/:userId/mailboxes', async (req, res) => {
   const db = req.app.locals.db;
   const { mailbox_ids } = req.body;
   try {
+    if (!(await checkUser(db, req, res, req.params.userId))) return;
+    // Un admin può assegnare solo caselle del proprio cliente.
+    for (const mid of (mailbox_ids || [])) {
+      if (!(await checkMailbox(db, req, res, mid))) return;
+    }
     await db.query('DELETE FROM user_mailboxes WHERE user_id = $1', [req.params.userId]);
-    for (const mid of mailbox_ids) {
+    for (const mid of (mailbox_ids || [])) {
       await db.query('INSERT INTO user_mailboxes (user_id, mailbox_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [req.params.userId, mid]);
     }
     res.json({ message: 'Caselle assegnate' });
@@ -364,6 +426,7 @@ router.post('/users/:userId/mailboxes', async (req, res) => {
 router.get('/mailboxes/:id/users', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
     const r = await db.query(
       'SELECT user_id FROM user_mailboxes WHERE mailbox_id=$1',
       [req.params.id]
@@ -377,6 +440,11 @@ router.post('/mailboxes/:id/users', async (req, res) => {
   const db = req.app.locals.db;
   const { user_ids } = req.body;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
+    // Un admin può assegnare solo utenti del proprio cliente.
+    for (const uid of (user_ids || [])) {
+      if (!(await checkUser(db, req, res, uid))) return;
+    }
     await db.query('DELETE FROM user_mailboxes WHERE mailbox_id=$1', [req.params.id]);
     for (const uid of (user_ids || [])) {
       await db.query(
@@ -613,9 +681,10 @@ router.post('/users/:id/unlock', requireRole('superadmin', 'admin'), async (req,
   const db = req.app.locals.db;
   const ip = getIp(req);
   try {
+    if (!(await checkUser(db, req, res, req.params.id))) return;
     const result = await db.query('SELECT email, full_name FROM users WHERE id = $1', [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Utente non trovato' });
-    
+
     await db.query(
       'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1',
       [req.params.id]
@@ -737,6 +806,7 @@ router.post('/av/restart-scheduler', requireRole('superadmin'), async (req, res)
 router.get('/mailboxes/:id/policy', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    if (!(await checkMailbox(db, req, res, req.params.id))) return;
     const result = await db.query(
       'SELECT archive_policy FROM mailboxes WHERE id = $1',
       [req.params.id]
