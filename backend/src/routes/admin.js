@@ -169,10 +169,10 @@ router.use((req, res, next) => {
 router.get('/clients', async (req, res) => {
   const db = req.app.locals.db;
   try {
-    let q = 'SELECT * FROM clients', params = [];
-    if (req.user.role === 'reseller') { q += ' WHERE reseller_id=$1'; params = [req.user.reseller_id]; }
-    else if (req.user.role === 'admin') { q += ' WHERE id=$1'; params = [req.user.client_id]; }
-    q += ' ORDER BY name';
+    let q = 'SELECT c.*, r.name AS reseller_name FROM clients c LEFT JOIN resellers r ON r.id = c.reseller_id', params = [];
+    if (req.user.role === 'reseller') { q += ' WHERE c.reseller_id=$1'; params = [req.user.reseller_id]; }
+    else if (req.user.role === 'admin') { q += ' WHERE c.id=$1'; params = [req.user.client_id]; }
+    q += ' ORDER BY c.name';
     const result = await db.query(q, params);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }

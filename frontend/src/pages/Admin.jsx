@@ -550,6 +550,7 @@ function ClientsTab({ branding, user }) {
             <thead><tr className="border-b border-gray-100">
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
               <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Azienda</th>
+              {user.role === 'superadmin' && <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rivenditore</th>}
               <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Stato</th>
               <th className="px-6 py-3 w-12"></th>
             </tr></thead>
@@ -561,7 +562,9 @@ function ClientsTab({ branding, user }) {
   </p>
   <p className="text-xs text-gray-500 sm:hidden">{c.active ? 'Attivo' : 'Disabilitato'}</p>
 </td>
-<td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">{c.company || '�'}</td>                <td className="hidden sm:table-cell px-6 py-3.5">
+<td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">{c.company || '�'}</td>
+                {user.role === 'superadmin' && <td className="hidden md:table-cell px-6 py-3.5 text-sm text-gray-600">{c.reseller_name || 'Diretto'}</td>}
+                <td className="hidden sm:table-cell px-6 py-3.5">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                     {c.active ? 'Attivo' : 'Disabilitato'}
                   </span>
@@ -1480,7 +1483,7 @@ function ResellersTab({ branding, user }) {
       </div>
       {loading ? (<div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>)
         : items.length === 0 ? (<div className="text-center py-16"><Store size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun rivenditore</p></div>)
-        : (<div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b border-gray-100">
+        : (<table className="w-full"><thead><tr className="border-b border-gray-100">
           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rivenditore</th>
           <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Aziende</th>
           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-56">Spazio (uso / pacchetto)</th>
@@ -1501,7 +1504,7 @@ function ResellersTab({ branding, user }) {
                 <ActionMenu onEdit={() => openEdit(r)} onDelete={() => setDeleteItem(r)} />
               </div></td>
             </tr>)
-          })}</tbody></table></div>)}
+          })}</tbody></table>)}
     </div>
 
     {showForm && (<Modal title={editItem ? 'Modifica rivenditore' : 'Nuovo rivenditore'} onClose={() => setShowForm(false)}>

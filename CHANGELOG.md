@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.39] - 2026-06-23
+### Added
+- **Colonna "Rivenditore"** nella tabella Clienti (solo superadmin): mostra quale
+  rivenditore ha creato il cliente, oppure "Diretto" se creato dal superadmin.
+### Fixed
+- Tabella Rivenditori: rimossa la barra di scorrimento spuria che compariva
+  all'apertura del menu azioni (wrapper overflow-x rimosso).
 ## [0.1.38] - 2026-06-23
 ### Added
 - **Import per il reseller (Fase 3a-bis)**: con `feat_import` attivo il rivenditore
