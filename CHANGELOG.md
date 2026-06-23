@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.43] - 2026-06-23
+### Added
+- **Backup reseller — Fase 3c-2 (esecuzione)**: nuovo servizio `resellerBackup.js`
+  che genera un backup nel formato proprietario **.mhbak** (magic MHBK, cifrato con
+  ENCRYPTION_KEY) contenente SOLO le email dei clienti del reseller, e lo carica
+  sulla sua destinazione S3 o SFTP. `/backup/run`, `/backup/list` e `/backup/logs`
+  ora funzionano per il reseller, scoped sulla sua configurazione e sui suoi dati.
+  Il restore resta per ora solo-superadmin (3c successiva).
 ## [0.1.42] - 2026-06-23
 ### Added
 - **Antivirus e Antispam come feature a pacchetto reseller** (`feat_antivirus`,

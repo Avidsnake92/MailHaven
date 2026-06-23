@@ -152,9 +152,30 @@ router.post('/test', async (req, res) => {
 });
 
 // Run backup (asincrono con progress)
-router.post('/run', requireRole('superadmin'), async (req, res) => {
+router.post('/run', async (req, res) => {
   const { provider_type } = req.body;
   const db = req.app.locals.db;
+  // Reseller: backup scoped (.mhbak dei soli suoi clienti) verso la sua destinazione.
+  if (req.user.role === 'reseller') {
+    const cfg = await getConfig(db, provider_type || 's3', req.user.reseller_id);
+    if (!cfg) return res.status(400).json({ error: 'Configura prima la destinazione di backup' });
+    const jobId = createJob();
+    res.json({ job_id: jobId, message: 'Backup avviato' });
+    setImmediate(async () => {
+      try {
+        const { runResellerBackup } = require('../services/resellerBackup');
+        updateJob(jobId, { progress: 10, message: 'Lettura email dei tuoi clienti...' });
+        const result = await runResellerBackup(db, cfg, req.user.reseller_id, (p) => updateJob(jobId, { progress: p, message: 'Backup in corso...' }));
+        await db.query('UPDATE backup_config SET last_backup_at = NOW() WHERE id = $1', [cfg.id]);
+        await log(db, req.user.id, 'BACKUP_COMPLETED', result, getIp(req));
+        updateJob(jobId, { status: 'completed', progress: 100, message: 'Backup completato!', result });
+      } catch (err) {
+        updateJob(jobId, { status: 'error', progress: 0, message: err.message });
+        await db.query('INSERT INTO backup_log (type, status, details, reseller_id) VALUES ($1,$2,$3,$4)', [provider_type || 's3', 'error', JSON.stringify({ error: err.message }), req.user.reseller_id]);
+      }
+    });
+    return;
+  }
   try {
     const config = await getConfig(db, provider_type || 's3');
     if (!config) return res.status(400).json({ error: 'Configura prima le credenziali' });
@@ -230,11 +251,11 @@ router.post('/run', requireRole('superadmin'), async (req, res) => {
 });
 
 // List backups
-router.get('/list', requireRole('superadmin'), async (req, res) => {
+router.get('/list', async (req, res) => {
   const { type } = req.query;
   const db = req.app.locals.db;
   try {
-    const config = await getConfig(db, type || 's3');
+    const config = await getConfig(db, type || 's3', rscope(req));
     if (!config) return res.json([]);
 
     let backups;
@@ -276,10 +297,13 @@ router.post('/restore', requireRole('superadmin'), async (req, res, next) => {
 });
 
 // Logs
-router.get('/logs', requireRole('superadmin'), async (req, res) => {
+router.get('/logs', async (req, res) => {
   const db = req.app.locals.db;
   try {
-    const result = await db.query('SELECT * FROM backup_log ORDER BY created_at DESC LIMIT 50');
+    const result = await db.query(
+      'SELECT * FROM backup_log WHERE reseller_id IS NOT DISTINCT FROM $1 ORDER BY created_at DESC LIMIT 50',
+      [rscope(req)]
+    );
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
