@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.45] - 2026-06-24
+### Added
+- **Backup reseller — Fase 3c-3 (schedule cron)**: nuovo `backupScheduler.js` che
+  esegue i backup pianificati via cron, sia globali (superadmin) sia per-reseller.
+  Avviato al boot e ricaricato al salvataggio della configurazione. Prima il campo
+  `schedule` non veniva eseguito da nessuno: ora un backup con orario impostato e
+  abilitato parte automaticamente.
 ## [0.1.44] - 2026-06-23
 ### Added
 - **Backup reseller — Fase 3c-4 (UI)**: il rivenditore con `feat_backup` ha la voce

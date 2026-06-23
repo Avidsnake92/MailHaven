@@ -294,6 +294,13 @@ app.listen(PORT, '0.0.0.0', async () => {
   } catch (e) { console.error('AV Scheduler error:', e.message); }
 
   try {
+    const backupScheduler = require('./services/backupScheduler');
+    await backupScheduler.start(pool);
+    app.locals.backupScheduler = backupScheduler;
+    console.log('Backup scheduler started');
+  } catch (e) { console.error('Backup Scheduler error:', e.message); }
+
+  try {
     const avBatchScanner = require('./services/avBatchScanner');
     avBatchScanner.start(pool, 10);
     app.locals.avBatchScanner = avBatchScanner;

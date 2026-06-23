@@ -116,6 +116,8 @@ router.post('/config', async (req, res) => {
       );
     }
     await log(db, req.user.id, 'BACKUP_CONFIG_UPDATED', { provider_type, provider }, getIp(req));
+    // Ricarica i job pianificati (lo schedule cambia subito)
+    try { req.app.locals.backupScheduler && await req.app.locals.backupScheduler.reload(db); } catch (e) { console.error('[backup] reload scheduler:', e.message); }
     res.json({ message: 'Configurazione salvata' });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Errore server' }); }
 });
