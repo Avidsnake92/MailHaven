@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS backup_config (
   schedule VARCHAR(50) DEFAULT 'manual',
   enabled BOOLEAN DEFAULT false,
   last_backup_at TIMESTAMP,
+  reseller_id INTEGER REFERENCES resellers(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -122,6 +123,7 @@ CREATE TABLE IF NOT EXISTS backup_log (
   type VARCHAR(50),
   status VARCHAR(50),
   details JSONB,
+  reseller_id INTEGER REFERENCES resellers(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT NOW()
 );
 

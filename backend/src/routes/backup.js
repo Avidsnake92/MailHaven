@@ -29,14 +29,24 @@ const { log } = require('../services/logger');
 const getIp = (req) => { const fwd = req.headers['x-forwarded-for']; return fwd ? fwd.split(',')[0].trim() : req.socket.remoteAddress; };
 
 router.use(authMiddleware);
-router.use(requireRole('superadmin'));
+router.use(requireRole('superadmin', 'reseller'));
+// Il reseller accede al backup solo con feat_backup attivo.
+router.use(async (req, res, next) => {
+  if (req.user.role !== 'reseller') return next();
+  try {
+    const f = (await req.app.locals.db.query('SELECT feat_backup FROM resellers WHERE id=$1', [req.user.reseller_id])).rows[0];
+    if (!f || !f.feat_backup) return res.status(403).json({ error: 'Funzione non abilitata per questo rivenditore', code: 'MH-1003' });
+    next();
+  } catch (e) { res.status(500).json({ error: 'Errore server' }); }
+});
+// Ambito config: il reseller usa la propria (reseller_id), il superadmin la globale (NULL).
+const rscope = (req) => req.user.role === 'reseller' ? req.user.reseller_id : null;
 
-const getConfig = async (db, type = null) => {
-  const query = type 
-    ? 'SELECT * FROM backup_config WHERE provider_type = $1 LIMIT 1'
-    : 'SELECT * FROM backup_config LIMIT 1';
-  const params = type ? [type] : [];
-  const result = await db.query(query, params);
+const getConfig = async (db, type = null, resellerId = null) => {
+  const result = await db.query(
+    'SELECT * FROM backup_config WHERE provider_type = $1 AND reseller_id IS NOT DISTINCT FROM $2 LIMIT 1',
+    [type, resellerId]
+  );
   if (!result.rows[0]) return null;
   const row = result.rows[0];
   return {
@@ -51,12 +61,13 @@ router.get('/config', async (req, res) => {
   const db = req.app.locals.db;
   try {
     const result = await db.query(
-      `SELECT id, provider_type, provider, endpoint, region, bucket, access_key, prefix, 
+      `SELECT id, provider_type, provider, endpoint, region, bucket, access_key, prefix,
        force_path_style, schedule, enabled, last_backup_at,
        sftp_host, sftp_port, sftp_username, sftp_remote_path,
        CASE WHEN secret_key_encrypted IS NOT NULL THEN true ELSE false END as has_secret,
        CASE WHEN sftp_password_encrypted IS NOT NULL THEN true ELSE false END as has_sftp_password
-       FROM backup_config ORDER BY id`
+       FROM backup_config WHERE reseller_id IS NOT DISTINCT FROM $1 ORDER BY id`,
+      [rscope(req)]
     );
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -71,7 +82,7 @@ router.post('/config', async (req, res) => {
     sftp_host, sftp_port, sftp_username, sftp_password, sftp_remote_path
   } = req.body;
   try {
-    const existing = await db.query('SELECT id FROM backup_config WHERE provider_type = $1', [provider_type]);
+    const existing = await db.query('SELECT id FROM backup_config WHERE provider_type = $1 AND reseller_id IS NOT DISTINCT FROM $2', [provider_type, rscope(req)]);
     const encSecret = secret_key ? encrypt(secret_key) : null;
     const encSftpPass = sftp_password ? encrypt(sftp_password) : null;
 
@@ -95,13 +106,13 @@ router.post('/config', async (req, res) => {
       await db.query(q, p);
     } else {
       await db.query(
-        `INSERT INTO backup_config (provider_type, provider, endpoint, region, bucket, access_key, 
+        `INSERT INTO backup_config (provider_type, provider, endpoint, region, bucket, access_key,
          secret_key_encrypted, prefix, force_path_style, schedule, enabled,
-         sftp_host, sftp_port, sftp_username, sftp_password_encrypted, sftp_remote_path) 
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+         sftp_host, sftp_port, sftp_username, sftp_password_encrypted, sftp_remote_path, reseller_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
         [provider_type, provider, endpoint, region, bucket, access_key, encSecret,
          prefix || 'mailhaven-backup', force_path_style !== false, schedule || 'manual', enabled || false,
-         sftp_host, sftp_port || 22, sftp_username, encSftpPass, sftp_remote_path || '/backups']
+         sftp_host, sftp_port || 22, sftp_username, encSftpPass, sftp_remote_path || '/backups', rscope(req)]
       );
     }
     await log(db, req.user.id, 'BACKUP_CONFIG_UPDATED', { provider_type, provider }, getIp(req));
@@ -121,7 +132,7 @@ router.post('/test', async (req, res) => {
       if (host && username && password) {
         config = { sftp_host: host, sftp_port: port || 22, sftp_username: username, sftp_password: password, sftp_remote_path: remote_path || '/backups' };
       } else {
-        config = await getConfig(db, provider_type);
+        config = await getConfig(db, provider_type, rscope(req));
         if (!config) return res.status(400).json({ error: 'Nessuna configurazione trovata. Salva prima le credenziali.' });
       }
       await testSftpConnection(config);
@@ -129,7 +140,7 @@ router.post('/test', async (req, res) => {
       if (access_key && secret_key) {
         config = { endpoint, region, bucket, access_key, secret_key, prefix };
       } else {
-        config = await getConfig(db, provider_type);
+        config = await getConfig(db, provider_type, rscope(req));
         if (!config) return res.status(400).json({ error: 'Nessuna configurazione trovata. Salva prima le credenziali.' });
       }
       await testConnection(config);
@@ -141,7 +152,7 @@ router.post('/test', async (req, res) => {
 });
 
 // Run backup (asincrono con progress)
-router.post('/run', async (req, res) => {
+router.post('/run', requireRole('superadmin'), async (req, res) => {
   const { provider_type } = req.body;
   const db = req.app.locals.db;
   try {
@@ -219,7 +230,7 @@ router.post('/run', async (req, res) => {
 });
 
 // List backups
-router.get('/list', async (req, res) => {
+router.get('/list', requireRole('superadmin'), async (req, res) => {
   const { type } = req.query;
   const db = req.app.locals.db;
   try {
@@ -241,7 +252,7 @@ router.get('/list', async (req, res) => {
 });
 
 // Restore
-router.post('/restore', async (req, res, next) => {
+router.post('/restore', requireRole('superadmin'), async (req, res, next) => {
   const { key, provider_type, remote_file } = req.body;
   if (remote_file && !key) return next();
   if (!key) return res.status(400).json({ error: 'Parametro key mancante' });
@@ -265,7 +276,7 @@ router.post('/restore', async (req, res, next) => {
 });
 
 // Logs
-router.get('/logs', async (req, res) => {
+router.get('/logs', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
   try {
     const result = await db.query('SELECT * FROM backup_log ORDER BY created_at DESC LIMIT 50');
@@ -274,7 +285,7 @@ router.get('/logs', async (req, res) => {
 });
 
 // POST /backup/restore — ripristina backup .mhbak dal NAS
-router.post('/restore', async (req, res) => {
+router.post('/restore', requireRole('superadmin'), async (req, res) => {
   const { provider_type, remote_file } = req.body;
   const db = req.app.locals.db;
   try {

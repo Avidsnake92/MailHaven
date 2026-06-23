@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.41] - 2026-06-23
+### Added
+- **Backup reseller — Fase 3c-1 (config)**: `backup_config`/`backup_log` ora
+  possono appartenere a un reseller (`reseller_id`, NULL = globale). Con
+  `feat_backup` attivo il rivenditore configura e testa la PROPRIA destinazione
+  S3/SFTP, isolata dalla configurazione globale del superadmin.
+- Le route di esecuzione (`/run`,`/list`,`/restore`,`/logs`) restano per ora
+  solo-superadmin: l'esecuzione del backup scoped per reseller (formato
+  proprietario .mhbak, solo dati dei suoi clienti) arriva nella 3c-2.
 ## [0.1.40] - 2026-06-23
 ### Added
 - **Log per il reseller (Fase 3b)**: con `feat_logs` attivo il rivenditore vede

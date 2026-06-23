@@ -195,6 +195,9 @@ const migrate = async (db) => {
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE SET NULL`);
   await run(`CREATE INDEX IF NOT EXISTS idx_clients_reseller ON clients(reseller_id)`);
   await run(`CREATE INDEX IF NOT EXISTS idx_users_reseller ON users(reseller_id)`);
+  // Backup per-reseller: config e log possono appartenere a un reseller (NULL = globale/superadmin)
+  await run(`ALTER TABLE backup_config ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE CASCADE`);
+  await run(`ALTER TABLE backup_log ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE CASCADE`);
 
     console.log('[Migration] Completata');
 
