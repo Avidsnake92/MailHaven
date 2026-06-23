@@ -80,8 +80,8 @@ export default function Layout() {
           {(isAdmin || (user?.role === 'reseller' && user?.feat?.legal_hold)) && <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>}
           {(isAdmin || (user?.role === 'reseller' && user?.feat?.import)) && <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>}
         </div>}
-        {isAdmin && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
-        {isAdmin && logOpen && <div className="space-y-0.5">
+        {(isAdmin || (user?.role === 'reseller' && user?.feat?.logs)) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
+        {(isAdmin || (user?.role === 'reseller' && user?.feat?.logs)) && logOpen && <div className="space-y-0.5">
           <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Accessi</NavLink>
           <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>
           <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.40] - 2026-06-23
+### Added
+- **Log per il reseller (Fase 3b)**: con `feat_logs` attivo il rivenditore vede
+  Accessi, Sync e Antivirus, ma SOLO relativi ai propri clienti. Il toggle delle
+  notifiche AV (impostazione globale) resta nascosto al reseller.
+### Fixed
+- **Sicurezza Log**: `/admin/logs` (attivita) ora e' scoped anche per gli admin
+  (prima un admin vedeva l'attivita di tutti i clienti). `/admin/sync-status` e
+  `/admin/av-stats`/`/admin/av-logs` scoped per ruolo.
+- Corretto un bug di indicizzazione dei parametri nel conteggio di `/admin/av-logs`
+  quando si filtrava per stato.
 ## [0.1.39] - 2026-06-23
 ### Added
 - **Colonna "Rivenditore"** nella tabella Clienti (solo superadmin): mostra quale

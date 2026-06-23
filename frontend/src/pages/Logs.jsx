@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useBranding } from '../context/BrandingContext'
+import { useAuth } from '../context/AuthContext'
 import { Activity, Search, ChevronLeft, ChevronRight, ChevronDown, Loader2, Mail, Download, RotateCcw, LogIn, Key, Trash2, Plus, Edit2, ShieldCheck, ShieldAlert, Shield, RefreshCw, CheckCircle2, AlertCircle, Clock, Inbox } from 'lucide-react'
 
 const ACTION_CONFIG = {
@@ -177,6 +178,8 @@ function AvLog() {
   const [avNotify, setAvNotify] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const { branding } = useBranding()
+  const { user } = useAuth()
+  const canAvSettings = user?.role === 'admin' || user?.role === 'superadmin'
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
@@ -194,10 +197,11 @@ function AvLog() {
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
   useEffect(() => {
+    if (!canAvSettings) return
     api.get('/admin/settings').then(r => {
       setAvNotify(r.data.av_notify_on_infection === 'true')
     }).catch(() => {})
-  }, [])
+  }, [canAvSettings])
 
   const saveSettings = async () => {
     setSavingSettings(true)
@@ -234,6 +238,7 @@ function AvLog() {
           </div>
         </div>
       )}
+      {canAvSettings && (
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Shield size={18} className="text-gray-500" />
@@ -254,6 +259,7 @@ function AvLog() {
           </button>
         </div>
       </div>
+      )}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">

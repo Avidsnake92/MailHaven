@@ -158,12 +158,21 @@ router.use(authMiddleware);
 router.use(requireRole('admin', 'superadmin', 'reseller'));
 // Il reseller può accedere SOLO alle route dati con scoping; tutto il resto
 // (log, impostazioni, backup, statistiche di sistema) è negato di default.
-const RESELLER_ALLOW = [/^\/clients/, /^\/users/, /^\/mailboxes/, /^\/storage\/clients/, /^\/storage\/mailboxes/, /^\/sync-status/];
+const RESELLER_ALLOW = [/^\/clients/, /^\/users/, /^\/mailboxes/, /^\/storage\/clients/, /^\/storage\/mailboxes/, /^\/sync-status/, /^\/logs/, /^\/av-logs/, /^\/av-stats/];
 router.use((req, res, next) => {
   if (req.user.role !== 'reseller') return next();
   if (RESELLER_ALLOW.some(re => re.test(req.path))) return next();
   return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
 });
+
+// Verifica che il reseller abbia la feature attiva (col = nome colonna feat_*).
+// Scrive 403 e ritorna false se off. Per admin/superadmin ritorna true.
+const resellerFeatOk = async (db, req, res, col) => {
+  if (req.user.role !== 'reseller') return true;
+  const f = (await db.query(`SELECT ${col} FROM resellers WHERE id=$1`, [req.user.reseller_id])).rows[0];
+  if (!f || !f[col]) { res.status(403).json({ error: 'Funzione non abilitata per questo rivenditore', code: 'MH-1003' }); return false; }
+  return true;
+};
 
 // ---- CLIENTS ----
 router.get('/clients', async (req, res) => {
@@ -600,8 +609,9 @@ router.post('/mailboxes/:id/pause', async (req, res) => {
 router.get('/sync-status', async (req, res) => {
   const db = req.app.locals.db;
   try {
-    const filter = isSuper(req) ? '' : 'WHERE m.client_id = $1';
-    const params = isSuper(req) ? [] : [req.user.client_id];
+    let filter = '', params = [];
+    if (req.user.role === 'reseller') { filter = 'JOIN clients c ON c.id = m.client_id WHERE c.reseller_id = $1'; params = [req.user.reseller_id]; }
+    else if (!isSuper(req)) { filter = 'WHERE m.client_id = $1'; params = [req.user.client_id]; }
     const r = await db.query(
       `SELECT sl.*, m.email as mailbox_email FROM sync_log sl
        JOIN mailboxes m ON m.id = sl.mailbox_id
@@ -899,11 +909,15 @@ router.post('/key-rotation', authMiddleware, requireRole('superadmin'), async (r
 // ---- ACTIVITY LOG ----
 router.get('/logs', async (req, res) => {
   const db = req.app.locals.db;
+  if (!(await resellerFeatOk(db, req, res, 'feat_logs'))) return;
   const { page = 1, limit = 50, user_id, action } = req.query;
   const offset = (page - 1) * limit;
   try {
     let where = 'WHERE 1=1';
     const params = [];
+    // Scoping: admin/reseller vedono solo l'attività dei propri utenti.
+    if (req.user.role === 'reseller') { params.push(req.user.reseller_id); where += ` AND l.user_id IN (SELECT u2.id FROM users u2 JOIN clients c2 ON c2.id=u2.client_id WHERE c2.reseller_id=$${params.length})`; }
+    else if (req.user.role === 'admin') { params.push(req.user.client_id); where += ` AND l.user_id IN (SELECT u2.id FROM users u2 WHERE u2.client_id=$${params.length})`; }
     if (user_id) { params.push(user_id); where += ` AND l.user_id = $${params.length}`; }
     if (action) { params.push(`%${action}%`); where += ` AND l.action ILIKE $${params.length}`; }
 
@@ -973,20 +987,26 @@ router.post('/users/:id/reset-2fa', requireRole('superadmin'), async (req, res) 
 // ---- AV LOG ----
 router.get('/av-logs', async (req, res) => {
   const db = req.app.locals.db;
+  if (!(await resellerFeatOk(db, req, res, 'feat_logs'))) return;
   const { page = 1, limit = 50, status } = req.query;
   const offset = (page - 1) * limit;
   try {
-    let where = '';
-    const params = [limit, offset];
-    if (status) { params.push(status); where = `WHERE a.status = $${params.length}`; }
+    // Condizioni con indicizzazione parametri configurabile (lista parte da $3, count da $1).
+    const build = (start) => {
+      const conds = [], p = [];
+      if (status) { p.push(status); conds.push(`a.status = $${start + p.length - 1}`); }
+      if (req.user.role === 'reseller') { p.push(req.user.reseller_id); conds.push(`a.email_id IN (SELECT ae.id::text FROM archived_emails ae JOIN mailboxes m ON m.id=ae.mailbox_id JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$${start + p.length - 1})`); }
+      else if (req.user.role === 'admin') { p.push(req.user.client_id); conds.push(`a.email_id IN (SELECT ae.id::text FROM archived_emails ae JOIN mailboxes m ON m.id=ae.mailbox_id WHERE m.client_id=$${start + p.length - 1})`); }
+      return { where: conds.length ? 'WHERE ' + conds.join(' AND ') : '', p };
+    };
+    const list = build(3), cnt = build(1);
     const result = await db.query(
       `SELECT a.*, u.email as user_email, u.full_name as user_name
        FROM av_log a LEFT JOIN users u ON a.scanned_by = u.id
-       ${where} ORDER BY a.created_at DESC LIMIT $1 OFFSET $2`,
-      params
+       ${list.where} ORDER BY a.created_at DESC LIMIT $1 OFFSET $2`,
+      [limit, offset, ...list.p]
     );
-    const countParams = status ? [status] : [];
-    const count = await db.query(`SELECT COUNT(*) FROM av_log a ${where}`, countParams);
+    const count = await db.query(`SELECT COUNT(*) FROM av_log a ${cnt.where}`, cnt.p);
     res.json({ logs: result.rows, total: parseInt(count.rows[0].count), page: parseInt(page), totalPages: Math.ceil(count.rows[0].count / limit) });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
@@ -1160,7 +1180,21 @@ router.get('/stats/overview', authMiddleware, async (req, res) => {
 // ---- AV STATISTICS ----
 router.get('/av-stats', async (req, res) => {
   const db = req.app.locals.db;
+  if (!(await resellerFeatOk(db, req, res, 'feat_logs'))) return;
   try {
+    // Scoping per ruolo: filtri su archived_emails (ae) e su av_log (via email_id)
+    let aeWhere = '', aeAnd = '', logScope = '', p = [];
+    if (req.user.role === 'reseller') {
+      p = [req.user.reseller_id];
+      const sub = `(SELECT m.id FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1)`;
+      aeWhere = `WHERE mailbox_id IN ${sub}`; aeAnd = `AND mailbox_id IN ${sub}`;
+      logScope = `AND a.email_id IN (SELECT ae.id::text FROM archived_emails ae JOIN mailboxes m ON m.id=ae.mailbox_id JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1)`;
+    } else if (req.user.role === 'admin') {
+      p = [req.user.client_id];
+      const sub = `(SELECT id FROM mailboxes WHERE client_id=$1)`;
+      aeWhere = `WHERE mailbox_id IN ${sub}`; aeAnd = `AND mailbox_id IN ${sub}`;
+      logScope = `AND a.email_id IN (SELECT ae.id::text FROM archived_emails ae JOIN mailboxes m ON m.id=ae.mailbox_id WHERE m.client_id=$1)`;
+    }
     const [totals, byStatus, recent, topViruses] = await Promise.all([
       db.query(`
         SELECT
@@ -1168,23 +1202,23 @@ router.get('/av-stats', async (req, res) => {
           COUNT(*) FILTER (WHERE av_status = 'infected') as infected,
           COUNT(*) FILTER (WHERE av_status = 'clean') as clean,
           COUNT(*) FILTER (WHERE has_attachments = true AND av_status IS NULL) as pending
-        FROM archived_emails`),
+        FROM archived_emails ${aeWhere}`, p),
       db.query(`
         SELECT av_status, COUNT(*) as count
-        FROM archived_emails WHERE av_status IS NOT NULL
-        GROUP BY av_status`),
+        FROM archived_emails WHERE av_status IS NOT NULL ${aeAnd}
+        GROUP BY av_status`, p),
       db.query(`
         SELECT a.email_id, a.filename, a.status, a.viruses, a.created_at,
                ae.subject, ae.sender_email, m.email as mailbox_email
         FROM av_log a
         JOIN archived_emails ae ON ae.id::text = a.email_id::text
         JOIN mailboxes m ON m.id = ae.mailbox_id
-        WHERE a.status = 'infected'
-        ORDER BY a.created_at DESC LIMIT 10`),
+        WHERE a.status = 'infected' ${logScope}
+        ORDER BY a.created_at DESC LIMIT 10`, p),
       db.query(`
         SELECT unnest(viruses) as virus, COUNT(*) as count
-        FROM av_log WHERE status = 'infected'
-        GROUP BY virus ORDER BY count DESC LIMIT 10`),
+        FROM av_log a WHERE status = 'infected' ${logScope}
+        GROUP BY virus ORDER BY count DESC LIMIT 10`, p),
     ]);
     res.json({
       totals: totals.rows[0],
