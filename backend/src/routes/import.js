@@ -12,7 +12,24 @@ const { simpleParser } = require('mailparser');
 const gzip = promisify(zlib.gzip);
 
 router.use(authMiddleware);
-router.use(requireRole('admin', 'superadmin'));
+router.use(requireRole('admin', 'superadmin', 'reseller'));
+
+// Gate import: il reseller richiede feat_import; tutti (tranne superadmin) possono
+// importare solo nelle PROPRIE caselle. Scrive la risposta d'errore e ritorna false.
+const guardImport = async (db, req, res, mailboxId) => {
+  if (req.user.role === 'reseller') {
+    const f = (await db.query('SELECT feat_import FROM resellers WHERE id=$1', [req.user.reseller_id])).rows[0];
+    if (!f?.feat_import) { res.status(403).json({ error: 'Funzione non abilitata per questo rivenditore', code: 'MH-1003' }); return false; }
+  }
+  if (req.user.role === 'superadmin') return true;
+  const m = (await db.query('SELECT m.client_id, c.reseller_id FROM mailboxes m LEFT JOIN clients c ON c.id=m.client_id WHERE m.id=$1', [mailboxId])).rows[0];
+  if (!m) { res.status(404).json({ error: 'Casella non trovata' }); return false; }
+  const ok = req.user.role === 'reseller'
+    ? (m.reseller_id != null && m.reseller_id === req.user.reseller_id)
+    : (m.client_id != null && m.client_id === req.user.client_id);
+  if (!ok) { res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return false; }
+  return true;
+};
 
 const upload = multer({
   dest: '/tmp/mh_import/',
@@ -106,6 +123,7 @@ router.post('/eml', upload.single('file'), async (req, res) => {
   const { mailbox_id, folder = 'Importata' } = req.body;
   if (!req.file) return res.status(400).json({ error: 'File mancante' });
   if (!mailbox_id) return res.status(400).json({ error: 'mailbox_id richiesto' });
+  if (!(await guardImport(db, req, res, parseInt(mailbox_id)))) return;
   try {
     const raw = fs.readFileSync(req.file.path);
     const result = await insertEmail(db, parseInt(mailbox_id), raw, folder);
@@ -123,6 +141,7 @@ router.post('/zip', upload.single('file'), async (req, res) => {
   const { mailbox_id, folder = 'Importata' } = req.body;
   if (!req.file) return res.status(400).json({ error: 'File mancante' });
   if (!mailbox_id) return res.status(400).json({ error: 'mailbox_id richiesto' });
+  if (!(await guardImport(db, req, res, parseInt(mailbox_id)))) return;
 
   const AdmZip = require('adm-zip');
   let inserted = 0, skipped = 0, errors = 0;
@@ -161,6 +180,7 @@ router.post('/mbox', upload.single('file'), async (req, res) => {
   const { mailbox_id, folder = 'Importata' } = req.body;
   if (!req.file) return res.status(400).json({ error: 'File mancante' });
   if (!mailbox_id) return res.status(400).json({ error: 'mailbox_id richiesto' });
+  if (!(await guardImport(db, req, res, parseInt(mailbox_id)))) return;
 
   let inserted = 0, skipped = 0, errors = 0;
   try {
@@ -194,6 +214,7 @@ router.post('/pst', upload.single('file'), async (req, res) => {
   const { mailbox_id } = req.body;
   if (!req.file) return res.status(400).json({ error: 'File mancante' });
   if (!mailbox_id) return res.status(400).json({ error: 'mailbox_id richiesto' });
+  if (!(await guardImport(db, req, res, parseInt(mailbox_id)))) return;
 
   let inserted = 0, skipped = 0, errors = 0;
   const errorList = [];

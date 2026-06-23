@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.38] - 2026-06-23
+### Added
+- **Import per il reseller (Fase 3a-bis)**: con `feat_import` attivo il rivenditore
+  può importare email (EML/ZIP/MBOX/PST) solo nelle caselle dei propri clienti.
+### Fixed
+- **Sicurezza Import**: le route `/import/*` ora validano che la casella di
+  destinazione appartenga al chiamante (prima un admin poteva importare in
+  qualunque casella). Il superadmin resta senza vincoli.
 ## [0.1.37] - 2026-06-23
 ### Added
 - **Feature a pacchetto per il reseller (Fase 3a)**: nuovi flag attivabili dal
