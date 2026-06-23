@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.42] - 2026-06-23
+### Added
+- **Antivirus e Antispam come feature a pacchetto reseller** (`feat_antivirus`,
+  `feat_antispam`): il rivenditore vede la sezione Antivirus (stato+log) e la
+  pagina Antispam solo se abilitate, e solo sui propri clienti.
+### Changed
+- L'Antivirus e' stato separato dal pacchetto Log: `feat_logs` ora copre solo
+  Accessi e Sync; l'Antivirus dipende da `feat_antivirus`. La pagina Log mostra
+  le tab in base ai flag. Il toggle notifiche AV (globale) resta solo superadmin.
 ## [0.1.41] - 2026-06-23
 ### Added
 - **Backup reseller — Fase 3c-1 (config)**: `backup_config`/`backup_log` ora

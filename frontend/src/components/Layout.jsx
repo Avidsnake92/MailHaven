@@ -50,6 +50,11 @@ export default function Layout() {
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
   const isSuper = user?.role === 'superadmin'
   const isManager = isAdmin || user?.role === 'reseller'
+  const isReseller = user?.role === 'reseller'
+  // Feature visibili: admin/superadmin sempre; reseller solo se il flag è attivo.
+  const canLogs = isAdmin || (isReseller && user?.feat?.logs)
+  const canAv = isAdmin || (isReseller && user?.feat?.antivirus)
+  const canAntispam = !isReseller || user?.feat?.antispam
 
   // Header di un gruppo a comparsa
   const groupBtn = (label, Icon, open, toggle) => (
@@ -70,7 +75,7 @@ export default function Layout() {
       <NavLink to="/dashboard" className={navClass}><LayoutDashboard size={17} /> Dashboard</NavLink>
       <NavLink to="/" end className={navClass}><Mail size={17} /> Email Archiviate</NavLink>
       <NavLink to="/global-search" className={navClass}><Search size={17} /> Ricerca Globale</NavLink>
-      <NavLink to="/antispam" className={navClass}><ShieldAlert size={17} /> Antispam</NavLink>
+      {canAntispam && <NavLink to="/antispam" className={navClass}><ShieldAlert size={17} /> Antispam</NavLink>}
 
       {isManager && (<>
         {sectionLabel('Gestione')}
@@ -80,11 +85,11 @@ export default function Layout() {
           {(isAdmin || (user?.role === 'reseller' && user?.feat?.legal_hold)) && <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>}
           {(isAdmin || (user?.role === 'reseller' && user?.feat?.import)) && <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>}
         </div>}
-        {(isAdmin || (user?.role === 'reseller' && user?.feat?.logs)) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
-        {(isAdmin || (user?.role === 'reseller' && user?.feat?.logs)) && logOpen && <div className="space-y-0.5">
-          <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Accessi</NavLink>
-          <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>
-          <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>
+        {(canLogs || canAv) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
+        {(canLogs || canAv) && logOpen && <div className="space-y-0.5">
+          {canLogs && <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Accessi</NavLink>}
+          {canLogs && <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>}
+          {canAv && <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>}
         </div>}
       </>)}
 

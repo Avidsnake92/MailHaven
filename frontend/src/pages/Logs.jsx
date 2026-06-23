@@ -563,7 +563,10 @@ function SyncLog() {
 
 export default function Logs() {
   const [searchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') || 'activity'
+  const { user } = useAuth()
+  const feat = user?.feat
+  let activeTab = searchParams.get('tab')
+  if (!activeTab) activeTab = (user?.role === 'reseller' && !feat?.logs && feat?.antivirus) ? 'av' : 'activity'
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto h-full overflow-y-auto fade-in">

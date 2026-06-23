@@ -17,10 +17,10 @@ const { encrypt, decrypt } = require('../services/crypto');
 // Feature attivabili del reseller (per i gate frontend/backend). null se non reseller.
 const getResellerFeat = async (db, resellerId) => {
   if (!resellerId) return null;
-  const r = await db.query('SELECT feat_legal_hold, feat_import, feat_logs, feat_backup FROM resellers WHERE id=$1', [resellerId]);
+  const r = await db.query('SELECT feat_legal_hold, feat_import, feat_logs, feat_backup, feat_antivirus, feat_antispam FROM resellers WHERE id=$1', [resellerId]);
   const f = r.rows[0];
   if (!f) return null;
-  return { legal_hold: f.feat_legal_hold, import: f.feat_import, logs: f.feat_logs, backup: f.feat_backup };
+  return { legal_hold: f.feat_legal_hold, import: f.feat_import, logs: f.feat_logs, backup: f.feat_backup, antivirus: f.feat_antivirus, antispam: f.feat_antispam };
 };
 
 // ── Multer — inizializzato una volta sola al caricamento del modulo ─────────

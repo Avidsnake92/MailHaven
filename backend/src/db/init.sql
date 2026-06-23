@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS resellers (
   feat_import BOOLEAN DEFAULT false,
   feat_logs BOOLEAN DEFAULT false,
   feat_backup BOOLEAN DEFAULT false,
+  feat_antivirus BOOLEAN DEFAULT false,
+  feat_antispam BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

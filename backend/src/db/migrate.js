@@ -189,6 +189,8 @@ const migrate = async (db) => {
   await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_import BOOLEAN DEFAULT false`);
   await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_logs BOOLEAN DEFAULT false`);
   await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_backup BOOLEAN DEFAULT false`);
+  await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_antivirus BOOLEAN DEFAULT false`);
+  await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_antispam BOOLEAN DEFAULT false`);
   // Un cliente può appartenere a un reseller (NULL = cliente diretto del superadmin)
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE SET NULL`);
   // L'utente di login 'reseller' è legato alla sua riga resellers

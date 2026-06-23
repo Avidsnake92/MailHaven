@@ -265,13 +265,13 @@ router.get('/resellers', requireRole('superadmin'), async (req, res) => {
 
 router.post('/resellers', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup } = req.body;
+  const { name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup, feat_antivirus, feat_antispam } = req.body;
   try {
     const r = await db.query(
-      `INSERT INTO resellers (name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      `INSERT INTO resellers (name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup, feat_antivirus, feat_antispam)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [name, company, normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users),
-       !!feat_legal_hold, !!feat_import, !!feat_logs, !!feat_backup]
+       !!feat_legal_hold, !!feat_import, !!feat_logs, !!feat_backup, !!feat_antivirus, !!feat_antispam]
     );
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -279,16 +279,17 @@ router.post('/resellers', requireRole('superadmin'), async (req, res) => {
 
 router.put('/resellers/:id', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, active, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup } = req.body;
+  const { name, company, active, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup, feat_antivirus, feat_antispam } = req.body;
   try {
     const r = await db.query(
       `UPDATE resellers SET name=$1, company=$2, active=$3,
          quota_bytes=$4, max_mailboxes=$5, max_users=$6,
-         feat_legal_hold=$7, feat_import=$8, feat_logs=$9, feat_backup=$10, updated_at=NOW()
-       WHERE id=$11 RETURNING *`,
+         feat_legal_hold=$7, feat_import=$8, feat_logs=$9, feat_backup=$10,
+         feat_antivirus=$11, feat_antispam=$12, updated_at=NOW()
+       WHERE id=$13 RETURNING *`,
       [name, company, active !== undefined ? active : true,
        normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users),
-       !!feat_legal_hold, !!feat_import, !!feat_logs, !!feat_backup, req.params.id]
+       !!feat_legal_hold, !!feat_import, !!feat_logs, !!feat_backup, !!feat_antivirus, !!feat_antispam, req.params.id]
     );
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -987,7 +988,7 @@ router.post('/users/:id/reset-2fa', requireRole('superadmin'), async (req, res) 
 // ---- AV LOG ----
 router.get('/av-logs', async (req, res) => {
   const db = req.app.locals.db;
-  if (!(await resellerFeatOk(db, req, res, 'feat_logs'))) return;
+  if (!(await resellerFeatOk(db, req, res, 'feat_antivirus'))) return;
   const { page = 1, limit = 50, status } = req.query;
   const offset = (page - 1) * limit;
   try {
@@ -1180,7 +1181,7 @@ router.get('/stats/overview', authMiddleware, async (req, res) => {
 // ---- AV STATISTICS ----
 router.get('/av-stats', async (req, res) => {
   const db = req.app.locals.db;
-  if (!(await resellerFeatOk(db, req, res, 'feat_logs'))) return;
+  if (!(await resellerFeatOk(db, req, res, 'feat_antivirus'))) return;
   try {
     // Scoping per ruolo: filtri su archived_emails (ae) e su av_log (via email_id)
     let aeWhere = '', aeAnd = '', logScope = '', p = [];

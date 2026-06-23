@@ -4,6 +4,15 @@ const { authMiddleware } = require('../middleware/auth');
 const { simpleParser } = require('mailparser');
 
 router.use(authMiddleware);
+// Il reseller accede all'antispam solo con feat_antispam attivo (gli altri ruoli passano).
+router.use(async (req, res, next) => {
+  if (req.user.role !== 'reseller') return next();
+  try {
+    const f = (await req.app.locals.db.query('SELECT feat_antispam FROM resellers WHERE id=$1', [req.user.reseller_id])).rows[0];
+    if (!f || !f.feat_antispam) return res.status(403).json({ error: 'Funzione non abilitata per questo rivenditore', code: 'MH-1003' });
+    next();
+  } catch (e) { res.status(500).json({ error: 'Errore server' }); }
+});
 
 const getUserMailboxIds = async (db, user) => {
   if (user.role === 'superadmin') {

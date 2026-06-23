@@ -1434,7 +1434,7 @@ function ResellersTab({ branding, user }) {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [deleteItem, setDeleteItem] = useState(null)
-  const emptyForm = { name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '', feat_legal_hold: false, feat_import: false, feat_logs: false, feat_backup: false }
+  const emptyForm = { name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '', feat_legal_hold: false, feat_import: false, feat_logs: false, feat_backup: false, feat_antivirus: false, feat_antispam: false }
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [userFor, setUserFor] = useState(null)
@@ -1451,7 +1451,7 @@ function ResellersTab({ branding, user }) {
     setForm({ name: r.name, company: r.company || '', active: r.active,
       quota_gb: r.quota_bytes != null ? +(r.quota_bytes / GB).toFixed(2) : '',
       max_mailboxes: r.max_mailboxes ?? '', max_users: r.max_users ?? '',
-      feat_legal_hold: !!r.feat_legal_hold, feat_import: !!r.feat_import, feat_logs: !!r.feat_logs, feat_backup: !!r.feat_backup })
+      feat_legal_hold: !!r.feat_legal_hold, feat_import: !!r.feat_import, feat_logs: !!r.feat_logs, feat_backup: !!r.feat_backup, feat_antivirus: !!r.feat_antivirus, feat_antispam: !!r.feat_antispam })
     setEditItem(r); setShowForm(true)
   }
   const handleSave = async () => {
@@ -1460,7 +1460,7 @@ function ResellersTab({ branding, user }) {
       quota_bytes: form.quota_gb === '' ? null : Math.round(Number(form.quota_gb) * GB),
       max_mailboxes: form.max_mailboxes === '' ? null : Number(form.max_mailboxes),
       max_users: form.max_users === '' ? null : Number(form.max_users),
-      feat_legal_hold: form.feat_legal_hold, feat_import: form.feat_import, feat_logs: form.feat_logs, feat_backup: form.feat_backup }
+      feat_legal_hold: form.feat_legal_hold, feat_import: form.feat_import, feat_logs: form.feat_logs, feat_backup: form.feat_backup, feat_antivirus: form.feat_antivirus, feat_antispam: form.feat_antispam }
     try { if (editItem) await api.put(`/admin/resellers/${editItem.id}`, payload); else await api.post('/admin/resellers', payload); setShowForm(false); load() }
     catch (e) { alert(e.response?.data?.error || 'Errore') } finally { setSaving(false) }
   }
@@ -1522,7 +1522,7 @@ function ResellersTab({ branding, user }) {
         <div className="pt-3 border-t border-gray-100">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Funzioni incluse</p>
           <div className="grid grid-cols-2 gap-2">
-            {[['feat_legal_hold', 'Legal Hold'], ['feat_import', 'Import email'], ['feat_logs', 'Log (propri clienti)'], ['feat_backup', 'Backup propri clienti']].map(([k, label]) => (
+            {[['feat_legal_hold', 'Legal Hold'], ['feat_import', 'Import email'], ['feat_logs', 'Log (Accessi/Sync)'], ['feat_antivirus', 'Antivirus'], ['feat_antispam', 'Antispam'], ['feat_backup', 'Backup propri clienti']].map(([k, label]) => (
               <label key={k} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input type="checkbox" checked={!!form[k]} onChange={e => setForm({ ...form, [k]: e.target.checked })} className="rounded border-gray-300" />
                 {label}
