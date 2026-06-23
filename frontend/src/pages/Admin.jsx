@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight, Store, KeyRound } from 'lucide-react'
 
-const tabs = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
+const BASE_TABS = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
 
 // ═══════════════════════════════════════════════════════════════
 // StorageTab — embedded in Gestione
@@ -254,6 +254,7 @@ export default function Admin() {
   },[])
   const { user } = useAuth()
   const { branding } = useBranding()
+  const tabs = user?.role === 'superadmin' ? [...BASE_TABS, 'Rivenditori'] : BASE_TABS
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto h-full overflow-y-auto fade-in">
@@ -271,6 +272,7 @@ export default function Admin() {
             {i === 0 && <Building2 size={14} />}
             {i === 1 && <Users size={14} />}
             {i === 2 && <Inbox size={14} />}
+            {i === 4 && <Store size={14} />}
             {t}
           </button>
         ))}
@@ -280,6 +282,7 @@ export default function Admin() {
       {tab === 1 && <UsersTab branding={branding} user={user} />}
       {tab === 2 && <MailboxesTab branding={branding} user={user} />}
       {tab === 3 && <StorageTab user={user} />}
+      {tab === 4 && user?.role === 'superadmin' && <ResellersTab branding={branding} user={user} />}
       {gToast&&(<div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl text-sm font-semibold ${gToast.type==="success"?"bg-green-600 text-white":"bg-red-600 text-white"}`}>{gToast.type==="success"?<CheckCircle2 size={18}/>:<AlertCircle size={18}/>}{gToast.msg}<button onClick={()=>setGToast(null)} className="ml-2 opacity-70 hover:opacity-100"><X size={14}/></button></div>)}
     </div>
   )
@@ -526,11 +529,11 @@ function ClientsTab({ branding, user }) {
     <>
       <div className="bg-white border border-gray-200 rounded-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-xl">
-          <h2 className="font-semibold text-gray-900">Clienti ({clients.length})</h2>
-          {user.role === 'superadmin' && (
+          <h2 className="font-semibold text-gray-900">{user.role === 'reseller' ? 'Aziende' : 'Clienti'} ({clients.length})</h2>
+          {(user.role === 'superadmin' || user.role === 'reseller') && (
             <button onClick={openNew} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white"
               style={{ background: branding.primary_color || '#2563eb' }}>
-              <Plus size={14} /> Nuovo cliente
+              <Plus size={14} /> {user.role === 'reseller' ? 'Nuova azienda' : 'Nuovo cliente'}
             </button>
           )}
         </div>
@@ -593,7 +596,7 @@ function ClientsTab({ branding, user }) {
                 <span className="text-xs text-gray-500">{form.active ? 'Attivo' : 'Disabilitato'}</span>
               </div>
             )}
-            {user.role === 'superadmin' && (
+            {(user.role === 'superadmin' || user.role === 'reseller') && (
               <div className="pt-3 border-t border-gray-100">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Quote</p>
                 <p className="text-xs text-gray-400 mb-3">Lascia vuoto per illimitato. Al superamento si blocca la creazione di nuove risorse, mai l'archiviazione.</p>
@@ -793,6 +796,7 @@ function UsersTab({ branding, user }) {
                 <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none">
                   {user.role === 'superadmin' && <><option value="superadmin">Super Admin</option><option value="admin">Admin</option></>}
+                  {user.role === 'reseller' && <option value="admin">Admin</option>}
                   <option value="user">Utente</option>
                 </select>
               </div>
@@ -1418,4 +1422,111 @@ function MailboxesTab({ branding, user }) {
       {deleteItem && <ConfirmDelete name={deleteItem.email} onConfirm={handleDelete} onCancel={() => setDeleteItem(null)} />}
     </>
   )
+}
+
+// ── RIVENDITORI (solo superadmin) ──
+function ResellersTab({ branding, user }) {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editItem, setEditItem] = useState(null)
+  const [deleteItem, setDeleteItem] = useState(null)
+  const [form, setForm] = useState({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' })
+  const [saving, setSaving] = useState(false)
+  const [userFor, setUserFor] = useState(null)
+  const [uForm, setUForm] = useState({ email: '', password: '', full_name: '' })
+  const [uSaving, setUSaving] = useState(false)
+  const GB = 1024 * 1024 * 1024
+
+  const fmt = (b) => { if (!b) return '0 B'; const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB']; const i = Math.floor(Math.log(b) / Math.log(k)); return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + s[i] }
+  const load = () => { setLoading(true); api.get('/admin/resellers').then(r => setItems(r.data)).finally(() => setLoading(false)) }
+  useEffect(() => { load() }, [])
+
+  const openNew = () => { setForm({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' }); setEditItem(null); setShowForm(true) }
+  const openEdit = (r) => {
+    setForm({ name: r.name, company: r.company || '', active: r.active,
+      quota_gb: r.quota_bytes != null ? +(r.quota_bytes / GB).toFixed(2) : '',
+      max_mailboxes: r.max_mailboxes ?? '', max_users: r.max_users ?? '' })
+    setEditItem(r); setShowForm(true)
+  }
+  const handleSave = async () => {
+    setSaving(true)
+    const payload = { name: form.name, company: form.company, active: form.active,
+      quota_bytes: form.quota_gb === '' ? null : Math.round(Number(form.quota_gb) * GB),
+      max_mailboxes: form.max_mailboxes === '' ? null : Number(form.max_mailboxes),
+      max_users: form.max_users === '' ? null : Number(form.max_users) }
+    try { if (editItem) await api.put(`/admin/resellers/${editItem.id}`, payload); else await api.post('/admin/resellers', payload); setShowForm(false); load() }
+    catch (e) { alert(e.response?.data?.error || 'Errore') } finally { setSaving(false) }
+  }
+  const handleDelete = async () => { try { await api.delete(`/admin/resellers/${deleteItem.id}`) } catch {} setDeleteItem(null); load() }
+
+  const openUser = (r) => { setUserFor(r); setUForm({ email: '', password: generatePassword(), full_name: r.name + ' (accesso)' }) }
+  const saveUser = async () => {
+    setUSaving(true)
+    try { await api.post('/admin/users', { email: uForm.email, password: uForm.password, full_name: uForm.full_name, role: 'reseller', reseller_id: userFor.id }); setUserFor(null) }
+    catch (e) { alert(e.response?.data?.error || 'Errore') } finally { setUSaving(false) }
+  }
+
+  const bar = (pct, over) => (<div className="w-full bg-gray-100 rounded-full h-1.5 mt-1"><div className={`h-1.5 rounded-full ${over || pct > 85 ? 'bg-red-500' : pct > 65 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(pct || 0, 100)}%` }} /></div>)
+
+  return (<>
+    <div className="bg-white border border-gray-200 rounded-xl">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h2 className="font-semibold text-gray-900">Rivenditori ({items.length})</h2>
+        <button onClick={openNew} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white" style={{ background: branding.primary_color || '#2563eb' }}><Plus size={14} /> Nuovo rivenditore</button>
+      </div>
+      {loading ? (<div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>)
+        : items.length === 0 ? (<div className="text-center py-16"><Store size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun rivenditore</p></div>)
+        : (<div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b border-gray-100">
+          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rivenditore</th>
+          <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Aziende</th>
+          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-56">Spazio (uso / pacchetto)</th>
+          <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Caselle</th>
+          <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Utenti</th>
+          <th className="px-6 py-3 w-20"></th></tr></thead>
+          <tbody>{items.map(r => {
+            const used = parseInt(r.used_bytes || 0), q = r.quota_bytes != null ? parseInt(r.quota_bytes) : null
+            const pct = q && q > 0 ? Math.round(used / q * 100) : null, over = q != null && used >= q
+            return (<tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
+              <td className="px-6 py-3.5"><p className="text-sm font-medium text-gray-900">{r.name}</p>{r.company && <p className="text-xs text-gray-500">{r.company}</p>}{!r.active && <span className="text-xs text-gray-400">disabilitato</span>}</td>
+              <td className="px-6 py-3.5 text-right text-sm text-gray-600">{r.client_count}</td>
+              <td className="px-6 py-3.5">{q != null ? (<div><div className="flex justify-between text-xs"><span className={over ? 'text-red-600 font-semibold' : 'text-gray-500'}>{pct}%{over ? ' • superata' : ''}</span><span className="text-gray-400">{fmt(used)} / {fmt(q)}</span></div>{bar(pct, over)}</div>) : (<span className="text-xs text-gray-300">∞ illimitato</span>)}</td>
+              <td className="px-6 py-3.5 text-right text-sm text-gray-600">{r.mailbox_count}{r.max_mailboxes != null ? ` / ${r.max_mailboxes}` : ''}</td>
+              <td className="px-6 py-3.5 text-right text-sm text-gray-600">{r.user_count}{r.max_users != null ? ` / ${r.max_users}` : ''}</td>
+              <td className="px-4 py-3.5"><div className="flex items-center gap-1">
+                <button onClick={() => openUser(r)} title="Crea utente di accesso" className="p-1.5 text-gray-400 hover:text-blue-600"><KeyRound size={15} /></button>
+                <ActionMenu onEdit={() => openEdit(r)} onDelete={() => setDeleteItem(r)} />
+              </div></td>
+            </tr>)
+          })}</tbody></table></div>)}
+    </div>
+
+    {showForm && (<Modal title={editItem ? 'Modifica rivenditore' : 'Nuovo rivenditore'} onClose={() => setShowForm(false)}>
+      <div className="space-y-4">
+        <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Nome *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Rossi IT" /></div>
+        <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Azienda</label><input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Rossi IT Srl" /></div>
+        {editItem && (<div className="flex items-center gap-3"><label className="text-xs font-medium text-gray-600">Stato</label><button onClick={() => setForm({ ...form, active: !form.active })} className={`relative inline-flex h-5 w-9 items-center rounded-full ${form.active ? 'bg-green-500' : 'bg-gray-300'}`}><span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} /></button><span className="text-xs text-gray-500">{form.active ? 'Attivo' : 'Disabilitato'}</span></div>)}
+        <div className="pt-3 border-t border-gray-100"><p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Pacchetto venduto</p><p className="text-xs text-gray-400 mb-3">Vuoto = illimitato. Il rivenditore distribuisce queste quote tra i suoi clienti.</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Spazio (GB)</label><input type="number" min="0" step="1" value={form.quota_gb} onChange={e => setForm({ ...form, quota_gb: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Caselle max</label><input type="number" min="0" step="1" value={form.max_mailboxes} onChange={e => setForm({ ...form, max_mailboxes: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>
+            <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Utenti max</label><input type="number" min="0" step="1" value={form.max_users} onChange={e => setForm({ ...form, max_users: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>
+          </div>
+        </div>
+        <div className="flex gap-3 pt-2"><button onClick={handleSave} disabled={!form.name || saving} className="flex-1 flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-lg text-white disabled:opacity-50" style={{ background: branding.primary_color || '#2563eb' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{editItem ? 'Salva' : 'Crea rivenditore'}</button><button onClick={() => setShowForm(false)} className="px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Annulla</button></div>
+      </div>
+    </Modal>)}
+
+    {userFor && (<Modal title={`Utente di accesso — ${userFor.name}`} onClose={() => setUserFor(null)}>
+      <div className="space-y-4">
+        <p className="text-xs text-gray-500">Credenziali con cui il rivenditore accede per gestire i suoi clienti.</p>
+        <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Email *</label><input value={uForm.email} onChange={e => setUForm({ ...uForm, email: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="accesso@rivenditore.it" /></div>
+        <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Password *</label><div className="flex gap-2"><input value={uForm.password} onChange={e => setUForm({ ...uForm, password: e.target.value })} className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" /><button onClick={() => setUForm({ ...uForm, password: generatePassword() })} className="px-3 py-2.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50">Genera</button></div></div>
+        <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Nome</label><input value={uForm.full_name} onChange={e => setUForm({ ...uForm, full_name: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" /></div>
+        <div className="flex gap-3 pt-2"><button onClick={saveUser} disabled={!uForm.email || !uForm.password || uSaving} className="flex-1 flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-lg text-white disabled:opacity-50" style={{ background: branding.primary_color || '#2563eb' }}>{uSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}Crea accesso</button><button onClick={() => setUserFor(null)} className="px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Annulla</button></div>
+      </div>
+    </Modal>)}
+
+    {deleteItem && <ConfirmDelete name={deleteItem.name} onConfirm={handleDelete} onCancel={() => setDeleteItem(null)} />}
+  </>)
 }

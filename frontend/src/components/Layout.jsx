@@ -49,6 +49,7 @@ export default function Layout() {
   const avatarUrl = user?.avatar_url || null
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
   const isSuper = user?.role === 'superadmin'
+  const isManager = isAdmin || user?.role === 'reseller'
 
   // Header di un gruppo a comparsa
   const groupBtn = (label, Icon, open, toggle) => (
@@ -71,16 +72,16 @@ export default function Layout() {
       <NavLink to="/global-search" className={navClass}><Search size={17} /> Ricerca Globale</NavLink>
       <NavLink to="/antispam" className={navClass}><ShieldAlert size={17} /> Antispam</NavLink>
 
-      {isAdmin && (<>
+      {isManager && (<>
         {sectionLabel('Gestione')}
         {groupBtn('Amministrazione', Users, adminOpen, () => setAdminOpen(o => !o))}
         {adminOpen && <div className="space-y-0.5">
-          <NavLink to="/admin" className={subNavClass}><Users size={15} /> Utenti e Caselle</NavLink>
-          <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>
-          <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>
+          <NavLink to="/admin" className={subNavClass}><Users size={15} /> {user?.role === 'reseller' ? 'Aziende e Caselle' : 'Utenti e Caselle'}</NavLink>
+          {isAdmin && <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>}
+          {isAdmin && <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>}
         </div>}
-        {groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
-        {logOpen && <div className="space-y-0.5">
+        {isAdmin && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
+        {isAdmin && logOpen && <div className="space-y-0.5">
           <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Accessi</NavLink>
           <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>
           <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>

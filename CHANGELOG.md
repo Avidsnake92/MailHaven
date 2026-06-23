@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.36] - 2026-06-23
+### Added
+- **Reseller — UI (Fase 2)**: nuova tab "Rivenditori" (solo superadmin) con
+  pacchetto e uso aggregato (spazio/caselle/utenti/aziende), creazione/modifica
+  rivenditore e creazione del relativo utente di accesso.
+- Vista rivenditore: menu ridotto (Principale + Gestione "Aziende e Caselle"),
+  può creare le proprie aziende con sotto-quote e creare utenti/admin per esse.
+  Route /admin accessibile anche al ruolo reseller.
 ## [0.1.35] - 2026-06-23
 ### Added
 - **Reseller (MSP multi-livello) — fondamenta backend**: nuovo ruolo `reseller`
