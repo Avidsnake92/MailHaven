@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.35] - 2026-06-23
+### Added
+- **Reseller (MSP multi-livello) — fondamenta backend**: nuovo ruolo `reseller`
+  che gestisce solo i propri clienti (aziende), i loro utenti e caselle.
+  - Nuova tabella `resellers` (pacchetto venduto: spazio/caselle/utenti) +
+    `clients.reseller_id` e `users.reseller_id`. `reseller_id` incluso nel JWT.
+  - Isolamento: il reseller vede e modifica SOLO i propri clienti (scoping in
+    `getUserMailboxIds`, `checkMailbox`/`checkUser`, liste clienti/utenti/caselle,
+    storage). Allowlist: al reseller sono negate le route di sistema (log,
+    impostazioni, backup, statistiche, storage VM).
+  - CRUD clienti per il reseller (crea/modifica/elimina solo i propri).
+  - Quote a due livelli: la somma delle sotto-quote dei clienti non può superare
+    il pacchetto del reseller (allocazione), e il superamento dell'uso totale del
+    pacchetto blocca la creazione di nuove risorse (l'archiviazione non si ferma).
+  - Endpoint `/admin/resellers` (solo superadmin) con uso aggregato per gestire i
+    rivenditori. Il superadmin può creare l'utente di login `reseller`.
+- Verificato con test automatico end-to-end (18/18): isolamento, allowlist e i
+  due livelli di quota.
 ## [0.1.34] - 2026-06-23
 ### Added
 - **Quote per cliente (MSP)**: nuovi limiti su `clients` — spazio (`quota_bytes`),

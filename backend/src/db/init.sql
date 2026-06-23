@@ -1,6 +1,19 @@
 -- MailHaven Database Schema
 -- Versione completa e pulita — tutte le colonne incluse
 
+-- Reseller (MSP multi-livello): pacchetto venduto al rivenditore (NULL = illimitato)
+CREATE TABLE IF NOT EXISTS resellers (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  company VARCHAR(255),
+  quota_bytes BIGINT DEFAULT NULL,
+  max_mailboxes INTEGER DEFAULT NULL,
+  max_users INTEGER DEFAULT NULL,
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -10,7 +23,8 @@ CREATE TABLE IF NOT EXISTS clients (
   active BOOLEAN DEFAULT true,
   quota_bytes BIGINT DEFAULT NULL,
   max_mailboxes INTEGER DEFAULT NULL,
-  max_users INTEGER DEFAULT NULL
+  max_users INTEGER DEFAULT NULL,
+  reseller_id INTEGER REFERENCES resellers(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -20,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name VARCHAR(255),
   role VARCHAR(50) NOT NULL DEFAULT 'user',
   client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+  reseller_id INTEGER REFERENCES resellers(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   active BOOLEAN DEFAULT true,

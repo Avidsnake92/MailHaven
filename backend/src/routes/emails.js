@@ -22,6 +22,14 @@ const getUserMailboxIds = async (db, user) => {
     );
     return r.rows.map(r => r.id);
   }
+  if (user.role === 'reseller') {
+    const r = await db.query(
+      `SELECT m.id FROM mailboxes m JOIN clients c ON c.id = m.client_id
+       WHERE c.reseller_id = $1 AND m.active = true`,
+      [user.reseller_id]
+    );
+    return r.rows.map(r => r.id);
+  }
   // Regular user — get assigned mailboxes
   const r = await db.query(
     `SELECT m.id FROM mailboxes m

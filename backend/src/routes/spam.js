@@ -14,6 +14,10 @@ const getUserMailboxIds = async (db, user) => {
     const r = await db.query('SELECT id FROM mailboxes WHERE client_id=$1 AND active=true', [user.client_id]);
     return r.rows.map(r => r.id);
   }
+  if (user.role === 'reseller') {
+    const r = await db.query(`SELECT m.id FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1 AND m.active=true`, [user.reseller_id]);
+    return r.rows.map(r => r.id);
+  }
   const r = await db.query(
     `SELECT m.id FROM mailboxes m
      JOIN user_mailboxes um ON um.mailbox_id = m.id

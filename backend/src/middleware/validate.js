@@ -119,7 +119,7 @@ const schemas = {
     email: v.email(),
     password: v.password({ min: 8 }),
     full_name: v.string({ min: 2, max: 100 }),
-    role: v.enum(['superadmin', 'admin', 'user']),
+    role: v.enum(['superadmin', 'admin', 'user', 'reseller']),
   },
   createMailbox: {
     email: v.email(),

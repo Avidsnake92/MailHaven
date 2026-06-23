@@ -22,29 +22,56 @@ const getIp = (req) => { const fwd = req.headers['x-forwarded-for']; return fwd 
 // Il superadmin ha accesso pieno; un 'admin' è confinato al proprio client_id.
 const isSuper = (req) => req.user.role === 'superadmin';
 
-// Verifica che la casella esista e appartenga al cliente dell'admin.
+// Verifica l'accesso a una risorsa data la coppia { client_id, reseller_id } del
+// cliente proprietario. superadmin: tutto; reseller: solo i propri clienti; admin:
+// solo il proprio client_id.
+const canAccessClientRow = (req, row) => {
+  if (isSuper(req)) return true;
+  if (req.user.role === 'reseller') return row.reseller_id != null && row.reseller_id === req.user.reseller_id;
+  return row.client_id != null && row.client_id === req.user.client_id;
+};
+
+// Verifica che la casella esista e sia accessibile al chiamante.
 // Scrive direttamente la risposta d'errore e ritorna null se non autorizzato.
 const checkMailbox = async (db, req, res, mailboxId) => {
-  const r = await db.query('SELECT client_id FROM mailboxes WHERE id=$1', [mailboxId]);
+  const r = await db.query(
+    'SELECT m.client_id, c.reseller_id FROM mailboxes m LEFT JOIN clients c ON c.id=m.client_id WHERE m.id=$1',
+    [mailboxId]
+  );
   if (!r.rows.length) { res.status(404).json({ error: 'Casella non trovata', code: 'MH-1201' }); return null; }
-  if (!isSuper(req) && r.rows[0].client_id !== req.user.client_id) {
-    res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return null;
-  }
+  if (!canAccessClientRow(req, r.rows[0])) { res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return null; }
   return r.rows[0];
 };
 
-// Verifica che l'utente target esista e appartenga al cliente dell'admin.
+// Verifica che l'utente target esista e sia accessibile al chiamante.
 const checkUser = async (db, req, res, userId) => {
-  const r = await db.query('SELECT client_id, role FROM users WHERE id=$1', [userId]);
+  const r = await db.query(
+    'SELECT u.client_id, u.role, c.reseller_id FROM users u LEFT JOIN clients c ON c.id=u.client_id WHERE u.id=$1',
+    [userId]
+  );
   if (!r.rows.length) { res.status(404).json({ error: 'Utente non trovato', code: 'MH-1101' }); return null; }
-  if (!isSuper(req) && r.rows[0].client_id !== req.user.client_id) {
-    res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return null;
-  }
+  if (!canAccessClientRow(req, r.rows[0])) { res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return null; }
   return r.rows[0];
 };
 
-// client_id effettivo: un admin può operare solo sul proprio cliente.
-const scopedClientId = (req, requested) => isSuper(req) ? (requested ?? null) : req.user.client_id;
+// client_id effettivo per la creazione di risorse.
+// admin: forzato al proprio; reseller/superadmin: quello richiesto (validato a parte).
+const scopedClientId = (req, requested) => {
+  if (req.user.role === 'admin') return req.user.client_id;
+  return requested ?? null;
+};
+
+// Verifica che il client_id richiesto sia gestibile dal chiamante (per le creazioni).
+const checkClientAccess = async (db, req, res, clientId) => {
+  if (isSuper(req)) return true;
+  if (!clientId) { res.status(400).json({ error: 'Cliente obbligatorio', code: 'MH-1108' }); return false; }
+  const c = (await db.query('SELECT reseller_id FROM clients WHERE id=$1', [clientId])).rows[0];
+  if (!c) { res.status(404).json({ error: 'Cliente non trovato', code: 'MH-1108' }); return false; }
+  if (!canAccessClientRow(req, { client_id: Number(clientId), reseller_id: c.reseller_id })) {
+    res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' }); return false;
+  }
+  return true;
+};
 
 // Normalizza un valore quota dal body: '' / null / non-numerico → null (illimitato).
 const normLimit = (v) => {
@@ -59,7 +86,7 @@ const normLimit = (v) => {
 // Ritorna una stringa-errore se va bloccato, altrimenti null.
 const checkClientLimits = async (db, clientId, { addMailbox = false, addUser = false } = {}) => {
   if (!clientId) return null; // risorse senza cliente: nessun limite
-  const c = (await db.query('SELECT quota_bytes, max_mailboxes, max_users FROM clients WHERE id=$1', [clientId])).rows[0];
+  const c = (await db.query('SELECT quota_bytes, max_mailboxes, max_users, reseller_id FROM clients WHERE id=$1', [clientId])).rows[0];
   if (!c) return null;
   if (addMailbox && c.max_mailboxes != null) {
     const n = (await db.query('SELECT COUNT(*)::int AS n FROM mailboxes WHERE client_id=$1', [clientId])).rows[0].n;
@@ -78,53 +105,187 @@ const checkClientLimits = async (db, clientId, { addMailbox = false, addUser = f
       return 'Quota di spazio del cliente superata: impossibile aggiungere nuove risorse (l\'archiviazione delle caselle esistenti continua comunque).';
     }
   }
+  // 2° livello: se il cliente appartiene a un reseller, verifica anche il suo pacchetto.
+  if (c.reseller_id != null) {
+    const rerr = await checkResellerLimits(db, c.reseller_id, { addMailbox, addUser });
+    if (rerr) return rerr;
+  }
+  return null;
+};
+
+// Controllo del pacchetto complessivo del reseller (somma su tutti i suoi clienti).
+const checkResellerLimits = async (db, resellerId, { addMailbox = false, addUser = false } = {}) => {
+  const rs = (await db.query('SELECT quota_bytes, max_mailboxes, max_users FROM resellers WHERE id=$1', [resellerId])).rows[0];
+  if (!rs) return null;
+  if (addMailbox && rs.max_mailboxes != null) {
+    const n = (await db.query('SELECT COUNT(*)::int AS n FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1', [resellerId])).rows[0].n;
+    if (n >= rs.max_mailboxes) return `Limite caselle del pacchetto reseller raggiunto (${rs.max_mailboxes}).`;
+  }
+  if (addUser && rs.max_users != null) {
+    const n = (await db.query('SELECT COUNT(*)::int AS n FROM users u JOIN clients c ON c.id=u.client_id WHERE c.reseller_id=$1', [resellerId])).rows[0].n;
+    if (n >= rs.max_users) return `Limite utenti del pacchetto reseller raggiunto (${rs.max_users}).`;
+  }
+  if ((addMailbox || addUser) && rs.quota_bytes != null) {
+    const used = (await db.query(
+      `SELECT COALESCE(SUM(ae.compressed_size_bytes),0)::bigint AS used
+       FROM archived_emails ae JOIN mailboxes m ON m.id=ae.mailbox_id JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1`, [resellerId]
+    )).rows[0].used;
+    if (BigInt(used) >= BigInt(rs.quota_bytes)) return 'Quota di spazio del pacchetto reseller superata: impossibile aggiungere nuove risorse (archiviazione attiva).';
+  }
+  return null;
+};
+
+// Controllo allocazione: la somma delle sotto-quote dei clienti del reseller non
+// può superare il pacchetto venduto. Ritorna stringa-errore o null.
+const checkResellerAllocation = async (db, resellerId, clientId, next) => {
+  if (resellerId == null) return null;
+  const rs = (await db.query('SELECT quota_bytes, max_mailboxes, max_users FROM resellers WHERE id=$1', [resellerId])).rows[0];
+  if (!rs) return null;
+  const o = (await db.query(
+    `SELECT COALESCE(SUM(quota_bytes),0)::bigint AS q, COALESCE(SUM(max_mailboxes),0)::int AS mb, COALESCE(SUM(max_users),0)::int AS us
+     FROM clients WHERE reseller_id=$1 AND id <> $2`, [resellerId, clientId || 0]
+  )).rows[0];
+  if (rs.quota_bytes != null && next.quota_bytes != null && BigInt(o.q) + BigInt(next.quota_bytes) > BigInt(rs.quota_bytes))
+    return 'Allocazione spazio oltre il pacchetto reseller.';
+  if (rs.max_mailboxes != null && next.max_mailboxes != null && o.mb + next.max_mailboxes > rs.max_mailboxes)
+    return 'Allocazione caselle oltre il pacchetto reseller.';
+  if (rs.max_users != null && next.max_users != null && o.us + next.max_users > rs.max_users)
+    return 'Allocazione utenti oltre il pacchetto reseller.';
   return null;
 };
 
 router.use(authMiddleware);
-router.use(requireRole('admin', 'superadmin'));
+router.use(requireRole('admin', 'superadmin', 'reseller'));
+// Il reseller può accedere SOLO alle route dati con scoping; tutto il resto
+// (log, impostazioni, backup, statistiche di sistema) è negato di default.
+const RESELLER_ALLOW = [/^\/clients/, /^\/users/, /^\/mailboxes/, /^\/storage\/clients/, /^\/storage\/mailboxes/, /^\/sync-status/];
+router.use((req, res, next) => {
+  if (req.user.role !== 'reseller') return next();
+  if (RESELLER_ALLOW.some(re => re.test(req.path))) return next();
+  return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+});
 
 // ---- CLIENTS ----
 router.get('/clients', async (req, res) => {
   const db = req.app.locals.db;
   try {
-    const result = await db.query('SELECT * FROM clients ORDER BY name');
+    let q = 'SELECT * FROM clients', params = [];
+    if (req.user.role === 'reseller') { q += ' WHERE reseller_id=$1'; params = [req.user.reseller_id]; }
+    else if (req.user.role === 'admin') { q += ' WHERE id=$1'; params = [req.user.client_id]; }
+    q += ' ORDER BY name';
+    const result = await db.query(q, params);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
-router.post('/clients', requireRole('superadmin'), async (req, res) => {
+router.post('/clients', requireRole('superadmin', 'reseller'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, quota_bytes, max_mailboxes, max_users } = req.body;
+  const { name, company, quota_bytes, max_mailboxes, max_users, reseller_id } = req.body;
   try {
+    // Il reseller crea solo aziende proprie; il superadmin può assegnarle a un reseller.
+    const ownerResellerId = req.user.role === 'reseller' ? req.user.reseller_id : (reseller_id ?? null);
+    const ql = normLimit(quota_bytes), mb = normLimit(max_mailboxes), us = normLimit(max_users);
+    if (ownerResellerId != null) {
+      const allocErr = await checkResellerAllocation(db, ownerResellerId, null, { quota_bytes: ql, max_mailboxes: mb, max_users: us });
+      if (allocErr) return res.status(409).json({ error: allocErr, code: 'MH-1110' });
+    }
     const result = await db.query(
-      'INSERT INTO clients (name, company, quota_bytes, max_mailboxes, max_users) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [name, company, normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users)]
+      'INSERT INTO clients (name, company, quota_bytes, max_mailboxes, max_users, reseller_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [name, company, ql, mb, us, ownerResellerId]
     );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
-router.put('/clients/:id', requireRole('superadmin'), async (req, res) => {
+router.put('/clients/:id', requireRole('superadmin', 'reseller'), async (req, res) => {
+  const db = req.app.locals.db;
+  const { name, company, active, quota_bytes, max_mailboxes, max_users, reseller_id } = req.body;
+  try {
+    const existing = (await db.query('SELECT reseller_id FROM clients WHERE id=$1', [req.params.id])).rows[0];
+    if (!existing) return res.status(404).json({ error: 'Cliente non trovato', code: 'MH-1108' });
+    if (req.user.role === 'reseller' && existing.reseller_id !== req.user.reseller_id) {
+      return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    }
+    // reseller: resta suo; superadmin: può riassegnare (se passa reseller_id), altrimenti invariato.
+    const ownerResellerId = req.user.role === 'reseller'
+      ? req.user.reseller_id
+      : (reseller_id !== undefined ? (reseller_id ?? null) : existing.reseller_id);
+    const ql = normLimit(quota_bytes), mb = normLimit(max_mailboxes), us = normLimit(max_users);
+    if (ownerResellerId != null) {
+      const allocErr = await checkResellerAllocation(db, ownerResellerId, req.params.id, { quota_bytes: ql, max_mailboxes: mb, max_users: us });
+      if (allocErr) return res.status(409).json({ error: allocErr, code: 'MH-1110' });
+    }
+    const result = await db.query(
+      `UPDATE clients SET name=$1, company=$2, active=$3,
+         quota_bytes=$4, max_mailboxes=$5, max_users=$6, reseller_id=$7, updated_at=NOW()
+       WHERE id=$8 RETURNING *`,
+      [name, company, active !== undefined ? active : true, ql, mb, us, ownerResellerId, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
+router.delete('/clients/:id', requireRole('superadmin', 'reseller'), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    if (req.user.role === 'reseller') {
+      const owned = (await db.query('SELECT reseller_id FROM clients WHERE id=$1', [req.params.id])).rows[0];
+      if (!owned) return res.status(404).json({ error: 'Cliente non trovato', code: 'MH-1108' });
+      if (owned.reseller_id !== req.user.reseller_id) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    }
+    await db.query('DELETE FROM clients WHERE id=$1', [req.params.id]);
+    res.json({ message: 'Cliente eliminato' });
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
+// ---- RESELLERS (solo superadmin) ----
+router.get('/resellers', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query(`
+      SELECT r.*,
+        (SELECT COUNT(*) FROM clients c WHERE c.reseller_id=r.id) AS client_count,
+        (SELECT COUNT(*) FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=r.id) AS mailbox_count,
+        (SELECT COUNT(*) FROM users u JOIN clients c ON c.id=u.client_id WHERE c.reseller_id=r.id) AS user_count,
+        (SELECT COALESCE(SUM(ae.compressed_size_bytes),0) FROM archived_emails ae
+           JOIN mailboxes m ON m.id=ae.mailbox_id JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=r.id) AS used_bytes
+      FROM resellers r ORDER BY r.name`);
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/resellers', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  const { name, company, quota_bytes, max_mailboxes, max_users } = req.body;
+  try {
+    const r = await db.query(
+      'INSERT INTO resellers (name, company, quota_bytes, max_mailboxes, max_users) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [name, company, normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users)]
+    );
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
+router.put('/resellers/:id', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
   const { name, company, active, quota_bytes, max_mailboxes, max_users } = req.body;
   try {
-    const result = await db.query(
-      `UPDATE clients SET name=$1, company=$2, active=$3,
+    const r = await db.query(
+      `UPDATE resellers SET name=$1, company=$2, active=$3,
          quota_bytes=$4, max_mailboxes=$5, max_users=$6, updated_at=NOW()
        WHERE id=$7 RETURNING *`,
       [name, company, active !== undefined ? active : true,
        normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users), req.params.id]
     );
-    res.json(result.rows[0]);
+    res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
-router.delete('/clients/:id', requireRole('superadmin'), async (req, res) => {
+router.delete('/resellers/:id', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
   try {
-    await db.query('DELETE FROM clients WHERE id=$1', [req.params.id]);
-    res.json({ message: 'Cliente eliminato' });
+    await db.query('DELETE FROM resellers WHERE id=$1', [req.params.id]);
+    res.json({ message: 'Reseller eliminato' });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
@@ -132,16 +293,19 @@ router.delete('/clients/:id', requireRole('superadmin'), async (req, res) => {
 router.get('/users', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    const cols = `u.id, u.email, u.full_name, u.role, u.active, u.last_login, u.client_id, c.name as client_name, c.company as client_company`;
     let result;
     if (req.user.role === 'superadmin') {
+      result = await db.query(`SELECT ${cols} FROM users u LEFT JOIN clients c ON u.client_id = c.id ORDER BY u.created_at DESC`);
+    } else if (req.user.role === 'reseller') {
       result = await db.query(
-        `SELECT u.id, u.email, u.full_name, u.role, u.active, u.last_login, u.client_id, c.name as client_name, c.company as client_company
-         FROM users u LEFT JOIN clients c ON u.client_id = c.id ORDER BY u.created_at DESC`
+        `SELECT ${cols} FROM users u JOIN clients c ON u.client_id = c.id
+         WHERE c.reseller_id = $1 ORDER BY u.created_at DESC`,
+        [req.user.reseller_id]
       );
     } else {
       result = await db.query(
-        `SELECT u.id, u.email, u.full_name, u.role, u.active, u.last_login, u.client_id, c.name as client_name, c.company as client_company
-         FROM users u LEFT JOIN clients c ON u.client_id = c.id
+        `SELECT ${cols} FROM users u LEFT JOIN clients c ON u.client_id = c.id
          WHERE u.client_id = $1 ORDER BY u.created_at DESC`,
         [req.user.client_id]
       );
@@ -153,20 +317,27 @@ router.get('/users', async (req, res) => {
 router.post('/users', validate(schemas.createUser), async (req, res, next) => {
   const db = req.app.locals.db;
   const { email, password, full_name, role, client_id } = req.body;
+  // Un admin crea solo 'user'; un reseller crea 'user' o 'admin' (mai reseller/superadmin).
   if (req.user.role === 'admin' && role !== 'user') {
+    return next(new AppError(ERRORS.MH_1004));
+  }
+  if (req.user.role === 'reseller' && !['user', 'admin'].includes(role)) {
     return next(new AppError(ERRORS.MH_1004));
   }
   try {
     const pwdError = validatePassword(password)
     if (pwdError) return next(new AppError(ERRORS.MH_1103, pwdError));
     const hash = await bcrypt.hash(password, 10);
-    // Un admin può creare utenti solo nel proprio cliente.
+    // Un admin può creare utenti solo nel proprio cliente; il reseller solo nei propri.
     const ownerClientId = scopedClientId(req, client_id);
+    if (!(await checkClientAccess(db, req, res, ownerClientId))) return;
     const limitErr = await checkClientLimits(db, ownerClientId, { addUser: true });
     if (limitErr) return res.status(409).json({ error: limitErr, code: 'MH-1109' });
+    // Solo il superadmin può creare un utente di tipo 'reseller' (collegato a un pacchetto).
+    const effectiveResellerId = (isSuper(req) && role === 'reseller') ? (req.body.reseller_id ?? null) : null;
     const result = await db.query(
-      'INSERT INTO users (email, password_hash, full_name, role, client_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, full_name, role, client_id',
-      [email, hash, full_name, role, ownerClientId]
+      'INSERT INTO users (email, password_hash, full_name, role, client_id, reseller_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, email, full_name, role, client_id',
+      [email, hash, full_name, role, ownerClientId, effectiveResellerId]
     );
     const newUser = result.rows[0];
 
@@ -208,12 +379,17 @@ router.put('/users/:id', async (req, res) => {
   try {
     const target = await checkUser(db, req, res, req.params.id);
     if (!target) return;
-    // Un admin non può promuovere oltre 'user' né spostare l'utente di cliente.
+    // admin: solo 'user', cliente invariato. reseller: 'user'/'admin', cliente invariato.
+    // superadmin: tutto come richiesto.
     let effectiveRole = role;
     let effectiveClientId = scopedClientId(req, client_id);
-    if (!isSuper(req)) {
+    if (req.user.role === 'admin') {
       if (role && role !== 'user') return res.status(403).json({ error: 'Permessi insufficienti', code: 'MH-1004' });
       effectiveRole = 'user';
+      effectiveClientId = target.client_id;
+    } else if (req.user.role === 'reseller') {
+      if (role && !['user', 'admin'].includes(role)) return res.status(403).json({ error: 'Permessi insufficienti', code: 'MH-1004' });
+      effectiveRole = role && ['user', 'admin'].includes(role) ? role : target.role;
       effectiveClientId = target.client_id;
     }
     if (password) {
@@ -268,8 +444,9 @@ router.post('/mailboxes/test-imap', async (req, res) => {
 router.get('/mailboxes', async (req, res) => {
   const db = req.app.locals.db;
   try {
-    const filter = isSuper(req) ? '' : 'WHERE m.client_id = $1';
-    const params = isSuper(req) ? [] : [req.user.client_id];
+    let filter = '', params = [];
+    if (req.user.role === 'reseller') { filter = 'WHERE c.reseller_id = $1'; params = [req.user.reseller_id]; }
+    else if (!isSuper(req)) { filter = 'WHERE m.client_id = $1'; params = [req.user.client_id]; }
     const result = await db.query(
       `SELECT m.id, m.client_id, m.email, m.display_name,
               m.imap_host, m.imap_port, m.imap_tls, m.imap_user, m.active,
@@ -291,6 +468,7 @@ router.post('/mailboxes', async (req, res) => {
   const ip = getIp(req);
   try {
     const ownerClientId = scopedClientId(req, client_id);
+    if (!(await checkClientAccess(db, req, res, ownerClientId))) return;
     const limitErr = await checkClientLimits(db, ownerClientId, { addMailbox: true });
     if (limitErr) return res.status(409).json({ error: limitErr, code: 'MH-1206' });
     const result = await db.query(
@@ -527,6 +705,23 @@ router.get('/storage/clients', async (req, res) => {
         LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
         GROUP BY c.id, c.name, c.company, c.quota_bytes, c.max_mailboxes, c.max_users
         ORDER BY compressed_bytes DESC`;
+    } else if (user.role === 'reseller') {
+      // Tutti i clienti del reseller
+      query = `
+        SELECT c.id, c.name, c.company,
+          c.quota_bytes, c.max_mailboxes, c.max_users,
+          (SELECT COUNT(*) FROM users u WHERE u.client_id = c.id) as user_count,
+          COUNT(DISTINCT m.id) as mailbox_count,
+          COUNT(ae.id) as email_count,
+          COALESCE(SUM(ae.size_bytes), 0) as original_bytes,
+          COALESCE(SUM(ae.compressed_size_bytes), 0) as compressed_bytes
+        FROM clients c
+        LEFT JOIN mailboxes m ON m.client_id = c.id
+        LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id
+        WHERE c.reseller_id = $1
+        GROUP BY c.id, c.name, c.company, c.quota_bytes, c.max_mailboxes, c.max_users
+        ORDER BY compressed_bytes DESC`;
+      params = [user.reseller_id];
     } else {
       // Solo il cliente dell'admin
       query = `

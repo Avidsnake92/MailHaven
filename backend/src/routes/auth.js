@@ -158,7 +158,7 @@ router.post('/login', validate(schemas.login), async (req, res) => {
 
     const jti = require('crypto').randomUUID();
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, client_id: user.client_id, full_name: user.full_name, sessionStart: Date.now(), jti },
+      { id: user.id, email: user.email, role: user.role, client_id: user.client_id, reseller_id: user.reseller_id, full_name: user.full_name, sessionStart: Date.now(), jti },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
@@ -194,7 +194,7 @@ router.post('/refresh', authMiddleware, async (req, res) => {
   }
   const jti = req.user.jti || require('crypto').randomUUID();
   const token = jwt.sign(
-    { id: req.user.id, email: req.user.email, role: req.user.role, client_id: req.user.client_id, full_name: req.user.full_name, sessionStart, jti },
+    { id: req.user.id, email: req.user.email, role: req.user.role, client_id: req.user.client_id, reseller_id: req.user.reseller_id, full_name: req.user.full_name, sessionStart, jti },
     process.env.JWT_SECRET,
     { expiresIn: '15m' }
   );
@@ -424,7 +424,7 @@ const issueJwt = async (db, user, ip) => {
   const jti = require('crypto').randomBytes(16).toString('hex');
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
   const token = require('jsonwebtoken').sign(
-    { id: user.id, email: user.email, role: user.role, client_id: user.client_id,
+    { id: user.id, email: user.email, role: user.role, client_id: user.client_id, reseller_id: user.reseller_id,
       full_name: user.full_name, sessionStart: Date.now(), jti },
     process.env.JWT_SECRET,
     { expiresIn: '8h' }

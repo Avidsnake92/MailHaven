@@ -172,6 +172,25 @@ const migrate = async (db) => {
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS max_mailboxes INTEGER DEFAULT NULL`);
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS max_users INTEGER DEFAULT NULL`);
 
+  // Reseller (MSP multi-livello) — pacchetto venduto al rivenditore (NULL = illimitato)
+  await run(`CREATE TABLE IF NOT EXISTS resellers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    company VARCHAR(255),
+    quota_bytes BIGINT DEFAULT NULL,
+    max_mailboxes INTEGER DEFAULT NULL,
+    max_users INTEGER DEFAULT NULL,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  )`);
+  // Un cliente può appartenere a un reseller (NULL = cliente diretto del superadmin)
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE SET NULL`);
+  // L'utente di login 'reseller' è legato alla sua riga resellers
+  await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE SET NULL`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_clients_reseller ON clients(reseller_id)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_users_reseller ON users(reseller_id)`);
+
     console.log('[Migration] Completata');
 
 };

@@ -83,7 +83,7 @@ const pluginAuth = async (req, res, next) => {
   const db = req.app.locals.db;
   try {
     const r = await db.query(
-      'SELECT pt.*, u.id as user_id, u.email, u.full_name, u.role, u.active, u.client_id FROM plugin_tokens pt JOIN users u ON pt.user_id=u.id WHERE pt.token=$1',
+      'SELECT pt.*, u.id as user_id, u.email, u.full_name, u.role, u.active, u.client_id, u.reseller_id FROM plugin_tokens pt JOIN users u ON pt.user_id=u.id WHERE pt.token=$1',
       [token]
     );
     if (!r.rows[0]) return res.status(401).json({ error: 'Token non valido' });
@@ -92,7 +92,7 @@ const pluginAuth = async (req, res, next) => {
     if (!pt.active) return res.status(401).json({ error: 'Account disabilitato' });
     // Aggiorna last_used
     await db.query('UPDATE plugin_tokens SET last_used_at=NOW() WHERE id=$1', [pt.id]);
-    req.user = { id: pt.user_id, email: pt.email, full_name: pt.full_name, role: pt.role, client_id: pt.client_id };
+    req.user = { id: pt.user_id, email: pt.email, full_name: pt.full_name, role: pt.role, client_id: pt.client_id, reseller_id: pt.reseller_id };
     next();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -107,6 +107,10 @@ const getPluginMailboxIds = async (db, user) => {
   }
   if (user.role === 'admin') {
     const r = await db.query('SELECT id FROM mailboxes WHERE client_id=$1 AND active=true', [user.client_id]);
+    return r.rows.map(r => r.id);
+  }
+  if (user.role === 'reseller') {
+    const r = await db.query(`SELECT m.id FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1 AND m.active=true`, [user.reseller_id]);
     return r.rows.map(r => r.id);
   }
   const r = await db.query(
