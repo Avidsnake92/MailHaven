@@ -84,6 +84,7 @@ export default function Layout() {
           <NavLink to="/admin" className={subNavClass}><Users size={15} /> {user?.role === 'reseller' ? 'Aziende e Caselle' : 'Utenti e Caselle'}</NavLink>
           {(isAdmin || (user?.role === 'reseller' && user?.feat?.legal_hold)) && <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>}
           {(isAdmin || (user?.role === 'reseller' && user?.feat?.import)) && <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>}
+          {isReseller && user?.feat?.backup && <NavLink to="/backup" className={subNavClass}><HardDrive size={15} /> Backup</NavLink>}
         </div>}
         {(canLogs || canAv) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
         {(canLogs || canAv) && logOpen && <div className="space-y-0.5">

@@ -78,7 +78,7 @@ function AppContent() {
           <Route path="profile" element={<Profile />} />
           <Route path="antispam" element={<Antispam />} />
           <Route path="backup" element={
-            <ProtectedRoute roles={['superadmin']}><Backup /></ProtectedRoute>
+            <ProtectedRoute roles={['superadmin', 'reseller']}><Backup /></ProtectedRoute>
           } />
           <Route path="admin" element={
             <ProtectedRoute roles={['admin', 'superadmin', 'reseller']}><Admin /></ProtectedRoute>

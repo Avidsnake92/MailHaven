@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.44] - 2026-06-23
+### Added
+- **Backup reseller — Fase 3c-4 (UI)**: il rivenditore con `feat_backup` ha la voce
+  "Backup" nel menu e accede alla pagina Backup, dove configura/testa la propria
+  destinazione S3/SFTP, avvia il backup (.mhbak scoped) e vede l'elenco e i log
+  dei propri backup. Il pulsante "Ripristina" è nascosto al reseller (restore
+  resta solo-superadmin per ora).
 ## [0.1.43] - 2026-06-23
 ### Added
 - **Backup reseller — Fase 3c-2 (esecuzione)**: nuovo servizio `resellerBackup.js`
