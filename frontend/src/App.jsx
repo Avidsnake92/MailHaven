@@ -84,7 +84,7 @@ function AppContent() {
             <ProtectedRoute roles={['admin', 'superadmin', 'reseller']}><Admin /></ProtectedRoute>
           } />
           <Route path="legal-hold" element={
-            <ProtectedRoute roles={['admin', 'superadmin']}><LegalHold /></ProtectedRoute>
+            <ProtectedRoute roles={['admin', 'superadmin', 'reseller']}><LegalHold /></ProtectedRoute>
           } />
           <Route path="import" element={
             <ProtectedRoute roles={['admin', 'superadmin']}><Import /></ProtectedRoute>

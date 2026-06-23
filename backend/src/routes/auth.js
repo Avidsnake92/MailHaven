@@ -14,6 +14,15 @@ const { sendAccountBlocked } = require('../services/mailer');
 const { generateSecret, generateQR, verifyToken } = require('../services/totp');
 const { encrypt, decrypt } = require('../services/crypto');
 
+// Feature attivabili del reseller (per i gate frontend/backend). null se non reseller.
+const getResellerFeat = async (db, resellerId) => {
+  if (!resellerId) return null;
+  const r = await db.query('SELECT feat_legal_hold, feat_import, feat_logs, feat_backup FROM resellers WHERE id=$1', [resellerId]);
+  const f = r.rows[0];
+  if (!f) return null;
+  return { legal_hold: f.feat_legal_hold, import: f.feat_import, logs: f.feat_logs, backup: f.feat_backup };
+};
+
 // ── Multer — inizializzato una volta sola al caricamento del modulo ─────────
 const uploadDir = path.join(__dirname, '../../uploads/avatars');
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -178,7 +187,7 @@ router.post('/login', validate(schemas.login), async (req, res) => {
 
     res.json({
       token,
-      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role, client_id: user.client_id }
+      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role, client_id: user.client_id, reseller_id: user.reseller_id, feat: await getResellerFeat(db, user.reseller_id) }
     });
   } catch (err) {
     console.error(err);
@@ -206,11 +215,13 @@ router.get('/me', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
   try {
     const result = await db.query(
-      'SELECT id, email, full_name, role, client_id, last_login, totp_enabled, timezone, language, phone, avatar_url FROM users WHERE id = $1',
+      'SELECT id, email, full_name, role, client_id, reseller_id, last_login, totp_enabled, timezone, language, phone, avatar_url FROM users WHERE id = $1',
       [req.user.id]
     );
     if (!result.rows[0]) return next(new AppError(ERRORS.MH_1101));
-    res.json(result.rows[0]);
+    const row = result.rows[0];
+    row.feat = await getResellerFeat(db, row.reseller_id);
+    res.json(row);
   } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
 });
 

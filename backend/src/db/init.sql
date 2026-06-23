@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS resellers (
   max_mailboxes INTEGER DEFAULT NULL,
   max_users INTEGER DEFAULT NULL,
   active BOOLEAN DEFAULT true,
+  feat_legal_hold BOOLEAN DEFAULT false,
+  feat_import BOOLEAN DEFAULT false,
+  feat_logs BOOLEAN DEFAULT false,
+  feat_backup BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

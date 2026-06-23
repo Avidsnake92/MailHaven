@@ -704,23 +704,30 @@ router.post('/delete-imap', authMiddleware, async (req, res, next) => {
 router.post('/legal-hold', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
   const { email_ids, enable, reason } = req.body;
-  if (!['admin', 'superadmin'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
+  if (!['admin', 'superadmin', 'reseller'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
+  if (req.user.role === 'reseller') {
+    const f = (await db.query('SELECT feat_legal_hold FROM resellers WHERE id=$1', [req.user.reseller_id])).rows[0];
+    if (!f?.feat_legal_hold) return next(new AppError(ERRORS.MH_1003));
+  }
   if (!email_ids?.length) return res.status(400).json({ error: 'Nessuna email selezionata' });
   try {
+    // Scoping: agisce solo sulle email delle proprie caselle (il superadmin su tutte).
+    let mboxClause = '', extra = [];
+    if (req.user.role !== 'superadmin') { extra = [await getUserMailboxIds(db, req.user)]; mboxClause = ' AND mailbox_id = ANY($EXTRA::int[])'; }
     if (enable) {
       await db.query(
         `UPDATE archived_emails
          SET legal_hold=true, legal_hold_reason=$1, legal_hold_by=$2, legal_hold_at=NOW(),
              is_deleted=false, deleted_at=NULL, badge_type=NULL, badge_expires_at=NULL
-         WHERE id=ANY($3::uuid[])`,
-        [reason || null, req.user.id, email_ids]
+         WHERE id=ANY($3::uuid[])${mboxClause.replace('$EXTRA', '$4')}`,
+        [reason || null, req.user.id, email_ids, ...extra]
       );
     } else {
       await db.query(
         `UPDATE archived_emails
          SET legal_hold=false, legal_hold_reason=NULL, legal_hold_by=NULL, legal_hold_at=NULL
-         WHERE id=ANY($1::uuid[])`,
-        [email_ids]
+         WHERE id=ANY($1::uuid[])${mboxClause.replace('$EXTRA', '$2')}`,
+        [email_ids, ...extra]
       );
     }
     res.json({ ok: true, count: email_ids.length, enabled: !!enable });
@@ -730,10 +737,16 @@ router.post('/legal-hold', authMiddleware, async (req, res, next) => {
 // GET /emails/legal-hold/list — lista email in legal hold (solo admin/superadmin)
 router.get('/legal-hold/list', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;
-  if (!['admin', 'superadmin'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
+  if (!['admin', 'superadmin', 'reseller'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
+  if (req.user.role === 'reseller') {
+    const f = (await db.query('SELECT feat_legal_hold FROM resellers WHERE id=$1', [req.user.reseller_id])).rows[0];
+    if (!f?.feat_legal_hold) return next(new AppError(ERRORS.MH_1003));
+  }
   const { page = 1, limit = 50 } = req.query;
   const offset = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
   try {
+    let scope = '', sp = [];
+    if (req.user.role !== 'superadmin') { sp = [await getUserMailboxIds(db, req.user)]; scope = ' AND ae.mailbox_id = ANY($3::int[])'; }
     const [items, count] = await Promise.all([
       db.query(
         `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email, ae.sent_at,
@@ -743,12 +756,12 @@ router.get('/legal-hold/list', authMiddleware, async (req, res, next) => {
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
          LEFT JOIN users u ON u.id = ae.legal_hold_by
-         WHERE ae.legal_hold = true
+         WHERE ae.legal_hold = true${scope}
          ORDER BY ae.legal_hold_at DESC
          LIMIT $1 OFFSET $2`,
-        [parseInt(limit), offset]
+        [parseInt(limit), offset, ...sp]
       ),
-      db.query(`SELECT COUNT(*) FROM archived_emails WHERE legal_hold = true`),
+      db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ae.legal_hold = true${scope ? ' AND ae.mailbox_id = ANY($1::int[])' : ''}`, scope ? [sp[0]] : []),
     ]);
     res.json({
       items: items.rows,

@@ -1431,7 +1431,8 @@ function ResellersTab({ branding, user }) {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [deleteItem, setDeleteItem] = useState(null)
-  const [form, setForm] = useState({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' })
+  const emptyForm = { name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '', feat_legal_hold: false, feat_import: false, feat_logs: false, feat_backup: false }
+  const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [userFor, setUserFor] = useState(null)
   const [uForm, setUForm] = useState({ email: '', password: '', full_name: '' })
@@ -1442,11 +1443,12 @@ function ResellersTab({ branding, user }) {
   const load = () => { setLoading(true); api.get('/admin/resellers').then(r => setItems(r.data)).finally(() => setLoading(false)) }
   useEffect(() => { load() }, [])
 
-  const openNew = () => { setForm({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' }); setEditItem(null); setShowForm(true) }
+  const openNew = () => { setForm(emptyForm); setEditItem(null); setShowForm(true) }
   const openEdit = (r) => {
     setForm({ name: r.name, company: r.company || '', active: r.active,
       quota_gb: r.quota_bytes != null ? +(r.quota_bytes / GB).toFixed(2) : '',
-      max_mailboxes: r.max_mailboxes ?? '', max_users: r.max_users ?? '' })
+      max_mailboxes: r.max_mailboxes ?? '', max_users: r.max_users ?? '',
+      feat_legal_hold: !!r.feat_legal_hold, feat_import: !!r.feat_import, feat_logs: !!r.feat_logs, feat_backup: !!r.feat_backup })
     setEditItem(r); setShowForm(true)
   }
   const handleSave = async () => {
@@ -1454,7 +1456,8 @@ function ResellersTab({ branding, user }) {
     const payload = { name: form.name, company: form.company, active: form.active,
       quota_bytes: form.quota_gb === '' ? null : Math.round(Number(form.quota_gb) * GB),
       max_mailboxes: form.max_mailboxes === '' ? null : Number(form.max_mailboxes),
-      max_users: form.max_users === '' ? null : Number(form.max_users) }
+      max_users: form.max_users === '' ? null : Number(form.max_users),
+      feat_legal_hold: form.feat_legal_hold, feat_import: form.feat_import, feat_logs: form.feat_logs, feat_backup: form.feat_backup }
     try { if (editItem) await api.put(`/admin/resellers/${editItem.id}`, payload); else await api.post('/admin/resellers', payload); setShowForm(false); load() }
     catch (e) { alert(e.response?.data?.error || 'Errore') } finally { setSaving(false) }
   }
@@ -1511,6 +1514,17 @@ function ResellersTab({ branding, user }) {
             <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Spazio (GB)</label><input type="number" min="0" step="1" value={form.quota_gb} onChange={e => setForm({ ...form, quota_gb: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Caselle max</label><input type="number" min="0" step="1" value={form.max_mailboxes} onChange={e => setForm({ ...form, max_mailboxes: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Utenti max</label><input type="number" min="0" step="1" value={form.max_users} onChange={e => setForm({ ...form, max_users: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>
+          </div>
+        </div>
+        <div className="pt-3 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Funzioni incluse</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[['feat_legal_hold', 'Legal Hold'], ['feat_import', 'Import email'], ['feat_logs', 'Log (propri clienti)'], ['feat_backup', 'Backup propri clienti']].map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={!!form[k]} onChange={e => setForm({ ...form, [k]: e.target.checked })} className="rounded border-gray-300" />
+                {label}
+              </label>
+            ))}
           </div>
         </div>
         <div className="flex gap-3 pt-2"><button onClick={handleSave} disabled={!form.name || saving} className="flex-1 flex items-center justify-center gap-2 text-sm font-medium py-2.5 rounded-lg text-white disabled:opacity-50" style={{ background: branding.primary_color || '#2563eb' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{editItem ? 'Salva' : 'Crea rivenditore'}</button><button onClick={() => setShowForm(false)} className="px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Annulla</button></div>

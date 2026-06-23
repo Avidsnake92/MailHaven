@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.37] - 2026-06-23
+### Added
+- **Feature a pacchetto per il reseller (Fase 3a)**: nuovi flag attivabili dal
+  superadmin sul pacchetto reseller (`feat_legal_hold`, `feat_import`, `feat_logs`,
+  `feat_backup`) con checkbox "Funzioni incluse" nel form Rivenditore. I flag
+  arrivano alla sessione via login e `/auth/me`.
+- **Legal Hold per il reseller**: con `feat_legal_hold` attivo il reseller vede e
+  usa il Legal Hold, ma SOLO sulle email dei propri clienti.
+### Fixed
+- **Sicurezza Legal Hold**: `POST /emails/legal-hold` e `/legal-hold/list` ora
+  applicano lo scoping per casella (prima un admin poteva mettere/vedere il Legal
+  Hold su email di qualunque cliente). Il superadmin resta globale.
 ## [0.1.36] - 2026-06-23
 ### Added
 - **Reseller — UI (Fase 2)**: nuova tab "Rivenditori" (solo superadmin) con

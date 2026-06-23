@@ -184,6 +184,11 @@ const migrate = async (db) => {
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
   )`);
+  // Feature attivabili a pacchetto per il reseller (default off)
+  await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_legal_hold BOOLEAN DEFAULT false`);
+  await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_import BOOLEAN DEFAULT false`);
+  await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_logs BOOLEAN DEFAULT false`);
+  await run(`ALTER TABLE resellers ADD COLUMN IF NOT EXISTS feat_backup BOOLEAN DEFAULT false`);
   // Un cliente può appartenere a un reseller (NULL = cliente diretto del superadmin)
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE SET NULL`);
   // L'utente di login 'reseller' è legato alla sua riga resellers

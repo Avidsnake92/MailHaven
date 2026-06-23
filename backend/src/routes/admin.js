@@ -256,11 +256,13 @@ router.get('/resellers', requireRole('superadmin'), async (req, res) => {
 
 router.post('/resellers', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, quota_bytes, max_mailboxes, max_users } = req.body;
+  const { name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup } = req.body;
   try {
     const r = await db.query(
-      'INSERT INTO resellers (name, company, quota_bytes, max_mailboxes, max_users) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [name, company, normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users)]
+      `INSERT INTO resellers (name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [name, company, normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users),
+       !!feat_legal_hold, !!feat_import, !!feat_logs, !!feat_backup]
     );
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -268,14 +270,16 @@ router.post('/resellers', requireRole('superadmin'), async (req, res) => {
 
 router.put('/resellers/:id', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, active, quota_bytes, max_mailboxes, max_users } = req.body;
+  const { name, company, active, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup } = req.body;
   try {
     const r = await db.query(
       `UPDATE resellers SET name=$1, company=$2, active=$3,
-         quota_bytes=$4, max_mailboxes=$5, max_users=$6, updated_at=NOW()
-       WHERE id=$7 RETURNING *`,
+         quota_bytes=$4, max_mailboxes=$5, max_users=$6,
+         feat_legal_hold=$7, feat_import=$8, feat_logs=$9, feat_backup=$10, updated_at=NOW()
+       WHERE id=$11 RETURNING *`,
       [name, company, active !== undefined ? active : true,
-       normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users), req.params.id]
+       normLimit(quota_bytes), normLimit(max_mailboxes), normLimit(max_users),
+       !!feat_legal_hold, !!feat_import, !!feat_logs, !!feat_backup, req.params.id]
     );
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
