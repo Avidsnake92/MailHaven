@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS mailboxes (
   oauth_refresh_token TEXT,
   oauth_expires_at TIMESTAMP,
   oauth_refresh_expires_at TIMESTAMP,
-  archive_policy JSONB DEFAULT NULL
+  archive_policy JSONB DEFAULT NULL,
+  status VARCHAR(50) DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_mailboxes (

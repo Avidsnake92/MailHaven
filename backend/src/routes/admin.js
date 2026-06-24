@@ -552,16 +552,30 @@ router.delete('/mailboxes/:id', async (req, res, next) => {
     // Mark as deleting immediately so UI can show progress
     await db.query("UPDATE mailboxes SET status='deleting' WHERE id=$1", [req.params.id]);
     res.status(202).json({ message: 'Eliminazione in corso', async: true });
-    // Background deletion (non-blocking)
+    // Eliminazione in background, a batch e SENZA statement_timeout: caselle molto
+    // grandi (decine di migliaia di email) altrimenti superano i 30s e falliscono.
+    const mbId = req.params.id;
     setImmediate(async () => {
+      const client = await db.connect();
       try {
-        await db.query('DELETE FROM spam_cache WHERE mailbox_id=$1', [req.params.id]);
-        await db.query('DELETE FROM archived_emails WHERE mailbox_id=$1', [req.params.id]);
-        await db.query('DELETE FROM mailboxes WHERE id=$1', [req.params.id]);
+        await client.query('SET statement_timeout = 0');
+        await client.query('DELETE FROM spam_cache WHERE mailbox_id=$1', [mbId]);
+        // Cancella le email a blocchi di 2000 per non tenere lock lunghissimi
+        let removed;
+        do {
+          const r = await client.query(
+            'DELETE FROM archived_emails WHERE ctid IN (SELECT ctid FROM archived_emails WHERE mailbox_id=$1 LIMIT 2000)',
+            [mbId]
+          );
+          removed = r.rowCount;
+        } while (removed > 0);
+        await client.query('DELETE FROM mailboxes WHERE id=$1', [mbId]);
         console.log('[delete-mailbox]', exists.rows[0].email, 'eliminata');
       } catch (e) {
         console.error('[delete-mailbox] errore:', e.message);
-        try { await db.query("UPDATE mailboxes SET status='error_deleting' WHERE id=$1", [req.params.id]); } catch {}
+        try { await db.query("UPDATE mailboxes SET status='error_deleting' WHERE id=$1", [mbId]); } catch {}
+      } finally {
+        client.release();
       }
     });
   } catch (err) {

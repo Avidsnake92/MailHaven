@@ -19,6 +19,7 @@ const migrate = async (db) => {
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_expires_at TIMESTAMP`);
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_refresh_expires_at TIMESTAMP`);
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS archive_policy JSONB DEFAULT NULL`);
+  await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT NULL`);
   await run(`ALTER TABLE spam_cache ADD COLUMN IF NOT EXISTS mailbox_id INTEGER REFERENCES mailboxes(id) ON DELETE CASCADE`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false`);

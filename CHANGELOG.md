@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.46] - 2026-06-24
+### Fixed
+- **Eliminazione casella non funzionante**: la colonna `mailboxes.status`, usata
+  dal flusso di eliminazione asincrona, non esisteva sul DB -> ogni eliminazione
+  falliva con errore 500. Aggiunta la colonna (migrazione idempotente).
+- **Eliminazione caselle molto grandi**: le email ora vengono cancellate a blocchi
+  di 2000 e senza `statement_timeout`, così anche caselle con decine di migliaia di
+  messaggi (es. 40k) si eliminano senza superare il limite di 30s. La UI mostra già
+  la riga di caricamento durante l'operazione.
 ## [0.1.45] - 2026-06-24
 ### Added
 - **Backup reseller — Fase 3c-3 (schedule cron)**: nuovo `backupScheduler.js` che
