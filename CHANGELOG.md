@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.49] - 2026-06-24
+### Changed
+- **Audit log più leggibile**: ogni voce ha ora una descrizione chiara in italiano
+  con il NOME dell'entità (risolto prima dell'eliminazione), es. «Eliminato cliente
+  «Acme Srl»», «Creata casella «mario@x.it»», «Sbloccato l'utente «...»». Il frontend
+  mostra la frase descrittiva e un'etichetta colorata ricavata dal tipo di azione,
+  invece dei codici grezzi e del path tecnico.
 ## [0.1.48] - 2026-06-24
 ### Added
 - **Restore dei backup funzionante (B) + per il reseller (C)**: il restore prima

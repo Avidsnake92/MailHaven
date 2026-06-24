@@ -34,6 +34,27 @@ const ACTION_CONFIG = {
   ATTACHMENT_BLOCKED_AV:  { label: 'Allegato bloccato',  color: 'bg-red-100 text-red-700',       icon: ShieldAlert },
 }
 
+// Etichetta/colore/icona ricavati dal codice azione quando non è nella mappa sopra
+const prettyAction = (a) => (a || '').replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())
+const deriveActionMeta = (a = '') => {
+  if (/_CREAT|_IMPORTAT|_AVVIAT/.test(a)) return { label: prettyAction(a), color: 'bg-green-100 text-green-700', icon: Plus }
+  if (/_ELIMINAT/.test(a)) return { label: prettyAction(a), color: 'bg-red-100 text-red-700', icon: Trash2 }
+  if (/_MODIFICAT|_AGGIORNAT|_STATO|POLICY|UTENTI|CASELLE|IMPOSTAZIONI/.test(a)) return { label: prettyAction(a), color: 'bg-blue-100 text-blue-700', icon: Edit2 }
+  if (/RIPRISTINAT|RESTORE/.test(a)) return { label: prettyAction(a), color: 'bg-orange-100 text-orange-700', icon: RotateCcw }
+  if (/SYNC|BACKUP/.test(a)) return { label: prettyAction(a), color: 'bg-purple-100 text-purple-700', icon: RefreshCw }
+  if (/LEGAL_HOLD|SBLOCC|2FA|CHIAVE|ANTISPAM/.test(a)) return { label: prettyAction(a), color: 'bg-amber-100 text-amber-700', icon: Shield }
+  return { label: prettyAction(a) || 'Azione', color: 'bg-gray-100 text-gray-600', icon: Activity }
+}
+// Testo leggibile dell'evento (preferisce details.summary)
+const summaryOf = (details) => {
+  if (!details) return ''
+  try {
+    const d = typeof details === 'string' ? JSON.parse(details) : details
+    if (d.summary) return d.summary
+    return Object.entries(d).filter(([k]) => !['path', 'body', 'summary', 'target'].includes(k)).map(([, v]) => typeof v === 'object' ? JSON.stringify(v) : String(v)).slice(0, 2).join(' · ')
+  } catch { return String(details) }
+}
+
 const AV_STATUS_CONFIG = {
   clean:    { label: 'Pulito',   color: 'bg-green-100 text-green-700',  icon: ShieldCheck },
   infected: { label: 'Infetto',  color: 'bg-red-100 text-red-700',      icon: ShieldAlert },
@@ -112,7 +133,7 @@ function ActivityLog() {
           ) : logs.length === 0 ? (
             <tr><td colSpan={5} className="text-center py-16"><Activity size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun evento</p></td></tr>
           ) : logs.map(log => {
-            const config = ACTION_CONFIG[log.action] || { label: log.action, color: 'bg-gray-100 text-gray-600', icon: Activity }
+            const config = ACTION_CONFIG[log.action] || deriveActionMeta(log.action)
             const Icon = config.icon
             const isSelected = selectedLog?.id === log.id
             return (
@@ -130,8 +151,8 @@ function ActivityLog() {
                       <Icon size={11} />{config.label}
                     </span>
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-xs text-gray-500 max-w-xs truncate">
-                    {log.details ? (() => { try { const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details; return Object.values(d).slice(0,2).join(' · ') } catch { return log.details } })() : '—'}
+                  <td className="hidden sm:table-cell px-4 py-3 text-xs text-gray-600 max-w-md truncate">
+                    {summaryOf(log.details) || '—'}
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-400 mono">
                     <div className="flex items-center justify-between gap-2">
