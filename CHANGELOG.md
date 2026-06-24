@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.47] - 2026-06-24
+### Added
+- **Audit log completo**: nuovo middleware che registra in `activity_log` OGNI
+  azione mutante (POST/PUT/DELETE/PATCH) andata a buon fine, con utente, azione
+  leggibile (es. CLIENTE_CREATO, CASELLA_ELIMINATO, UTENTE_MODIFICATO), dettagli
+  (metodo, path, parametri, body con credenziali oscurate) e IP. Montato su
+  admin, import, backup, restore, antispam ed email. Le GET non vengono loggate,
+  le richieste fallite (>=400) nemmeno. La voce di menu "Accessi" è ora "Audit".
+  I log restano scoped: il reseller vede solo le azioni dei propri utenti.
 ## [0.1.46] - 2026-06-24
 ### Fixed
 - **Eliminazione casella non funzionante**: la colonna `mailboxes.status`, usata

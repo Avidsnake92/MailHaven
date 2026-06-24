@@ -88,7 +88,7 @@ export default function Layout() {
         </div>}
         {(canLogs || canAv) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
         {(canLogs || canAv) && logOpen && <div className="space-y-0.5">
-          {canLogs && <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Accessi</NavLink>}
+          {canLogs && <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Audit</NavLink>}
           {canLogs && <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>}
           {canAv && <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>}
         </div>}

@@ -13,6 +13,7 @@ const gzip = promisify(zlib.gzip);
 
 router.use(authMiddleware);
 router.use(requireRole('admin', 'superadmin', 'reseller'));
+router.use(require('../middleware/audit').auditMiddleware('IMPORT'));
 
 // Gate import: il reseller richiede feat_import; tutti (tranne superadmin) possono
 // importare solo nelle PROPRIE caselle. Scrive la risposta d'errore e ritorna false.

@@ -13,6 +13,7 @@ router.use(async (req, res, next) => {
     next();
   } catch (e) { res.status(500).json({ error: 'Errore server' }); }
 });
+router.use(require('../middleware/audit').auditMiddleware('ANTISPAM'));
 
 const getUserMailboxIds = async (db, user) => {
   if (user.role === 'superadmin') {

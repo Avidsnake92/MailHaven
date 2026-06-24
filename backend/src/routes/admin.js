@@ -5,6 +5,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 const { log } = require('../services/logger');
 const { ERRORS, AppError } = require('../errors');
 const { validate, schemas } = require('../middleware/validate');
+const { auditMiddleware } = require('../middleware/audit');
 
 // Validazione password
 const validatePassword = (password) => {
@@ -164,6 +165,8 @@ router.use((req, res, next) => {
   if (RESELLER_ALLOW.some(re => re.test(req.path))) return next();
   return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
 });
+// Audit: registra ogni azione mutante andata a buon fine
+router.use(auditMiddleware());
 
 // Verifica che il reseller abbia la feature attiva (col = nome colonna feat_*).
 // Scrive 403 e ritorna false se off. Per admin/superadmin ritorna true.
@@ -494,7 +497,6 @@ router.post('/mailboxes', async (req, res) => {
        imap_user || email,
        imap_password ? encrypt(imap_password) : null]
     );
-    await log(db, req.user.id, 'MAILBOX_CREATED', { email }, ip);
     res.json(result.rows[0]);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Errore server' }); }
 });
@@ -977,10 +979,6 @@ router.post('/users/:id/unlock', requireRole('superadmin', 'admin'), async (req,
       'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1',
       [req.params.id]
     );
-    await log(db, req.user.id, 'ACCOUNT_UNLOCKED', { 
-      unlocked_user: result.rows[0].email,
-      by: req.user.email 
-    }, ip);
     res.json({ message: 'Account sbloccato' });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
@@ -990,11 +988,7 @@ router.post('/users/:id/reset-2fa', requireRole('superadmin'), async (req, res) 
   const db = req.app.locals.db;
   const ip = getIp(req);
   try {
-    const result = await db.query('SELECT email FROM users WHERE id = $1', [req.params.id]);
     await db.query('UPDATE users SET totp_enabled = false, totp_secret = NULL WHERE id = $1', [req.params.id]);
-    await log(db, req.user.id, '2FA_RESET_BY_ADMIN', { 
-      target_user: result.rows[0]?.email, by: req.user.email 
-    }, ip);
     res.json({ message: '2FA resettato' });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });

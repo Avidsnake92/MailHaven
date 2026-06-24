@@ -8,6 +8,7 @@ const { decompress } = require('../services/compression');
 const archiver = require('archiver');
 
 router.use(authMiddleware);
+router.use(require('../middleware/audit').auditMiddleware());
 
 // Helper: get mailbox IDs accessible by user
 const getUserMailboxIds = async (db, user) => {

@@ -14,6 +14,7 @@ const getIp = (req) => {
 };
 
 router.use(authMiddleware);
+router.use(require('../middleware/audit').auditMiddleware('RESTORE'));
 
 // Helper: get email raw from DB
 const getEmailFromDb = async (db, id, allowedMailboxIds) => {

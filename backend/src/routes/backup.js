@@ -39,6 +39,7 @@ router.use(async (req, res, next) => {
     next();
   } catch (e) { res.status(500).json({ error: 'Errore server' }); }
 });
+router.use(require('../middleware/audit').auditMiddleware('BACKUP'));
 // Ambito config: il reseller usa la propria (reseller_id), il superadmin la globale (NULL).
 const rscope = (req) => req.user.role === 'reseller' ? req.user.reseller_id : null;
 
