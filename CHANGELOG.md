@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.50] - 2026-06-24
+### Changed
+- **UI Backup rinnovata**: nuovo header con icona, sottotitolo e una striscia di
+  stato a colpo d'occhio (Destinazione, Ultimo backup, Pianificazione attiva/manuale).
+  Lista dei backup modernizzata (badge icona, nome file monospace, pill della
+  dimensione). Logica invariata.
 ## [0.1.49] - 2026-06-24
 ### Changed
 - **Audit log più leggibile**: ogni voce ha ora una descrizione chiara in italiano

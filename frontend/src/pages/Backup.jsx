@@ -346,9 +346,34 @@ export default function Backup() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Backup</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Backup automatico su S3 o NAS via SFTP</p>
+      <div className="mb-6 flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+          <HardDrive size={22} className="text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Backup</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Copie di sicurezza cifrate <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">.mhbak</span> su S3/Cloud o NAS (SFTP)</p>
+        </div>
+      </div>
+
+      {/* Striscia di stato */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {[
+          { label: 'Destinazione', value: activeTab === 's3' ? 'S3 / Cloud' : 'NAS (SFTP)', icon: activeTab === 's3' ? Database : Server, color: 'text-blue-600 bg-blue-50' },
+          { label: 'Ultimo backup', value: currentConfig?.last_backup_at ? formatDate(currentConfig.last_backup_at) : 'Mai eseguito', icon: Clock, color: 'text-gray-600 bg-gray-100' },
+          { label: 'Pianificazione', value: (currentConfig?.enabled && currentConfig?.schedule && currentConfig.schedule !== 'manual') ? 'Automatica' : 'Manuale', icon: RefreshCw, color: (currentConfig?.enabled && currentConfig?.schedule && currentConfig.schedule !== 'manual') ? 'text-green-600 bg-green-50' : 'text-gray-600 bg-gray-100' },
+        ].map((s) => {
+          const Ico = s.icon
+          return (
+            <div key={s.label} className="bg-white border border-gray-200 rounded-2xl p-3.5 flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${s.color}`}><Ico size={16} /></div>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">{s.label}</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">{s.value}</p>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {msg && <div className="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">{msg}</div>}
@@ -569,11 +594,15 @@ export default function Backup() {
           )}
           <div className="divide-y divide-gray-50">
             {backups.map(backup => (
-              <div key={backup.key} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{backup.key?.split('/').pop() || backup.filename}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{formatDate(backup.date)} · {formatSize(backup.size)}</p>
+              <div key={backup.key} className="flex items-center gap-3 px-6 py-3.5 hover:bg-gray-50">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                  <HardDrive size={15} className="text-blue-600" />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate font-mono">{backup.key?.split('/').pop() || backup.filename}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{formatDate(backup.date)}</p>
+                </div>
+                <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-lg shrink-0 mr-1">{formatSize(backup.size)}</span>
                 <button onClick={() => handleRestore(backup)} disabled={!!restoring}
                   className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-50">
                   {restoring === backup.key ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
