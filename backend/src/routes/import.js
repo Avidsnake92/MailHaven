@@ -286,4 +286,5 @@ router.post('/pst', upload.single('file'), async (req, res) => {
 });
 
 module.exports = router;
+module.exports.insertEmail = insertEmail;
 

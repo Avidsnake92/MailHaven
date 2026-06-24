@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.48] - 2026-06-24
+### Added
+- **Restore dei backup funzionante (B) + per il reseller (C)**: il restore prima
+  era uno stub (scaricava il .mhbak ma non reimportava nulla). Ora `restoreFromMhbak`
+  scarica il backup da S3/SFTP, lo decifra, scompatta le EML e le reimporta
+  davvero (riuso di `insertEmail`: uid stabile, compressione+cifratura, dedup per
+  message_id). Il reseller può ripristinare i PROPRI .mhbak SOLO nelle proprie
+  caselle (le voci per caselle non sue vengono saltate). Pulsante "Ripristina"
+  riabilitato anche per il reseller.
+### Fixed
+- Restore non più no-op: reimport reale, idempotente (nessun duplicato al
+  secondo restore) e con isolamento multi-tenant in scrittura.
 ## [0.1.47] - 2026-06-24
 ### Added
 - **Audit log completo**: nuovo middleware che registra in `activity_log` OGNI

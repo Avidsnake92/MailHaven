@@ -574,13 +574,11 @@ export default function Backup() {
                   <p className="text-sm font-medium text-gray-900">{backup.key?.split('/').pop() || backup.filename}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{formatDate(backup.date)} · {formatSize(backup.size)}</p>
                 </div>
-                {!isReseller && (
                 <button onClick={() => handleRestore(backup)} disabled={!!restoring}
                   className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-50">
                   {restoring === backup.key ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
                   {restoring === backup.key ? 'Ripristino...' : 'Ripristina'}
                 </button>
-                )}
               </div>
             ))}
           </div>

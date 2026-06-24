@@ -6,9 +6,10 @@ const { Client } = require('ssh2');
 const archiver = require('archiver');
 const path = require('path');
 const { decompress } = require('./compression');
-const { createHeader, encryptBuffer } = require('./mhbakformat');
-const { S3Client } = require('@aws-sdk/client-s3');
+const { createHeader, encryptBuffer, readHeader, decryptBuffer } = require('./mhbakformat');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
+const AdmZip = require('adm-zip');
 
 // Costruisce il buffer .mhbak (header + zip cifrato) con le email dei clienti del reseller.
 const buildResellerMhbak = async (db, resellerId, onProgress) => {
@@ -108,4 +109,70 @@ const runResellerBackup = async (db, config, resellerId, onProgress) => {
   return { key: location, size: buffer.length, email_count: count };
 };
 
-module.exports = { runResellerBackup, buildResellerMhbak };
+// ── RESTORE ──────────────────────────────────────────────────────────────
+const s3Client = (config) => new S3Client({
+  endpoint: config.endpoint || undefined,
+  region: config.region || 'us-east-1',
+  credentials: { accessKeyId: config.access_key, secretAccessKey: config.secret_key },
+  forcePathStyle: config.force_path_style !== false,
+});
+
+const downloadS3 = async (config, key) => {
+  const r = await s3Client(config).send(new GetObjectCommand({ Bucket: config.bucket, Key: key }));
+  const chunks = [];
+  for await (const c of r.Body) chunks.push(c);
+  return Buffer.concat(chunks);
+};
+
+const downloadSftp = (config, remoteFile) => new Promise((resolve, reject) => {
+  const conn = new Client();
+  conn.on('ready', () => conn.sftp((err, sftp) => {
+    if (err) { conn.end(); return reject(err); }
+    const chunks = [];
+    const s = sftp.createReadStream(remoteFile);
+    s.on('data', (c) => chunks.push(c));
+    s.on('end', () => { conn.end(); resolve(Buffer.concat(chunks)); });
+    s.on('error', (e) => { conn.end(); reject(e); });
+  }));
+  conn.on('error', reject);
+  conn.connect({ host: config.sftp_host, port: parseInt(config.sftp_port) || 22, username: config.sftp_username, password: config.sftp_password });
+});
+
+// Scarica un .mhbak dalla destinazione, lo decifra e reimporta le email SOLO nelle
+// caselle consentite. Se allowedResellerId è valorizzato, reimporta solo nelle
+// caselle dei clienti di quel reseller (le altre vengono saltate). Dedup via insertEmail.
+const restoreFromBuffer = async (db, fileBuffer, { allowedResellerId = null } = {}) => {
+  const { iv, key: aesKey, headerEnd } = readHeader(fileBuffer, process.env.ENCRYPTION_KEY);
+  const zipBuffer = decryptBuffer(fileBuffer.slice(headerEnd), aesKey, iv);
+  const zip = new AdmZip(zipBuffer);
+  const entries = zip.getEntries().filter((e) => e.entryName.endsWith('.eml'));
+
+  // Mappa email→id delle caselle consentite (reseller: solo le sue)
+  const mbRows = allowedResellerId
+    ? (await db.query('SELECT m.id, m.email FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1', [allowedResellerId])).rows
+    : (await db.query('SELECT id, email FROM mailboxes').catch(() => ({ rows: [] }))).rows;
+  const mbByEmail = new Map(mbRows.map((r) => [r.email, r.id]));
+
+  const { insertEmail } = require('../routes/import');
+  let imported = 0, skipped = 0, noMailbox = 0, errors = 0;
+  for (const entry of entries) {
+    const parts = entry.entryName.split('/');
+    const mailboxEmail = parts[0];
+    const folder = parts.slice(1, -1).join('.') || 'INBOX';
+    const mbId = mbByEmail.get(mailboxEmail);
+    if (!mbId) { noMailbox++; continue; } // casella non consentita/inesistente → salta (scoping)
+    try {
+      const r = await insertEmail(db, mbId, entry.getData(), folder);
+      if (r && r.skipped) skipped++; else imported++;
+    } catch (e) { errors++; }
+  }
+  return { imported, skipped, noMailbox, errors, total: entries.length };
+};
+
+// Scarica il .mhbak dalla destinazione e lo ripristina.
+const restoreFromMhbak = async (db, config, key, opts = {}) => {
+  const fileBuffer = config.provider_type === 'sftp' ? await downloadSftp(config, key) : await downloadS3(config, key);
+  return restoreFromBuffer(db, fileBuffer, opts);
+};
+
+module.exports = { runResellerBackup, buildResellerMhbak, restoreFromMhbak, restoreFromBuffer };

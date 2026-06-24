@@ -276,24 +276,24 @@ router.get('/list', async (req, res) => {
 });
 
 // Restore
-router.post('/restore', requireRole('superadmin'), async (req, res, next) => {
+router.post('/restore', async (req, res) => {
   const { key, provider_type, remote_file } = req.body;
-  if (remote_file && !key) return next();
-  if (!key) return res.status(400).json({ error: 'Parametro key mancante' });
+  const file = key || remote_file;
   const db = req.app.locals.db;
+  if (!file) return res.status(400).json({ error: 'File di backup mancante' });
   try {
-    const config = await getConfig(db, provider_type || 's3');
+    const config = await getConfig(db, provider_type || 's3', rscope(req));
     if (!config) return res.status(400).json({ error: 'Configurazione mancante' });
-
-    let result;
-    if (provider_type === 'sftp') {
-      result = await restoreSftpBackup({ host: config.sftp_host, port: config.sftp_port, username: config.sftp_username, password: config.sftp_password }, key);
-    } else {
-      result = await restoreBackup(config, key);
-    }
-
-    await log(db, req.user.id, 'BACKUP_RESTORED', { key, provider_type }, getIp(req));
-    res.json({ success: true, message: 'Restore completato con successo.' });
+    config.provider_type = provider_type || 's3';
+    // Reimport vero: il reseller ripristina SOLO nelle proprie caselle (rscope).
+    const { restoreFromMhbak } = require('../services/resellerBackup');
+    const result = await restoreFromMhbak(db, config, file, { allowedResellerId: rscope(req) });
+    await log(db, req.user.id, 'BACKUP_RESTORED', { file, provider_type, ...result }, getIp(req));
+    res.json({
+      success: true,
+      message: `Restore completato: ${result.imported} importate, ${result.skipped} già presenti` + (result.noMailbox ? `, ${result.noMailbox} saltate (casella non trovata)` : '') + '.',
+      ...result,
+    });
   } catch (err) {
     res.status(500).json({ error: `Restore fallito: ${err.message}` });
   }
