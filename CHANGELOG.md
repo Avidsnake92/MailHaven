@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.51] - 2026-06-24
+### Changed
+- **Dettagli audit più chiari**: il pannello espanso di ogni voce mostra ora la
+  frase descrittiva e i soli campi utili etichettati (Nome, Email, Azienda, Ruolo,
+  Destinazione...), invece dei campi tecnici grezzi (method/params/path). Le voci
+  vecchie senza descrizione ricadono sull'etichetta leggibile dell'azione.
 ## [0.1.50] - 2026-06-24
 ### Changed
 - **UI Backup rinnovata**: nuovo header con icona, sottotitolo e una striscia di

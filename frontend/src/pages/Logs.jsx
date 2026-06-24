@@ -45,14 +45,20 @@ const deriveActionMeta = (a = '') => {
   if (/LEGAL_HOLD|SBLOCC|2FA|CHIAVE|ANTISPAM/.test(a)) return { label: prettyAction(a), color: 'bg-amber-100 text-amber-700', icon: Shield }
   return { label: prettyAction(a) || 'Azione', color: 'bg-gray-100 text-gray-600', icon: Activity }
 }
-// Testo leggibile dell'evento (preferisce details.summary)
-const summaryOf = (details) => {
-  if (!details) return ''
+// Testo leggibile dell'evento: preferisce details.summary, altrimenti l'etichetta
+// dell'azione (per le voci vecchie senza summary).
+const summaryOf = (details, action) => {
   try {
     const d = typeof details === 'string' ? JSON.parse(details) : details
-    if (d.summary) return d.summary
-    return Object.entries(d).filter(([k]) => !['path', 'body', 'summary', 'target'].includes(k)).map(([, v]) => typeof v === 'object' ? JSON.stringify(v) : String(v)).slice(0, 2).join(' · ')
-  } catch { return String(details) }
+    if (d && d.summary) return d.summary
+  } catch { /* ignora */ }
+  return prettyAction(action)
+}
+// Etichette leggibili per i campi del body mostrati nel dettaglio espanso
+const FIELD_LABELS = {
+  name: 'Nome', company: 'Azienda', email: 'Email', full_name: 'Nome completo', role: 'Ruolo',
+  schedule: 'Pianificazione', provider_type: 'Destinazione', bucket: 'Bucket', sftp_host: 'Host',
+  max_mailboxes: 'Caselle max', max_users: 'Utenti max', active: 'Attivo',
 }
 
 const AV_STATUS_CONFIG = {
@@ -93,17 +99,29 @@ function ActivityLog() {
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
-  const formatDetails = (details) => {
-    if (!details) return null
-    try {
-      const d = typeof details === 'string' ? JSON.parse(details) : details
-      return Object.entries(d).map(([k, v]) => (
-        <div key={k} className="flex gap-2 text-xs">
-          <span className="text-gray-400 font-medium min-w-24">{k}:</span>
-          <span className="text-gray-700">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
-        </div>
-      ))
-    } catch { return <span className="text-xs text-gray-500">{String(details)}</span> }
+  const formatDetails = (details, action) => {
+    let d
+    try { d = typeof details === 'string' ? JSON.parse(details) : (details || {}) }
+    catch { return <span className="text-xs text-gray-500">{String(details)}</span> }
+    const summary = summaryOf(d, action)
+    const body = d.body && typeof d.body === 'object' ? d.body : {}
+    const fields = Object.entries(body).filter(([k, v]) => FIELD_LABELS[k] && v !== '' && v != null && JSON.stringify(v) !== '{}')
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-gray-900">{summary}</p>
+        {fields.length > 0 && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
+            {fields.map(([k, v]) => (
+              <div key={k} className="flex gap-1.5 text-xs">
+                <span className="text-gray-400">{FIELD_LABELS[k]}:</span>
+                <span className="text-gray-700 font-medium">{typeof v === 'boolean' ? (v ? 'sì' : 'no') : (typeof v === 'object' ? JSON.stringify(v) : String(v))}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {d.path && <p className="text-[11px] text-gray-300 font-mono pt-0.5">{d.path}</p>}
+      </div>
+    )
   }
 
   return (
@@ -152,7 +170,7 @@ function ActivityLog() {
                     </span>
                   </td>
                   <td className="hidden sm:table-cell px-4 py-3 text-xs text-gray-600 max-w-md truncate">
-                    {summaryOf(log.details) || '—'}
+                    {summaryOf(log.details, log.action) || '—'}
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-400 mono">
                     <div className="flex items-center justify-between gap-2">
@@ -164,7 +182,7 @@ function ActivityLog() {
                 {isSelected && (
                   <tr className="border-b border-blue-100">
                     <td colSpan={5} className="px-6 py-3 bg-blue-50">
-                      <div className="space-y-1">{formatDetails(log.details)}</div>
+                      <div className="space-y-1">{formatDetails(log.details, log.action)}</div>
                     </td>
                   </tr>
                 )}
