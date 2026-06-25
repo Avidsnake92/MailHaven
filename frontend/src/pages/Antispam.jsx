@@ -36,6 +36,7 @@ export default function Antispam() {
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [threshold, setThreshold] = useState(5)
+  const [autoscore, setAutoscore] = useState(true)
   const [source, setSource] = useState('origin')
   const [showSettings, setShowSettings] = useState(false)
   const [selected, setSelected] = useState([])
@@ -47,7 +48,7 @@ export default function Antispam() {
     if (user?.role === 'superadmin' || user?.role === 'admin') {
       api.get('/admin/clients').then(r => setClients(r.data)).catch(() => {})
     }
-    api.get('/spam/settings').then(r => setThreshold(r.data.threshold)).catch(() => {})
+    api.get('/spam/settings').then(r => { setThreshold(r.data.threshold); setAutoscore(r.data.autoscore !== false) }).catch(() => {})
   }, [user])
 
   useEffect(() => {
@@ -89,6 +90,13 @@ export default function Antispam() {
       setTimeout(() => { setMsg(''); fetchSpam() }, 5000)
     } catch (err) { setError(err.response?.data?.error || 'Errore') }
     finally { setAnalyzing(false) }
+  }
+
+  const toggleAutoscore = async () => {
+    const next = !autoscore
+    setAutoscore(next)
+    try { await api.post('/spam/settings', { autoscore: next }); setMsg(`Scoring automatico ${next ? 'attivato' : 'disattivato'}`); setTimeout(() => setMsg(''), 2500) }
+    catch (err) { setAutoscore(!next); setError(err.response?.data?.error || 'Errore') }
   }
 
   const handleSaveThreshold = async () => {
@@ -200,6 +208,18 @@ export default function Antispam() {
                 </button>
               ) : (
                 <p className="text-xs text-gray-400">La soglia qui filtra solo la tua vista. Il valore globale lo imposta il superadmin.</p>
+              )}
+              {user?.role === 'superadmin' && (
+                <div className="pt-2 mt-1 border-t border-gray-100 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">Scoring automatico</p>
+                    <p className="text-[11px] text-gray-400">Rspamd valuta le nuove email da solo</p>
+                  </div>
+                  <button onClick={toggleAutoscore}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${autoscore ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${autoscore ? 'translate-x-4' : 'translate-x-1'}`} />
+                  </button>
+                </div>
               )}
             </div>
           )}

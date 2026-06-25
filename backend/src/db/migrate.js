@@ -27,6 +27,9 @@ const migrate = async (db) => {
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS archive_policy JSONB DEFAULT NULL`);
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT NULL`);
   await run(`ALTER TABLE spam_cache ADD COLUMN IF NOT EXISTS mailbox_id INTEGER REFERENCES mailboxes(id) ON DELETE CASCADE`);
+  // Assicura ON DELETE CASCADE sul vincolo (su installazioni vecchie poteva mancare)
+  await run(`ALTER TABLE spam_cache DROP CONSTRAINT IF EXISTS spam_cache_mailbox_id_fkey`);
+  await run(`ALTER TABLE spam_cache ADD CONSTRAINT spam_cache_mailbox_id_fkey FOREIGN KEY (mailbox_id) REFERENCES mailboxes(id) ON DELETE CASCADE`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT false`);
   await run(`ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_attempts INTEGER DEFAULT 0`);

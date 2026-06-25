@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.57] - 2026-06-25
+### Added
+- **Scoring antispam automatico (Rspamd)**: nuovo `spamScheduler` che in background
+  valuta le email non ancora analizzate (mh_spam_score NULL), a piccoli blocchi
+  (100/giro ogni 10 min, con pausa) per non saturare il box; salta il giro se Rspamd
+  non risponde. Attivabile/disattivabile dal superadmin (impostazione spam_autoscore,
+  interruttore nel pannello Antispam). Non serve più premere "Analizza" a mano.
+### Fixed
+- Vincolo `spam_cache.mailbox_id` ricreato con ON DELETE CASCADE (su installazioni
+  vecchie poteva mancare): l'eliminazione delle caselle è ora robusta anche senza
+  la cancellazione manuale preventiva.
 ## [0.1.56] - 2026-06-25
 ### Added
 - **UI Antispam con punteggio MailHaven (Rspamd)**: toggle "Origine / MailHaven" per

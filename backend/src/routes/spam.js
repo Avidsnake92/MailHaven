@@ -191,22 +191,25 @@ router.delete('/:email_id', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const db = req.app.locals.db;
   try {
-    const result = await db.query("SELECT value FROM settings WHERE key='spam_score_threshold'");
-    res.json({ threshold: parseFloat(result.rows[0]?.value || 5) });
+    const result = await db.query("SELECT key, value FROM settings WHERE key IN ('spam_score_threshold','spam_autoscore')");
+    const map = {}; result.rows.forEach(r => map[r.key] = r.value);
+    res.json({ threshold: parseFloat(map.spam_score_threshold || 5), autoscore: map.spam_autoscore !== 'false' });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
-// POST /spam/settings — la soglia è globale: solo superadmin
+// POST /spam/settings — impostazioni globali: solo superadmin
 router.post('/settings', async (req, res) => {
   const db = req.app.locals.db;
-  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'Solo il superadmin può cambiare la soglia globale', code: 'MH-1003' });
-  const { threshold } = req.body;
+  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'Solo il superadmin può cambiare le impostazioni globali', code: 'MH-1003' });
+  const { threshold, autoscore } = req.body;
   try {
-    await db.query(
-      "INSERT INTO settings (key,value) VALUES ('spam_score_threshold',$1) ON CONFLICT (key) DO UPDATE SET value=$1",
-      [String(threshold)]
-    );
-    res.json({ message: 'Soglia aggiornata', threshold });
+    if (threshold !== undefined) {
+      await db.query("INSERT INTO settings (key,value) VALUES ('spam_score_threshold',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [String(threshold)]);
+    }
+    if (autoscore !== undefined) {
+      await db.query("INSERT INTO settings (key,value) VALUES ('spam_autoscore',$1) ON CONFLICT (key) DO UPDATE SET value=$1", [autoscore ? 'true' : 'false']);
+    }
+    res.json({ message: 'Impostazioni aggiornate' });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 

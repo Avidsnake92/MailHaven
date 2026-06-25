@@ -301,6 +301,11 @@ app.listen(PORT, '0.0.0.0', async () => {
   } catch (e) { console.error('Backup Scheduler error:', e.message); }
 
   try {
+    const spamScheduler = require('./services/spamScheduler');
+    await spamScheduler.start(pool);
+  } catch (e) { console.error('Spam Scheduler error:', e.message); }
+
+  try {
     const avBatchScanner = require('./services/avBatchScanner');
     avBatchScanner.start(pool, 10);
     app.locals.avBatchScanner = avBatchScanner;
