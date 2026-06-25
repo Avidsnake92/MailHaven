@@ -40,7 +40,7 @@ const getUserMailboxIds = async (db, user) => {
 // GET /spam — lista email spam dalla cache
 router.get('/', async (req, res) => {
   const db = req.app.locals.db;
-  const { mailbox_id, threshold, page = 1, limit = 50 } = req.query;
+  const { mailbox_id, threshold, page = 1, limit = 50, source = 'origin' } = req.query;
   const offset = (page - 1) * limit;
 
   try {
@@ -49,22 +49,40 @@ router.get('/', async (req, res) => {
       const setting = await db.query("SELECT value FROM settings WHERE key='spam_score_threshold'");
       scoreThreshold = parseFloat(setting.rows[0]?.value || 5);
     }
-
     const allowedIds = await getUserMailboxIds(db, req.user);
+
+    if (source === 'mh') {
+      // Filtro per il punteggio INDIPENDENTE di MailHaven (Rspamd)
+      const params = [scoreThreshold, allowedIds];
+      let mbF = '';
+      if (mailbox_id) { params.push(parseInt(mailbox_id)); mbF = ` AND ae.mailbox_id=$${params.length}`; }
+      const baseWhere = `ae.mh_spam_score IS NOT NULL AND ae.mh_spam_score >= $1 AND ae.mailbox_id=ANY($2::int[])${mbF}`;
+      const countParams = params.slice();
+      params.push(parseInt(limit)); params.push(parseInt(offset));
+      const result = await db.query(
+        `SELECT ae.id::text AS email_id, ae.mailbox_id, ae.mh_spam_score AS score, ae.mh_spam_score, ae.mh_spam_action,
+                ae.subject, ae.sender_email, ae.sent_at, ae.path
+         FROM archived_emails ae WHERE ${baseWhere}
+         ORDER BY ae.mh_spam_score DESC, ae.sent_at DESC
+         LIMIT $${params.length - 1} OFFSET $${params.length}`, params
+      );
+      const count = await db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${baseWhere}`, countParams);
+      return res.json({ items: result.rows, total: parseInt(count.rows[0].count), totalPages: Math.ceil(count.rows[0].count / limit), threshold: scoreThreshold, source: 'mh' });
+    }
+
+    // source === 'origin' (default): punteggio del mail server di origine, da spam_cache
     const params = [scoreThreshold];
     let mailboxFilter = `AND sc.mailbox_id=ANY($${params.length + 1}::int[])`;
     params.push(allowedIds);
-
     if (mailbox_id) {
       params.push(parseInt(mailbox_id));
       mailboxFilter += ` AND sc.mailbox_id=$${params.length}`;
     }
-
     params.push(parseInt(limit));
     params.push(parseInt(offset));
 
     const result = await db.query(
-      `SELECT sc.*, ae.subject, ae.sender_email, ae.sent_at, ae.path
+      `SELECT sc.*, ae.subject, ae.sender_email, ae.sent_at, ae.path, ae.mh_spam_score, ae.mh_spam_action
        FROM spam_cache sc
        JOIN archived_emails ae ON sc.email_id=ae.id::text
        WHERE sc.score >= $1 ${mailboxFilter}
@@ -83,7 +101,8 @@ router.get('/', async (req, res) => {
       items: result.rows,
       total: parseInt(count.rows[0].count),
       totalPages: Math.ceil(count.rows[0].count / limit),
-      threshold: scoreThreshold
+      threshold: scoreThreshold,
+      source: 'origin'
     });
   } catch (err) {
     console.error(err);

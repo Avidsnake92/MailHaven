@@ -36,6 +36,7 @@ export default function Antispam() {
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [threshold, setThreshold] = useState(5)
+  const [source, setSource] = useState('origin')
   const [showSettings, setShowSettings] = useState(false)
   const [selected, setSelected] = useState([])
   const [deleting, setDeleting] = useState(false)
@@ -68,14 +69,14 @@ export default function Antispam() {
     setLoading(true)
     try {
       const res = await api.get('/spam', {
-        params: { mailbox_id: selectedMailbox.id, threshold, page, limit: 50 }
+        params: { mailbox_id: selectedMailbox.id, threshold, page, limit: 50, source }
       })
       setEmails(res.data.items || [])
       setTotal(res.data.total || 0)
       setTotalPages(res.data.totalPages || 1)
     } catch { setEmails([]) }
     finally { setLoading(false) }
-  }, [selectedMailbox, threshold, page])
+  }, [selectedMailbox, threshold, page, source])
 
   useEffect(() => { fetchSpam() }, [fetchSpam])
 
@@ -223,6 +224,12 @@ export default function Antispam() {
             </div>
 
             <div className="flex items-center gap-2">
+              <div className="flex gap-1 bg-gray-100 p-1 rounded-lg" title="Quale punteggio usare per il filtro">
+                {[['origin', 'Origine'], ['mh', 'MailHaven']].map(([id, label]) => (
+                  <button key={id} onClick={() => { setSource(id); setPage(1) }}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${source === id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>{label}</button>
+                ))}
+              </div>
               {selected.length > 0 && (
                 <button onClick={handleDeleteSelected} disabled={deleting}
                   className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
@@ -264,7 +271,8 @@ export default function Antispam() {
                           : <Square size={16} />}
                       </button>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Score</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{source === 'mh' ? 'MailHaven' : 'Origine'}</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">MailHaven</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Oggetto</th>
                     <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Mittente</th>
@@ -273,11 +281,11 @@ export default function Antispam() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={6} className="text-center py-16">
+                    <tr><td colSpan={7} className="text-center py-16">
                       <Loader2 size={24} className="animate-spin text-gray-400 mx-auto" />
                     </td></tr>
                   ) : emails.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center py-16">
+                    <tr><td colSpan={7} className="text-center py-16">
                       <ShieldAlert size={32} className="text-gray-300 mx-auto mb-3" />
                       <p className="text-gray-500 text-sm">Nessuna email spam trovata</p>
                       <p className="text-gray-400 text-xs mt-1">
@@ -297,6 +305,13 @@ export default function Antispam() {
                           <AlertTriangle size={10} />
                           {email.score}
                         </span>
+                      </td>
+                      <td className="px-4 py-3" onClick={() => navigate(`/email/${email.email_id}`)}>
+                        {email.mh_spam_score != null ? (
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md ${scoreColor(email.mh_spam_score)}`} title={email.mh_spam_action || ''}>
+                            {email.mh_spam_score}{email.mh_spam_action === 'reject' ? ' ⛔' : ''}
+                          </span>
+                        ) : <span className="text-xs text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap mono"
                         onClick={() => navigate(`/email/${email.email_id}`)}>

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.56] - 2026-06-25
+### Added
+- **UI Antispam con punteggio MailHaven (Rspamd)**: toggle "Origine / MailHaven" per
+  scegliere quale punteggio usare come filtro, e nuova colonna che mostra sempre il
+  punteggio indipendente di MailHaven (con azione rspamd, es. ⛔ reject). La GET /spam
+  accetta `source=origin|mh` ed espone mh_spam_score in entrambe le viste.
 ## [0.1.55] - 2026-06-25
 ### Added
 - **Secondo motore antispam (Rspamd)**: nuovo container `mailhaven-rspamd` (capped a
