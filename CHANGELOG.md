@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.55] - 2026-06-25
+### Added
+- **Secondo motore antispam (Rspamd)**: nuovo container `mailhaven-rspamd` (capped a
+  400MB) che dà un punteggio antispam INDIPENDENTE all'archivio, in aggiunta a quello
+  del mail server di origine. Nuovi campi su archived_emails: `mh_spam_score`,
+  `mh_spam_action`, `mh_spam_symbols`, `mh_spam_at`. Servizi `rspamdClient.js`
+  (API /checkv2) e `spamScorer.js` (batch). Il pulsante "Analizza" ora calcola anche
+  il punteggio MailHaven. Self-hosted: i dati non escono dal server.
 ## [0.1.54] - 2026-06-25
 ### Fixed (sicurezza Antispam)
 - `DELETE /spam/:email_id` ora verifica la proprietà della casella e blocca le email

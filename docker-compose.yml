@@ -66,6 +66,20 @@ services:
       timeout: 5s
       retries: 5
 
+  mailhaven-rspamd:
+    image: rspamd/rspamd:latest
+    container_name: mailhaven-rspamd
+    restart: unless-stopped
+    networks:
+      - mailhaven-net
+    mem_limit: 400m
+    healthcheck:
+      test: ["CMD-SHELL", "rspamc stat >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 networks:
   mailhaven-net:
     driver: bridge

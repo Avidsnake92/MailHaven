@@ -136,6 +136,12 @@ router.post('/analyze/:mailbox_id', async (req, res) => {
           if (emails.rows.length < 50) break;
         }
         console.log(`Spam analysis complete for ${mailbox.email}: ${analyzed} emails`);
+        // Secondo motore: punteggio antispam indipendente di MailHaven (Rspamd)
+        try {
+          const { scoreMailbox } = require('../services/spamScorer');
+          const s = await scoreMailbox(db, mailbox.id);
+          console.log(`Rspamd scoring ${mailbox.email}: ${s.scored} valutate, ${s.errors} errori`);
+        } catch (e) { console.error('Rspamd scoring error:', e.message); }
       } catch (e) {
         console.error('Spam analysis error:', e.message);
       }

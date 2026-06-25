@@ -11,6 +11,12 @@ const migrate = async (db) => {
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS av_status VARCHAR(50) DEFAULT NULL`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS search_vector tsvector`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS is_pec BOOLEAN DEFAULT false`);
+  // Punteggio spam INDIPENDENTE calcolato da MailHaven (Rspamd) — distinto dallo spam_score di origine
+  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS mh_spam_score REAL DEFAULT NULL`);
+  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS mh_spam_action VARCHAR(50) DEFAULT NULL`);
+  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS mh_spam_symbols JSONB DEFAULT NULL`);
+  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS mh_spam_at TIMESTAMP DEFAULT NULL`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_archived_emails_mh_spam ON archived_emails(mh_spam_score) WHERE mh_spam_score IS NOT NULL`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS pec_type VARCHAR(50) DEFAULT NULL`);
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS sync_paused BOOLEAN DEFAULT false`);
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_provider VARCHAR(50)`);
