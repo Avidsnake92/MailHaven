@@ -95,10 +95,16 @@ router.get('/', async (req, res) => {
 router.post('/analyze/:mailbox_id', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    // Scoping: solo caselle del chiamante
+    const allowed = await getUserMailboxIds(db, req.user);
+    if (!allowed.includes(Number(req.params.mailbox_id))) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
     const mb = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.mailbox_id]);
     if (!mb.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
 
     const mailbox = mb.rows[0];
+    // Soglia configurata (non più hardcoded)
+    const thrRow = await db.query("SELECT value FROM settings WHERE key='spam_score_threshold'");
+    const threshold = parseFloat(thrRow.rows[0]?.value || 5);
     res.json({ message: 'Analisi avviata in background', mailbox: mailbox.email });
 
     setImmediate(async () => {
@@ -115,7 +121,7 @@ router.post('/analyze/:mailbox_id', async (req, res) => {
           for (const email of emails.rows) {
             try {
               if (email.spam_score !== null && email.spam_score !== undefined) {
-                const isSpam = email.spam_score >= 5;
+                const isSpam = email.spam_score >= threshold;
                 await db.query(
                   `INSERT INTO spam_cache (email_id, mailbox_id, score, is_spam)
                    VALUES ($1,$2,$3,$4)
@@ -143,6 +149,11 @@ router.post('/analyze/:mailbox_id', async (req, res) => {
 router.delete('/:email_id', async (req, res) => {
   const db = req.app.locals.db;
   try {
+    const allowed = await getUserMailboxIds(db, req.user);
+    const e = (await db.query('SELECT mailbox_id, legal_hold FROM archived_emails WHERE id=$1', [req.params.email_id])).rows[0];
+    if (!e) return res.status(404).json({ error: 'Email non trovata' });
+    if (!allowed.includes(e.mailbox_id)) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    if (e.legal_hold) return res.status(409).json({ error: 'Email in Legal Hold: rimuovi il blocco prima di eliminarla.' });
     await db.query('DELETE FROM spam_cache WHERE email_id=$1', [req.params.email_id]);
     await db.query('DELETE FROM archived_emails WHERE id=$1', [req.params.email_id]);
     res.json({ message: 'Email eliminata' });
@@ -160,9 +171,10 @@ router.get('/settings', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
-// POST /spam/settings
+// POST /spam/settings — la soglia è globale: solo superadmin
 router.post('/settings', async (req, res) => {
   const db = req.app.locals.db;
+  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'Solo il superadmin può cambiare la soglia globale', code: 'MH-1003' });
   const { threshold } = req.body;
   try {
     await db.query(

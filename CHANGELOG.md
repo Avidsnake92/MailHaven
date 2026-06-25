@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.54] - 2026-06-25
+### Fixed (sicurezza Antispam)
+- `DELETE /spam/:email_id` ora verifica la proprietà della casella e blocca le email
+  in Legal Hold (prima eliminava qualsiasi email per id, cross-tenant e bypassando
+  il Legal Hold).
+- `POST /spam/analyze/:mailbox_id` verifica che la casella sia del chiamante.
+- `POST /spam/settings` (soglia globale) consentito solo al superadmin; nel frontend
+  il pulsante "Salva soglia" è nascosto agli altri ruoli (per loro la soglia filtra
+  solo la propria vista).
+- In `analyze`, il flag is_spam usa ora la soglia configurata invece di un valore fisso.
 ## [0.1.53] - 2026-06-25
 ### Added
 - **Filtro per tipo di azione nell'Audit**: menu a tendina (Creazioni, Modifiche,

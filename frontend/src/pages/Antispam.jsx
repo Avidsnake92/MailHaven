@@ -191,11 +191,15 @@ export default function Antispam() {
                   </button>
                 ))}
               </div>
-              <button onClick={handleSaveThreshold}
-                className="w-full text-xs font-medium py-1.5 rounded-lg text-white"
-                style={{ background: branding.primary_color || '#2563eb' }}>
-                Salva soglia
-              </button>
+              {user?.role === 'superadmin' ? (
+                <button onClick={handleSaveThreshold}
+                  className="w-full text-xs font-medium py-1.5 rounded-lg text-white"
+                  style={{ background: branding.primary_color || '#2563eb' }}>
+                  Salva soglia (globale)
+                </button>
+              ) : (
+                <p className="text-xs text-gray-400">La soglia qui filtra solo la tua vista. Il valore globale lo imposta il superadmin.</p>
+              )}
             </div>
           )}
         </div>
