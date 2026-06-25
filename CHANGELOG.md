@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.53] - 2026-06-25
+### Added
+- **Filtro per tipo di azione nell'Audit**: menu a tendina (Creazioni, Modifiche,
+  Eliminazioni, Accessi, Backup, Ripristini, Legal Hold, Antispam, Sincronizzazioni)
+  oltre alla ricerca testuale.
+### Changed
+- **Log dei backup spostati nella sezione Log**: nuova scheda "Log → Backup"
+  (visibile a superadmin e ai reseller con Backup attivo, scoped). Rimossi dalla
+  pagina Backup, che ora rimanda alla nuova posizione.
 ## [0.1.52] - 2026-06-24
 ### Changed
 - **Audit: descrizione sempre visibile**: la frase con il nome dell'entità (es.

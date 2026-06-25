@@ -614,38 +614,10 @@ export default function Backup() {
         </div>
       )}
 
-      {/* Log */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <button onClick={() => setShowLogs(!showLogs)} className="flex items-center justify-between w-full px-6 py-4 text-left">
-          <div className="flex items-center gap-3">
-            <Clock size={18} className="text-gray-500" />
-            <h2 className="font-semibold text-gray-900">Log backup ({logs.length})</h2>
-          </div>
-          {showLogs ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-        </button>
-        {showLogs && (
-          <div className="border-t border-gray-100 divide-y divide-gray-50">
-            {logs.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">Nessun backup eseguito</p>
-            ) : logs.map(log => {
-              const details = typeof log.details === 'string' ? (() => { try { return JSON.parse(log.details) } catch { return {} } })() : log.details || {}
-              return (
-                <div key={log.id} className="flex items-center gap-4 px-6 py-3">
-                  {log.status === 'success' ? <CheckCircle size={14} className="text-green-500 shrink-0" /> : <XCircle size={14} className="text-red-500 shrink-0" />}
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-500">{formatDate(log.created_at)} · {log.type?.toUpperCase()}</p>
-                    {details.key && <p className="text-xs text-gray-400 truncate">{details.key}</p>}
-                    {details.error && <p className="text-xs text-red-500">{details.error}</p>}
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${log.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {log.status === 'success' ? 'OK' : 'Errore'}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      {/* Lo storico dei backup è stato spostato nella sezione Log */}
+      <p className="text-xs text-gray-400 text-center py-2">
+        Lo storico dei backup è ora in <span className="font-medium text-gray-500">Log → Backup</span>.
+      </p>
     </div>
   )
 }

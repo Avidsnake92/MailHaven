@@ -5,7 +5,7 @@ import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useBranding } from '../context/BrandingContext'
 import { useAuth } from '../context/AuthContext'
-import { Activity, Search, ChevronLeft, ChevronRight, ChevronDown, Loader2, Mail, Download, RotateCcw, LogIn, Key, Trash2, Plus, Edit2, ShieldCheck, ShieldAlert, Shield, RefreshCw, CheckCircle2, AlertCircle, Clock, Inbox } from 'lucide-react'
+import { Activity, Search, ChevronLeft, ChevronRight, ChevronDown, Loader2, Mail, Download, RotateCcw, LogIn, Key, Trash2, Plus, Edit2, ShieldCheck, ShieldAlert, Shield, RefreshCw, CheckCircle2, AlertCircle, Clock, Inbox, HardDrive } from 'lucide-react'
 
 const ACTION_CONFIG = {
   LOGIN:                  { label: 'Accesso',            color: 'bg-green-100 text-green-700',   icon: LogIn },
@@ -75,6 +75,56 @@ const formatDateShort = (d) => {
   try { return format(new Date(d), "dd/MM HH:mm", { locale: it }) } catch { return d }
 }
 
+const formatSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + s[i]
+}
+
+// Log dei backup (spostati qui dalla pagina Backup)
+function BackupLog() {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { api.get('/backup/logs').then(r => setLogs(r.data || [])).catch(() => setLogs([])).finally(() => setLoading(false)) }, [])
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+        <HardDrive size={16} className="text-gray-500" />
+        <h2 className="font-semibold text-gray-900 text-sm">Log backup ({logs.length})</h2>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+      ) : logs.length === 0 ? (
+        <div className="text-center py-16"><HardDrive size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun backup eseguito</p></div>
+      ) : (
+        <div className="divide-y divide-gray-50">
+          {logs.map(log => {
+            const d = typeof log.details === 'string' ? (() => { try { return JSON.parse(log.details) } catch { return {} } })() : (log.details || {})
+            const ok = log.status === 'success'
+            return (
+              <div key={log.id} className="flex items-center gap-3 px-4 py-3">
+                {ok ? <CheckCircle2 size={15} className="text-green-500 shrink-0" /> : <AlertCircle size={15} className="text-red-500 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800">{ok ? 'Backup completato' : 'Backup fallito'} <span className="text-xs text-gray-400">· {String(log.type || '').toUpperCase()}</span></p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {formatDate(log.created_at)}
+                    {d.key && <span className="font-mono"> · {String(d.key).split('/').pop()}</span>}
+                    {d.size != null && <span> · {formatSize(d.size)}</span>}
+                    {d.email_count != null && <span> · {d.email_count} email</span>}
+                  </p>
+                  {d.error && <p className="text-xs text-red-500 truncate">{d.error}</p>}
+                </div>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{ok ? 'OK' : 'Errore'}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ActivityLog() {
   const [logs, setLogs] = useState([])
   const [total, setTotal] = useState(0)
@@ -127,13 +177,26 @@ function ActivityLog() {
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 max-w-xs">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" placeholder="Filtra per azione (es. LOGIN, EMAIL)..."
+          <input type="text" placeholder="Cerca azione..."
             value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
         </div>
-        <span className="text-sm text-gray-500">{total} eventi</span>
+        <select value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none bg-white text-gray-700">
+          <option value="">Tutte le azioni</option>
+          <option value="CREAT">Creazioni</option>
+          <option value="MODIFICAT">Modifiche</option>
+          <option value="ELIMINAT">Eliminazioni</option>
+          <option value="LOGIN">Accessi</option>
+          <option value="BACKUP">Backup</option>
+          <option value="RIPRISTINAT">Ripristini</option>
+          <option value="LEGAL">Legal Hold</option>
+          <option value="ANTISPAM">Antispam</option>
+          <option value="SYNC">Sincronizzazioni</option>
+        </select>
+        <span className="text-sm text-gray-500 ml-auto">{total} eventi</span>
       </div>
       <table className="w-full">
         <thead>
@@ -621,6 +684,7 @@ export default function Logs() {
       {activeTab === 'activity' && <ActivityLog />}
       {activeTab === 'sync' && <SyncLog />}
       {activeTab === 'av' && <AvLog />}
+      {activeTab === 'backup' && <BackupLog />}
     </div>
   )
 }

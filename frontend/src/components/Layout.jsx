@@ -55,6 +55,7 @@ export default function Layout() {
   const canLogs = isAdmin || (isReseller && user?.feat?.logs)
   const canAv = isAdmin || (isReseller && user?.feat?.antivirus)
   const canAntispam = !isReseller || user?.feat?.antispam
+  const canBackupLog = isSuper || (isReseller && user?.feat?.backup)
 
   // Header di un gruppo a comparsa
   const groupBtn = (label, Icon, open, toggle) => (
@@ -86,11 +87,12 @@ export default function Layout() {
           {(isAdmin || (user?.role === 'reseller' && user?.feat?.import)) && <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>}
           {isReseller && user?.feat?.backup && <NavLink to="/backup" className={subNavClass}><HardDrive size={15} /> Backup</NavLink>}
         </div>}
-        {(canLogs || canAv) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
-        {(canLogs || canAv) && logOpen && <div className="space-y-0.5">
+        {(canLogs || canAv || canBackupLog) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
+        {(canLogs || canAv || canBackupLog) && logOpen && <div className="space-y-0.5">
           {canLogs && <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Audit</NavLink>}
           {canLogs && <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>}
           {canAv && <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>}
+          {canBackupLog && <NavLink to="/logs?tab=backup" className={logTab('backup')}><HardDrive size={15} /> Backup</NavLink>}
         </div>}
       </>)}
 
