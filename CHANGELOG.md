@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.52] - 2026-06-24
+### Changed
+- **Audit: descrizione sempre visibile**: la frase con il nome dell'entità (es.
+  «Eliminato rivenditore «Mario»») è ora mostrata sempre nella riga, non più
+  nascosta sugli schermi stretti. Le voci create prima della v0.1.49 non hanno il
+  nome (non era stato catturato) e mostrano solo l'etichetta dell'azione.
 ## [0.1.51] - 2026-06-24
 ### Changed
 - **Dettagli audit più chiari**: il pannello espanso di ogni voce mostra ora la

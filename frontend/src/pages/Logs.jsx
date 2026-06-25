@@ -169,8 +169,8 @@ function ActivityLog() {
                       <Icon size={11} />{config.label}
                     </span>
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-xs text-gray-600 max-w-md truncate">
-                    {summaryOf(log.details, log.action) || '—'}
+                  <td className="px-4 py-3 text-sm text-gray-800 max-w-md">
+                    <span className="block truncate">{summaryOf(log.details, log.action) || '—'}</span>
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-400 mono">
                     <div className="flex items-center justify-between gap-2">
