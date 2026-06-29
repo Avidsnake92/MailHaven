@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.58] - 2026-06-29
+### Changed
+- **Setup wizard rinnovato**: nuovo layout split-screen con pannello brand a sinistra
+  (gradiente, logo, stepper verticale con avanzamento e descrizioni) e form pulito a
+  destra. Su mobile barra di avanzamento compatta in alto. Schermata finale di riavvio
+  rifinita. Logica invariata: stesse chiamate API, generazione chiavi, validazioni,
+  test SMTP e redirect al login.
 ## [0.1.57] - 2026-06-25
 ### Added
 - **Scoring antispam automatico (Rspamd)**: nuovo `spamScheduler` che in background
