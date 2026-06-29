@@ -28,13 +28,38 @@ on_error() {
 }
 trap on_error ERR
 
+# Self-heal: il file di stato DEVE essere un file regolare. Un vecchio mount ":ro"
+# poteva crearlo come directory → do-update.sh moriva con "Is a directory".
+if [ -d "$STATUS_FILE" ]; then
+  docker compose stop mailhaven-frontend >/dev/null 2>&1 || true
+  rm -rf "$STATUS_FILE"
+fi
+[ -e "$STATUS_FILE" ] || : > "$STATUS_FILE" 2>/dev/null || true
+
 log "=== Avvio aggiornamento MailHaven ==="
 log "versione corrente: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 set_status "pull" 5 "Scaricamento aggiornamenti..."
 
-# ── 1. Git pull ──────────────────────────────────────────────────────────
-log "git pull origin main..."
-git pull origin main --quiet 2>&1 | tee -a "$LOG"
+# ── 1. Allinea il codice a origin/main (robusto) ─────────────────────────
+log "allineo il repository a origin/main..."
+# Accesso a GitHub: se il fetch fallisce prova col token da .env
+if ! git fetch --quiet origin main 2>>"$LOG"; then
+  TOKEN=$(grep -E '^GITHUB_TOKEN=' "$INSTALL_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' "' || true)
+  RU=$(git remote get-url origin 2>/dev/null || echo "")
+  if [ -n "${TOKEN:-}" ] && echo "$RU" | grep -q 'github.com'; then
+    AU=$(echo "$RU" | sed -E 's#https://[^@]*@#https://#')
+    AU=$(echo "$AU" | sed "s#https://#https://${TOKEN}@#")
+    git remote set-url origin "$AU"
+    git fetch --quiet origin main 2>>"$LOG"
+  fi
+fi
+# Mette da parte eventuali modifiche locali (non blocca l'allineamento)
+if [ -n "$(git status --porcelain)" ]; then
+  git stash push -u -m "do-update $(date +%Y%m%d-%H%M%S)" >/dev/null 2>&1 || true
+  log "modifiche locali messe da parte (git stash)"
+fi
+git checkout main --quiet 2>/dev/null || git checkout -B main origin/main --quiet
+git reset --hard origin/main --quiet
 log "target: $(git rev-parse --short HEAD)"
 set_status "pull" 10 "Aggiornamenti scaricati"
 

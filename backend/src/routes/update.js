@@ -33,6 +33,16 @@ router.get('/status', requireSuperadmin, async (req, res) => {
     // Versione target (dal tag piu recente)
     const targetVersion = gitStatus.latestTag ? gitStatus.latestTag.replace(/^v/, '') : null;
 
+    // Stato del "motore aggiornamenti" (agente host): heartbeat < 3 min = attivo
+    let agent = { alive: false, ageSeconds: null };
+    try {
+      const beat = parseInt(fs.readFileSync(path.join(APP_DIR, 'data', 'agent-heartbeat'), 'utf8').trim(), 10);
+      if (!isNaN(beat)) {
+        const age = Math.floor(Date.now() / 1000) - beat;
+        agent = { alive: age >= 0 && age < 180, ageSeconds: age };
+      }
+    } catch {}
+
     res.json({
       current: currentVersion,
       currentCommit: gitStatus.currentCommit,
@@ -43,6 +53,9 @@ router.get('/status', requireSuperadmin, async (req, res) => {
       latestTag: gitStatus.latestTag,
       latestCommits: gitStatus.latestCommits || [],
       changelog,
+      agent,
+      lastCheck: gitStatus.generatedAt || null,
+      fetchOk: gitStatus.fetchOk !== undefined ? gitStatus.fetchOk : null,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -56,6 +69,17 @@ router.get('/progress', requireSuperadmin, async (req, res) => {
     res.json(JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')));
   } catch {
     res.json({ step: 'idle', progress: 0, message: '' });
+  }
+});
+
+// POST /update/check — verifica REALE: chiede all'agente host di rieseguire
+// check-update.sh (git fetch + git-status.json). L'agente lo rileva entro ~60s.
+router.post('/check', requireSuperadmin, async (req, res) => {
+  try {
+    fs.writeFileSync(path.join(APP_DIR, 'data', 'check.trigger'), new Date().toISOString());
+    res.json({ started: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Impossibile avviare la verifica: ' + e.message });
   }
 });
 

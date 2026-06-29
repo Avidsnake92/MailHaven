@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.63] - 2026-06-29
+### Changed
+- **Sistema di aggiornamento più robusto e trasparente.**
+  - Nuovo **agente host unico** `mh-agent.sh` (un solo cron): heartbeat + verifica
+    periodica + esecuzione update, con auto-installazione (`mh-agent.sh install`).
+    Sostituisce i due cron separati che si perdevano.
+  - **"Verifica aggiornamenti" ora fa un controllo REALE** (git fetch tramite agente)
+    invece di rileggere una cache: niente più pulsante che "non fa niente".
+  - Il pannello mostra lo **stato del motore aggiornamenti** (attivo/non attivo +
+    "ultimo controllo"), con avviso rosso se l'agente non gira.
+  - `do-update.sh` **indurito**: allineamento con fetch + reset e token (invece di
+    git pull, che si rompeva su tree sporco/HEAD distaccato) + self-heal del file di stato.
+  - Rimosso il **mount fragile** di update-status.json (causa del bug "is a directory").
+  - Endpoint: `POST /update/check`; `/update/status` espone `agent`, `lastCheck`, `fetchOk`.
 ## [0.1.62] - 2026-06-29
 ### Added
 - **Edizione "A vita" (lifetime)**: licenza illimitata (caselle, aziende e

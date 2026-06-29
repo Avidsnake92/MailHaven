@@ -98,10 +98,7 @@ start_stack() {
 }
 
 install_cron() {
-  local check trigger
-  check="*/30 * * * * bash $INSTALL_DIR/check-update.sh >> $INSTALL_DIR/data/check-update.log 2>&1"
-  trigger="* * * * * if [ -f $INSTALL_DIR/data/update.trigger ]; then rm -f $INSTALL_DIR/data/update.trigger && bash $INSTALL_DIR/do-update.sh >> $INSTALL_DIR/data/update.log 2>&1; fi"
-  (crontab -l 2>/dev/null | grep -v 'mailhaven/check-update.sh' | grep -v 'mailhaven/data/update.trigger' || true; echo "$check"; echo "$trigger") | crontab -
+  INSTALL_DIR="$INSTALL_DIR" bash "$INSTALL_DIR/mh-agent.sh" install
 }
 
 need_root

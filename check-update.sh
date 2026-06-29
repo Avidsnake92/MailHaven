@@ -56,6 +56,7 @@ try:
 except Exception:
     pass
 
+import time
 behind_raw = '$BEHIND'
 data = {
     'currentCommit':  '$CURRENT',
@@ -64,6 +65,7 @@ data = {
     'commitsBehind':  int(behind_raw) if behind_raw.isdigit() else 0,
     'latestCommits':  commits,
     'fetchOk':        bool(int('$_fetch_ok')),
+    'generatedAt':    int(time.time()),
 }
 with open('$OUTPUT', 'w', encoding='utf-8') as f:
     json.dump(data, f)

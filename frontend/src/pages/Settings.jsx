@@ -306,6 +306,7 @@ function UpdateTab({ setUpdating }) {
   const [started, setStarted] = useState(false)
   const [backupConfirmed, setBackupConfirmed] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [checking, setChecking] = useState(false)
 
   const loadStatus = async (attempt = 1) => {
     setLoading(true); setError('')
@@ -335,6 +336,39 @@ function UpdateTab({ setUpdating }) {
 
   useEffect(() => { loadStatus() }, [])
 
+  // Verifica REALE: chiede all'agente host di rifare il check (git fetch) e attende
+  // che git-status.json si rinfreschi (lastCheck cambia) o scade il timeout.
+  const runCheck = async () => {
+    setChecking(true); setError('')
+    const before = status?.lastCheck || 0
+    try {
+      await api.post('/update/check')
+    } catch (e) {
+      // Backend vecchio senza /check → fallback al semplice reload
+      setChecking(false); return loadStatus()
+    }
+    const t0 = Date.now()
+    const poll = async () => {
+      try {
+        const res = await api.get('/update/status')
+        setStatus(res.data)
+        if ((res.data.lastCheck || 0) > before) { setChecking(false); return }
+      } catch {}
+      if (Date.now() - t0 > 75000) { setChecking(false); return }
+      setTimeout(poll, 3000)
+    }
+    setTimeout(poll, 3000)
+  }
+
+  const fmtAgo = (sec) => {
+    if (sec == null) return '—'
+    if (sec < 60) return 'pochi secondi fa'
+    if (sec < 3600) return `${Math.floor(sec / 60)} min fa`
+    if (sec < 86400) return `${Math.floor(sec / 3600)} h fa`
+    return `${Math.floor(sec / 86400)} g fa`
+  }
+  const lastCheckAgo = status?.lastCheck ? Math.floor(Date.now() / 1000) - status.lastCheck : null
+
   const handleUpdate = async () => {
     if (!backupConfirmed) return
     try {
@@ -356,6 +390,17 @@ function UpdateTab({ setUpdating }) {
 
   return (
     <div className="space-y-6">
+      {/* Avviso: motore aggiornamenti non attivo */}
+      {status?.agent && !status.agent.alive && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-red-700">
+            <p className="font-semibold">Motore aggiornamenti non attivo</p>
+            <p className="text-xs mt-0.5">L'agente host non risponde da oltre 3 minuti: verifiche e aggiornamenti potrebbero non partire. Sul server esegui <code className="bg-red-100 px-1 rounded">bash mh-agent.sh install</code>.</p>
+          </div>
+        </div>
+      )}
+
       {/* Stato corrente */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         {loading ? (
@@ -398,10 +443,19 @@ function UpdateTab({ setUpdating }) {
           </div>
         ) : null}
 
-        <button onClick={loadStatus} disabled={loading}
-          className="mt-4 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Verifica aggiornamenti
-        </button>
+        <div className="mt-4 flex items-center justify-between flex-wrap gap-2">
+          <button onClick={runCheck} disabled={loading || checking}
+            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 disabled:opacity-60">
+            <RefreshCw size={13} className={(loading || checking) ? 'animate-spin' : ''} />
+            {checking ? 'Controllo in corso…' : 'Verifica aggiornamenti'}
+          </button>
+          {status?.agent && (
+            <span className="text-xs flex items-center gap-1.5 text-gray-400">
+              <span className={`w-2 h-2 rounded-full ${status.agent.alive ? 'bg-green-500' : 'bg-red-500'}`} />
+              Motore {status.agent.alive ? 'attivo' : 'non attivo'} · ultimo controllo {fmtAgo(lastCheckAgo)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Bottone aggiorna */}
