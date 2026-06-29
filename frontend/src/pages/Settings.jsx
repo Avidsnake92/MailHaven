@@ -770,6 +770,7 @@ const ED_META = {
   community: { label: 'Community', cls: 'bg-gray-100 text-gray-700' },
   pro:       { label: 'Pro',       cls: 'bg-blue-100 text-blue-700' },
   msp:       { label: 'MSP',       cls: 'bg-indigo-100 text-indigo-700' },
+  lifetime:  { label: 'A vita',    cls: 'bg-amber-100 text-amber-700' },
 }
 const ST_META = {
   community:       { label: 'Edizione gratuita',                 cls: 'text-gray-500' },
@@ -818,6 +819,7 @@ function LicenseTab() {
   const ed = ED_META[lic?.edition] || ED_META.community
   const st = ST_META[lic?.status] || ST_META.community
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '—'
+  const fmtLim = (v) => v == null ? 'Illimitato' : v
 
   return (
     <div className="space-y-6">
@@ -849,10 +851,10 @@ function LicenseTab() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5 text-sm">
           <div><p className="text-xs text-gray-500">Cliente</p><p className="font-medium text-gray-800">{lic?.customer || '—'}</p></div>
-          <div><p className="text-xs text-gray-500">Scadenza</p><p className="font-medium text-gray-800">{fmtDate(lic?.expires)}</p></div>
-          <div><p className="text-xs text-gray-500">Caselle</p><p className="font-medium text-gray-800">{lic?.lim?.mailboxes ?? '—'}</p></div>
-          <div><p className="text-xs text-gray-500">Aziende</p><p className="font-medium text-gray-800">{lic?.lim?.clients ?? '—'}</p></div>
-          <div><p className="text-xs text-gray-500">Rivenditori</p><p className="font-medium text-gray-800">{lic?.lim?.resellers ?? '—'}</p></div>
+          <div><p className="text-xs text-gray-500">Scadenza</p><p className="font-medium text-gray-800">{lic?.expires ? fmtDate(lic.expires) : (lic?.edition === 'community' ? '—' : 'Nessuna (a vita)')}</p></div>
+          <div><p className="text-xs text-gray-500">Caselle</p><p className="font-medium text-gray-800">{fmtLim(lic?.lim?.mailboxes)}</p></div>
+          <div><p className="text-xs text-gray-500">Aziende</p><p className="font-medium text-gray-800">{fmtLim(lic?.lim?.clients)}</p></div>
+          <div><p className="text-xs text-gray-500">Rivenditori</p><p className="font-medium text-gray-800">{fmtLim(lic?.lim?.resellers)}</p></div>
         </div>
 
         {/* Funzioni incluse */}

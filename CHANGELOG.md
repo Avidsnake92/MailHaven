@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.62] - 2026-06-29
+### Added
+- **Edizione "A vita" (lifetime)**: licenza illimitata (caselle, aziende e
+  rivenditori senza tetto) e **senza scadenza**. Emissibile da CLI
+  (`--lifetime` o `--edition lifetime`) e dall'app di emissione. Nel pannello
+  Impostazioni → Licenza compare col badge "A vita", limiti "Illimitato" e
+  scadenza "Nessuna (a vita)".
 ## [0.1.61] - 2026-06-29
 ### Added
 - **Licenza — Fase 2 (UI + emissione)**. Nuova sezione **Impostazioni → Licenza**
