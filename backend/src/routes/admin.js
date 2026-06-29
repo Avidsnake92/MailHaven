@@ -1013,7 +1013,7 @@ router.post('/users/:id/reset-2fa', requireRole('superadmin'), async (req, res) 
 });
 
 // ---- AV LOG ----
-router.get('/av-logs', async (req, res) => {
+router.get('/av-logs', require('../services/license').requireFeature('antivirus', 'Antivirus'), async (req, res) => {
   const db = req.app.locals.db;
   if (!(await resellerFeatOk(db, req, res, 'feat_antivirus'))) return;
   const { page = 1, limit = 50, status } = req.query;
@@ -1064,7 +1064,7 @@ router.post('/settings', requireRole('superadmin'), async (req, res) => {
 });
 
 // ---- AV UPDATE ----
-router.post('/av/update', requireRole('superadmin'), async (req, res) => {
+router.post('/av/update', requireRole('superadmin'), require('../services/license').requireFeature('antivirus', 'Antivirus'), async (req, res) => {
   const { exec } = require('child_process');
   exec('freshclam --quiet 2>&1', (err, stdout, stderr) => {
     if (err) return res.status(500).json({ error: 'Errore aggiornamento ClamAV: ' + (stderr || err.message) });
@@ -1096,7 +1096,7 @@ router.post('/smtp/test', requireRole('superadmin'), async (req, res) => {
 });
 
 // Riavvia scheduler AV dopo salvataggio impostazioni
-router.post('/av/restart-scheduler', requireRole('superadmin'), async (req, res) => {
+router.post('/av/restart-scheduler', requireRole('superadmin'), require('../services/license').requireFeature('antivirus', 'Antivirus'), async (req, res) => {
   try {
     const db = req.app.locals.db;
     const avScheduler = require('../services/avScheduler');
@@ -1206,7 +1206,7 @@ router.get('/stats/overview', authMiddleware, async (req, res) => {
 
 
 // ---- AV STATISTICS ----
-router.get('/av-stats', async (req, res) => {
+router.get('/av-stats', require('../services/license').requireFeature('antivirus', 'Antivirus'), async (req, res) => {
   const db = req.app.locals.db;
   if (!(await resellerFeatOk(db, req, res, 'feat_antivirus'))) return;
   try {

@@ -22,6 +22,7 @@ const tick = async (db) => {
   if (running) return;
   running = true;
   try {
+    if (!(await require('./license').feature(db, 'antispam'))) return;
     if (!(await isEnabled(db))) return;
     if (!(await ping())) return; // Rspamd non raggiungibile → salta questo giro
     const res = await scoreBatch(db, TICK_LIMIT, PAUSE_MS);

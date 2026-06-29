@@ -251,9 +251,9 @@ app.use('/api/emails',   require('./routes/emails'));
 app.use('/api/admin',    require('./routes/admin'));
 app.use('/api/branding', require('./routes/branding'));
 app.use('/api/restore',  require('./routes/restore'));
-app.use('/api/backup',   require('./routes/backup'));
-app.use('/api/spam',     require('./routes/spam'));
-app.use('/api/import',   require('./routes/import'));
+app.use('/api/backup',   require('./services/license').requireFeature('backup','Backup'), require('./routes/backup'));
+app.use('/api/spam',     require('./services/license').requireFeature('antispam','Antispam'), require('./routes/spam'));
+app.use('/api/import',   require('./services/license').requireFeature('import','Import'), require('./routes/import'));
 app.use('/api/license',  require('./routes/license'));
 
 // ── Health check ───────────────────────────────────────────────────────────

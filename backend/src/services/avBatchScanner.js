@@ -40,6 +40,7 @@ let isRunning = false;
  * Gira in background senza bloccare il server.
  */
 const runBatchScan = async (db) => {
+  if (!(await require('./license').feature(db, 'antivirus'))) return;
   if (isRunning) {
     console.log('[AV Batch] Scan già in corso, skip.');
     return;

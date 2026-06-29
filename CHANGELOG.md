@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.64] - 2026-06-29
+### Added
+- **Licenza — Fase 3: gate delle funzioni per edizione.** Le funzioni Pro sono ora
+  bloccate nelle edizioni che non le includono (es. Community): Backup, Import,
+  Antispam (intera sezione), Antivirus (route + scansione batch) e Legal Hold
+  rispondono 403 se non in licenza. Gli scheduler antivirus e antispam saltano il
+  lavoro quando la funzione non è licenziata.
+- **Menu e avvisi licenza**: le voci di menu delle funzioni non incluse vengono
+  nascoste in base all'edizione; banner globale quando la licenza è **in scadenza**,
+  **in tolleranza** o **scaduta**, con link rapido a Impostazioni → Licenza.
 ## [0.1.63] - 2026-06-29
 ### Changed
 - **Sistema di aggiornamento più robusto e trasparente.**

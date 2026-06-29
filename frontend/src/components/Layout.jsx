@@ -51,11 +51,30 @@ export default function Layout() {
   const isSuper = user?.role === 'superadmin'
   const isManager = isAdmin || user?.role === 'reseller'
   const isReseller = user?.role === 'reseller'
-  // Feature visibili: admin/superadmin sempre; reseller solo se il flag è attivo.
+  // Funzioni abilitate dall'EDIZIONE (licenza). Se entitlements non è presente
+  // (sessione vecchia), non nascondere nulla: si gateggia solo quando è noto che è off.
+  const edFeat = user?.entitlements?.feat
+  const featOn = (k) => !edFeat || !!edFeat[k]
+  // Feature visibili: admin/superadmin sempre; reseller solo col flag; e sempre AND con l'edizione.
   const canLogs = isAdmin || (isReseller && user?.feat?.logs)
-  const canAv = isAdmin || (isReseller && user?.feat?.antivirus)
-  const canAntispam = !isReseller || user?.feat?.antispam
-  const canBackupLog = isSuper || (isReseller && user?.feat?.backup)
+  const canAv = featOn('antivirus') && (isAdmin || (isReseller && user?.feat?.antivirus))
+  const canAntispam = featOn('antispam') && (!isReseller || user?.feat?.antispam)
+  const canBackupLog = featOn('backup') && (isSuper || (isReseller && user?.feat?.backup))
+
+  // Banner di scadenza licenza (visibile ai gestori)
+  const licStatus = user?.entitlements?.status
+  const licExp = user?.entitlements?.expires
+  const licBanner = (isManager && ['expiring', 'grace', 'expired'].includes(licStatus)) ? (
+    <div className={`px-4 py-2 text-sm flex items-center gap-2 shrink-0 ${licStatus === 'expired' ? 'bg-red-50 text-red-700 border-b border-red-200' : 'bg-amber-50 text-amber-800 border-b border-amber-200'}`}>
+      <ShieldAlert size={15} className="shrink-0" />
+      <span>
+        {licStatus === 'expiring' && `Licenza in scadenza${licExp ? ' il ' + new Date(licExp).toLocaleDateString('it-IT') : ''}.`}
+        {licStatus === 'grace' && 'Licenza scaduta — periodo di tolleranza: rinnova per non perdere le funzioni Pro.'}
+        {licStatus === 'expired' && 'Licenza scaduta: funzioni Pro disattivate (edizione Community).'}
+      </span>
+      {isSuper && <NavLink to="/settings?tab=license" className="ml-auto underline font-medium whitespace-nowrap">Gestisci licenza</NavLink>}
+    </div>
+  ) : null
 
   // Header di un gruppo a comparsa
   const groupBtn = (label, Icon, open, toggle) => (
@@ -83,9 +102,9 @@ export default function Layout() {
         {groupBtn('Amministrazione', Users, adminOpen, () => setAdminOpen(o => !o))}
         {adminOpen && <div className="space-y-0.5">
           <NavLink to="/admin" className={subNavClass}><Users size={15} /> {user?.role === 'reseller' ? 'Aziende e Caselle' : 'Utenti e Caselle'}</NavLink>
-          {(isAdmin || (user?.role === 'reseller' && user?.feat?.legal_hold)) && <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>}
-          {(isAdmin || (user?.role === 'reseller' && user?.feat?.import)) && <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>}
-          {isReseller && user?.feat?.backup && <NavLink to="/backup" className={subNavClass}><HardDrive size={15} /> Backup</NavLink>}
+          {featOn('legal_hold') && (isAdmin || (user?.role === 'reseller' && user?.feat?.legal_hold)) && <NavLink to="/legal-hold" className={subNavClass}><ShieldOff size={15} /> Legal Hold</NavLink>}
+          {featOn('import') && (isAdmin || (user?.role === 'reseller' && user?.feat?.import)) && <NavLink to="/import" className={subNavClass}><Upload size={15} /> Importa Email</NavLink>}
+          {featOn('backup') && isReseller && user?.feat?.backup && <NavLink to="/backup" className={subNavClass}><HardDrive size={15} /> Backup</NavLink>}
         </div>}
         {(canLogs || canAv || canBackupLog) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
         {(canLogs || canAv || canBackupLog) && logOpen && <div className="space-y-0.5">
@@ -99,9 +118,9 @@ export default function Layout() {
       {isSuper && (<>
         {groupBtn('Sistema', Settings, sistemaOpen, () => setSistemaOpen(o => !o))}
         {sistemaOpen && <div className="space-y-0.5">
-          <NavLink to="/backup" className={subNavClass}><HardDrive size={15} /> Backup</NavLink>
+          {featOn('backup') && <NavLink to="/backup" className={subNavClass}><HardDrive size={15} /> Backup</NavLink>}
           <NavLink to="/settings?tab=sync" className={settingsTab('sync')}><Database size={15} /> Sincronizzazione</NavLink>
-          <NavLink to="/settings?tab=av" className={settingsTab('av')}><Shield size={15} /> Antivirus</NavLink>
+          {featOn('antivirus') && <NavLink to="/settings?tab=av" className={settingsTab('av')}><Shield size={15} /> Antivirus</NavLink>}
           <NavLink to="/settings?tab=smtp" className={settingsTab('smtp')}><Mail size={15} /> Notifiche Email</NavLink>
           <NavLink to="/settings?tab=plugin" className={settingsTab('plugin')}><Puzzle size={15} /> Plugin Client</NavLink>
           <NavLink to="/settings?tab=security" className={settingsTab('security')}><ShieldCheck size={15} /> Sicurezza</NavLink>
@@ -173,6 +192,7 @@ export default function Layout() {
           <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500"><LogOut size={18} /></button>
         </header>
         <main className="flex-1 overflow-hidden flex flex-col">
+          {licBanner}
           <div className="flex-1 overflow-y-auto"><Outlet /></div>
         </main>
       </div>

@@ -137,6 +137,11 @@ async function removeLicenseKey(db) {
 
 const hasFeature = (ent, name) => !!(ent && ent.feat && ent.feat[name]);
 
+// Controllo inline comodo (per route handler e scheduler)
+async function feature(db, name) {
+  try { return hasFeature(await getEntitlements(db), name); } catch { return false; }
+}
+
 // Middleware Express: richiede una funzione abilitata dalla licenza (edizione).
 function requireFeature(name, label) {
   return async (req, res, next) => {
@@ -156,6 +161,6 @@ module.exports = {
   getEntitlements, getInstallationId, invalidate,
   parseFeatureKey, computeFromKey,
   saveLicenseKey, removeLicenseKey,
-  hasFeature, requireFeature,
+  hasFeature, feature, requireFeature,
   COMMUNITY, FEATURES,
 };

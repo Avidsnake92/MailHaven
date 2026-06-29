@@ -703,6 +703,7 @@ router.post('/delete-imap', authMiddleware, async (req, res, next) => {
 
 // POST /emails/legal-hold — imposta/rimuovi Legal Hold (solo admin/superadmin)
 router.post('/legal-hold', authMiddleware, async (req, res, next) => {
+  if (!(await require('../services/license').feature(req.app.locals.db, 'legal_hold'))) return next(new AppError(ERRORS.MH_1003));
   const db = req.app.locals.db;
   const { email_ids, enable, reason } = req.body;
   if (!['admin', 'superadmin', 'reseller'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
@@ -737,6 +738,7 @@ router.post('/legal-hold', authMiddleware, async (req, res, next) => {
 
 // GET /emails/legal-hold/list — lista email in legal hold (solo admin/superadmin)
 router.get('/legal-hold/list', authMiddleware, async (req, res, next) => {
+  if (!(await require('../services/license').feature(req.app.locals.db, 'legal_hold'))) return next(new AppError(ERRORS.MH_1003));
   const db = req.app.locals.db;
   if (!['admin', 'superadmin', 'reseller'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
   if (req.user.role === 'reseller') {
