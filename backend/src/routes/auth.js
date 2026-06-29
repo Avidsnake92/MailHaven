@@ -185,9 +185,11 @@ router.post('/login', validate(schemas.login), async (req, res) => {
       await db.query('DELETE FROM user_sessions WHERE expires_at < NOW()');
     } catch(e) { console.error('[Sessions] Save error:', e.message); }
 
+    const ent = await require('../services/license').getEntitlements(db);
     res.json({
       token,
-      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role, client_id: user.client_id, reseller_id: user.reseller_id, feat: await getResellerFeat(db, user.reseller_id) }
+      user: { id: user.id, email: user.email, full_name: user.full_name, role: user.role, client_id: user.client_id, reseller_id: user.reseller_id, feat: await getResellerFeat(db, user.reseller_id),
+        edition: ent.edition, entitlements: { feat: ent.feat, lim: ent.lim, status: ent.status, expires: ent.expires } }
     });
   } catch (err) {
     console.error(err);
@@ -221,6 +223,9 @@ router.get('/me', authMiddleware, async (req, res, next) => {
     if (!result.rows[0]) return next(new AppError(ERRORS.MH_1101));
     const row = result.rows[0];
     row.feat = await getResellerFeat(db, row.reseller_id);
+    const ent = await require('../services/license').getEntitlements(db);
+    row.edition = ent.edition;
+    row.entitlements = { feat: ent.feat, lim: ent.lim, status: ent.status, expires: ent.expires };
     res.json(row);
   } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
 });

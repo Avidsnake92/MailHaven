@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.60] - 2026-06-29
+### Added
+- **Edizioni & licenza (Feature Key, stile WatchGuard)** — Fase 1. Nuovo
+  `services/license.js`: verifica OFFLINE di una chiave firmata Ed25519 (chiave
+  pubblica incorporata), legata all'ID installazione generato a runtime. Senza
+  chiave valida l'istanza è **Community** (1 azienda, 25 caselle, niente MSP).
+  Gestione scadenza con periodo di tolleranza (grace) e successivo declassamento
+  a Community — i dati restano e l'acquisizione email non si ferma mai.
+- Edizione ed entitlements esposti al frontend in login e `/auth/me`.
+### Changed
+- Enforcement edizione in admin.js: limite aziende e caselle per edizione + gate
+  della gestione rivenditori (richiede licenza MSP).
 ## [0.1.59] - 2026-06-29
 ### Changed
 - **Setup wizard — riavvio intelligente**: la schermata finale ora sonda `/api/health`

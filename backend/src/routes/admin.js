@@ -194,6 +194,12 @@ router.post('/clients', requireRole('superadmin', 'reseller'), async (req, res) 
   const db = req.app.locals.db;
   const { name, company, quota_bytes, max_mailboxes, max_users, reseller_id } = req.body;
   try {
+    // Limite aziende dell'edizione (Community = 1)
+    const _ent = await require('../services/license').getEntitlements(db);
+    if (_ent.lim.clients != null) {
+      const _n = (await db.query('SELECT COUNT(*)::int AS n FROM clients')).rows[0].n;
+      if (_n >= _ent.lim.clients) return res.status(403).json({ error: `Limite aziende dell'edizione ${_ent.edition} raggiunto (${_ent.lim.clients}). Aggiorna la licenza per gestirne di più.`, code: 'MH-1010' });
+    }
     // Il reseller crea solo aziende proprie; il superadmin può assegnarle a un reseller.
     const ownerResellerId = req.user.role === 'reseller' ? req.user.reseller_id : (reseller_id ?? null);
     const ql = normLimit(quota_bytes), mb = normLimit(max_mailboxes), us = normLimit(max_users);
@@ -270,6 +276,13 @@ router.post('/resellers', requireRole('superadmin'), async (req, res) => {
   const db = req.app.locals.db;
   const { name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup, feat_antivirus, feat_antispam } = req.body;
   try {
+    // La gestione rivenditori (MSP) richiede una licenza che la includa
+    const _ent = await require('../services/license').getEntitlements(db);
+    if (!_ent.feat.reseller) return res.status(403).json({ error: `L'edizione ${_ent.edition} non include la gestione rivenditori (MSP). Richiede una licenza MSP.`, code: 'MH-1010' });
+    if (_ent.lim.resellers != null) {
+      const _n = (await db.query('SELECT COUNT(*)::int AS n FROM resellers')).rows[0].n;
+      if (_n >= _ent.lim.resellers) return res.status(403).json({ error: `Limite rivenditori della licenza raggiunto (${_ent.lim.resellers}).`, code: 'MH-1010' });
+    }
     const r = await db.query(
       `INSERT INTO resellers (name, company, quota_bytes, max_mailboxes, max_users, feat_legal_hold, feat_import, feat_logs, feat_backup, feat_antivirus, feat_antispam)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
@@ -486,6 +499,12 @@ router.post('/mailboxes', async (req, res) => {
   try {
     const ownerClientId = scopedClientId(req, client_id);
     if (!(await checkClientAccess(db, req, res, ownerClientId))) return;
+    // Limite caselle dell'edizione (Community = 25)
+    const _ent = await require('../services/license').getEntitlements(db);
+    if (_ent.lim.mailboxes != null) {
+      const _n = (await db.query('SELECT COUNT(*)::int AS n FROM mailboxes')).rows[0].n;
+      if (_n >= _ent.lim.mailboxes) return res.status(403).json({ error: `Limite caselle dell'edizione ${_ent.edition} raggiunto (${_ent.lim.mailboxes}). Aggiorna la licenza per aggiungerne altre.`, code: 'MH-1010' });
+    }
     const limitErr = await checkClientLimits(db, ownerClientId, { addMailbox: true });
     if (limitErr) return res.status(409).json({ error: limitErr, code: 'MH-1206' });
     const result = await db.query(
