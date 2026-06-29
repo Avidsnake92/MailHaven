@@ -254,6 +254,7 @@ app.use('/api/restore',  require('./routes/restore'));
 app.use('/api/backup',   require('./routes/backup'));
 app.use('/api/spam',     require('./routes/spam'));
 app.use('/api/import',   require('./routes/import'));
+app.use('/api/license',  require('./routes/license'));
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

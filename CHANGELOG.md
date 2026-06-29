@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.61] - 2026-06-29
+### Added
+- **Licenza — Fase 2 (UI + emissione)**. Nuova sezione **Impostazioni → Licenza**
+  (solo superadmin): mostra edizione, stato, scadenza, limiti e funzioni incluse,
+  l'**ID installazione** copiabile, e permette di **attivare/rimuovere** una Feature
+  Key. Nuovi endpoint `GET/POST/DELETE /api/license`.
+- **CLI di emissione** `tools/mailhaven-license.js`: genera una Feature Key firmata
+  dato ID installazione, edizione (pro/msp), limiti e scadenza (usa la chiave privata,
+  che resta fuori dal repository). Supporta `--unbound` per chiavi non legate.
+- Voce di menu Sistema → Licenza.
 ## [0.1.60] - 2026-06-29
 ### Added
 - **Edizioni & licenza (Feature Key, stile WatchGuard)** — Fase 1. Nuovo

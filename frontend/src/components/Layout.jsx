@@ -106,6 +106,7 @@ export default function Layout() {
           <NavLink to="/settings?tab=plugin" className={settingsTab('plugin')}><Puzzle size={15} /> Plugin Client</NavLink>
           <NavLink to="/settings?tab=security" className={settingsTab('security')}><ShieldCheck size={15} /> Sicurezza</NavLink>
           <NavLink to="/settings?tab=update" className={settingsTab('update')}><RefreshCw size={15} /> Aggiornamenti</NavLink>
+          <NavLink to="/settings?tab=license" className={settingsTab('license')}><KeyRound size={15} /> Licenza</NavLink>
         </div>}
       </>)}
 

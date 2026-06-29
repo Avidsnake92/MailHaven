@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
-import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle, Cloud, ChevronRight, ExternalLink, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
+import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, KeyRound, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle, Cloud, ChevronRight, ExternalLink, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
 
 const TABS = [
   { id: 'sync',     label: 'Sincronizzazione', icon: Database    },
@@ -763,6 +763,141 @@ function UpdateTab({ setUpdating }) {
 
 
 
+// ═══════════════════════════════════════════════════════
+// LicenseTab — edizione & Feature Key (stile WatchGuard)
+// ═══════════════════════════════════════════════════════
+const ED_META = {
+  community: { label: 'Community', cls: 'bg-gray-100 text-gray-700' },
+  pro:       { label: 'Pro',       cls: 'bg-blue-100 text-blue-700' },
+  msp:       { label: 'MSP',       cls: 'bg-indigo-100 text-indigo-700' },
+}
+const ST_META = {
+  community:       { label: 'Edizione gratuita',                 cls: 'text-gray-500' },
+  active:          { label: 'Attiva',                            cls: 'text-green-600' },
+  expiring:        { label: 'In scadenza',                       cls: 'text-amber-600' },
+  grace:           { label: 'Scaduta — periodo di tolleranza',   cls: 'text-amber-600' },
+  expired:         { label: 'Scaduta (tornata a Community)',     cls: 'text-red-600' },
+  invalid_install: { label: 'Chiave per un altro ID installazione', cls: 'text-red-600' },
+}
+const FEAT_LABELS = { reseller: 'Rivenditori (MSP)', antivirus: 'Antivirus', antispam: 'Doppio antispam', backup: 'Backup .mhbak', legal_hold: 'Legal Hold', import: 'Import', logs: 'Log' }
+
+function LicenseTab() {
+  const [lic, setLic] = useState(null)
+  const [keyInput, setKeyInput] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [copied, setCopied] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    try { const r = await api.get('/license'); setLic(r.data) } catch { setLic(null) } finally { setLoading(false) }
+  }
+  useEffect(() => { load() }, [])
+
+  const activate = async () => {
+    if (!keyInput.trim()) return
+    setSaving(true); setMsg(null)
+    try {
+      const r = await api.post('/license', { key: keyInput.trim() })
+      setLic(r.data); setKeyInput(''); setMsg({ type: 'ok', text: 'Licenza attivata.' })
+    } catch (e) { setMsg({ type: 'error', text: e.response?.data?.error || 'Chiave non valida' }) }
+    finally { setSaving(false) }
+  }
+  const remove = async () => {
+    if (!window.confirm("Rimuovere la licenza e tornare all'edizione Community?")) return
+    setSaving(true); setMsg(null)
+    try { const r = await api.delete('/license'); setLic(r.data); setMsg({ type: 'ok', text: 'Licenza rimossa.' }) }
+    catch { setMsg({ type: 'error', text: 'Errore rimozione' }) }
+    finally { setSaving(false) }
+  }
+  const copyId = () => { navigator.clipboard.writeText(lic?.installationId || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }
+
+  if (loading) return <div className="text-sm text-gray-500 flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Caricamento…</div>
+
+  const ed = ED_META[lic?.edition] || ED_META.community
+  const st = ST_META[lic?.status] || ST_META.community
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '—'
+
+  return (
+    <div className="space-y-6">
+      {msg && (
+        <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${msg.type === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {msg.type === 'ok' ? <Check size={15} /> : <AlertCircle size={15} />} {msg.text}
+        </div>
+      )}
+
+      {/* Stato attuale */}
+      <div className="border border-gray-200 rounded-xl p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><KeyRound size={22} /></div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-gray-900">Edizione</h2>
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${ed.cls}`}>{ed.label}</span>
+              </div>
+              <p className={`text-sm font-medium ${st.cls}`}>{st.label}</p>
+            </div>
+          </div>
+          {lic?.edition !== 'community' && (
+            <button onClick={remove} disabled={saving} className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-red-50 disabled:opacity-50">
+              <Trash2 size={14} /> Rimuovi licenza
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5 text-sm">
+          <div><p className="text-xs text-gray-500">Cliente</p><p className="font-medium text-gray-800">{lic?.customer || '—'}</p></div>
+          <div><p className="text-xs text-gray-500">Scadenza</p><p className="font-medium text-gray-800">{fmtDate(lic?.expires)}</p></div>
+          <div><p className="text-xs text-gray-500">Caselle</p><p className="font-medium text-gray-800">{lic?.lim?.mailboxes ?? '—'}</p></div>
+          <div><p className="text-xs text-gray-500">Aziende</p><p className="font-medium text-gray-800">{lic?.lim?.clients ?? '—'}</p></div>
+          <div><p className="text-xs text-gray-500">Rivenditori</p><p className="font-medium text-gray-800">{lic?.lim?.resellers ?? '—'}</p></div>
+        </div>
+
+        {/* Funzioni incluse */}
+        <div className="mt-5">
+          <p className="text-xs text-gray-500 mb-2">Funzioni incluse</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.keys(FEAT_LABELS).map(f => (
+              <span key={f} className={`text-xs px-2.5 py-1 rounded-full border ${lic?.feat?.[f] ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200 line-through'}`}>
+                {FEAT_LABELS[f]}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ID installazione */}
+      <div className="border border-gray-200 rounded-xl p-5">
+        <h2 className="font-semibold text-gray-900 mb-1">ID installazione</h2>
+        <p className="text-sm text-gray-500 mb-3">Comunica questo identificativo per ricevere una chiave di licenza emessa per questa installazione.</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono text-gray-700 break-all">{lic?.installationId || '—'}</code>
+          <button onClick={copyId} className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 shrink-0">
+            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />} {copied ? 'Copiato' : 'Copia'}
+          </button>
+        </div>
+      </div>
+
+      {/* Attiva una chiave */}
+      <div className="border border-gray-200 rounded-xl p-5">
+        <h2 className="font-semibold text-gray-900 mb-1">Attiva una licenza</h2>
+        <p className="text-sm text-gray-500 mb-3">Incolla qui la Feature Key ricevuta e premi Attiva.</p>
+        <textarea value={keyInput} onChange={e => setKeyInput(e.target.value)} rows={4}
+          placeholder="MHFK-1-..."
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 break-all" />
+        <div className="mt-3">
+          <button onClick={activate} disabled={saving || !keyInput.trim()}
+            className="px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Attiva licenza
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { user } = useAuth()
   const [isUpdating, setIsUpdating] = React.useState(false)
@@ -1172,6 +1307,7 @@ export default function Settings() {
         {activeTab === 'oauth' && <OAuthWizardTab />}
         {activeTab === 'security' && <SecurityTab user={user} />}
         {activeTab === 'update' && <UpdateTab setUpdating={setIsUpdating} />}
+        {activeTab === 'license' && <LicenseTab />}
 
         {activeTab === 'plugin' && (
           <div className="space-y-6">
@@ -1295,7 +1431,7 @@ export default function Settings() {
       </div>
 
       <div className="flex items-center gap-4 mt-6">
-        {activeTab !== 'update' && (
+        {activeTab !== 'update' && activeTab !== 'license' && (
         <button onClick={saveSettings} disabled={saving || activeTab === 'security' || activeTab === 'oauth'}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-60 bg-blue-600 hover:bg-blue-700 transition-colors">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
