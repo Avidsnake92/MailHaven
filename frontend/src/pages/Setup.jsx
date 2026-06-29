@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Archive, Key, User, CheckCircle, RefreshCw, Copy, Check,
   Eye, EyeOff, ChevronRight, ShieldCheck, Loader2, AlertCircle,
-  Mail, ChevronLeft, Lock
+  Mail, ChevronLeft, Lock, Globe
 } from 'lucide-react'
 import api from '../services/api'
 
@@ -44,27 +44,52 @@ export default function Setup() {
   const [testingSMTP, setTestingSMTP] = useState(false)
   const [smtpTestResult, setSmtpTestResult] = useState(null)
 
-  // Step 4 — Countdown
-  const [countdown, setCountdown] = useState(60)
-  const countdownRef = useRef(null)
+  // Step 4 — Riavvio (polling /api/health invece di countdown fisso)
+  const [restartState, setRestartState] = useState('restarting') // 'restarting' | 'ready'
+
+  // Caps Lock hint sui campi password
+  const [capsOn, setCapsOn] = useState(false)
+  const handleCaps = (e) => { try { setCapsOn(e.getModifierState && e.getModifierState('CapsLock')) } catch {} }
+
+  // URL pubblico rilevato dal browser (suggerimento per lo step SMTP)
+  const detectedUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
   useEffect(() => { generateKeys() }, [])
 
+  // Allo step finale, attendo che il backend si riavvii davvero: sondo /api/health
+  // e reindirizzo appena è di nuovo online (con tetto di sicurezza), invece di
+  // aspettare 60s fissi (che sprecano tempo o mandano su un login non pronto).
   useEffect(() => {
-    if (step === 4) {
-      setCountdown(60)
-      countdownRef.current = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(countdownRef.current)
-            window.location.replace('/login')
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
+    if (step !== 4) return
+    let cancelled = false
+    let seenDown = false
+    const startedAt = Date.now()
+    const MAX_WAIT = 90000
+    const goLogin = () => { if (!cancelled) window.location.replace('/login') }
+
+    const poll = async () => {
+      if (cancelled) return
+      const elapsed = Date.now() - startedAt
+      let up = false
+      try {
+        const r = await fetch('/api/health', { cache: 'no-store' })
+        up = r.ok
+      } catch { up = false }
+
+      if (!up) seenDown = true
+      // Pronto se il backend è tornato su dopo essere caduto, oppure se è
+      // passato abbastanza tempo da garantire che il riavvio sia avvenuto.
+      if (up && (seenDown || elapsed > 15000)) {
+        if (!cancelled) { setRestartState('ready'); setTimeout(goLogin, 1200) }
+        return
+      }
+      if (elapsed > MAX_WAIT) { goLogin(); return }
+      if (!cancelled) setTimeout(poll, 2000)
     }
-    return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
+
+    setRestartState('restarting')
+    const t = setTimeout(poll, 3000) // ~3s perché il backend faccia process.exit
+    return () => { cancelled = true; clearTimeout(t) }
   }, [step])
 
   const generateKeys = async () => {
@@ -180,11 +205,9 @@ export default function Setup() {
     </div>
   ) : null
 
-  // ── STEP 4 — Schermata finale fullscreen ───────────────────────────────────
+  // ── STEP 4 — Schermata finale fullscreen (attende il riavvio reale) ─────────
   if (step === 4) {
-    const radius = 120
-    const circumference = 2 * Math.PI * radius
-    const progress = circumference - (circumference * countdown / 60)
+    const ready = restartState === 'ready'
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #2563eb 100%)' }}>
@@ -192,31 +215,25 @@ export default function Setup() {
         <div className="absolute w-[600px] h-[600px] rounded-full blur-3xl opacity-20"
           style={{ background: 'radial-gradient(circle, #60a5fa 0%, transparent 70%)' }} />
 
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center mb-6 ring-1 ring-white/20">
-            <CheckCircle size={28} className="text-emerald-300" />
-          </div>
-          <p className="text-white text-2xl font-semibold mb-12 tracking-wide text-center px-6">
-            {APP_NAME} si sta riavviando…
-          </p>
-
-          <div className="relative" style={{ width: 300, height: 300 }}>
-            <svg width="300" height="300" viewBox="0 0 300 300" className="-rotate-90">
-              <circle cx="150" cy="150" r={radius} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
-              <circle cx="150" cy="150" r={radius} fill="none" stroke="rgba(255,255,255,0.92)"
-                strokeWidth="3" strokeLinecap="round"
-                strokeDasharray={circumference} strokeDashoffset={progress}
-                style={{ transition: 'stroke-dashoffset 1s linear' }} />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-7xl font-thin text-white">{countdown}</span>
-              <span className="text-sm text-white/50 mt-2 tracking-widest uppercase">secondi</span>
-            </div>
+        <div className="relative z-10 flex flex-col items-center px-6 text-center">
+          {/* Indicatore: spinner durante il riavvio, spunta quando pronto */}
+          <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-8 ring-1 transition-colors duration-500 ${
+            ready ? 'bg-emerald-400/15 ring-emerald-300/40' : 'bg-white/5 ring-white/15'
+          }`}>
+            {ready
+              ? <CheckCircle size={48} className="text-emerald-300" />
+              : <Loader2 size={48} className="text-white/90 animate-spin" />}
           </div>
 
-          <p className="text-white/50 text-sm mt-12 mb-6">
-            Verrai reindirizzato al login automaticamente
+          <p className="text-white text-2xl font-semibold mb-3 tracking-wide">
+            {ready ? 'Tutto pronto!' : `${APP_NAME} si sta riavviando…`}
           </p>
+          <p className="text-white/55 text-sm mb-12 max-w-sm">
+            {ready
+              ? 'Reindirizzamento alla pagina di login…'
+              : 'Attendo che il servizio torni online. Ci vuole circa un minuto, non chiudere questa pagina.'}
+          </p>
+
           <button onClick={() => window.location.replace('/login')}
             className="px-6 py-2.5 rounded-full border border-white/30 text-white/80 text-sm hover:bg-white/10 transition-colors">
             Vai subito al login
@@ -423,6 +440,7 @@ export default function Setup() {
                     <div className="relative">
                       <input type={showPwd ? 'text' : 'password'} value={adminPwd}
                         onChange={e => setAdminPwd(e.target.value)}
+                        onKeyUp={handleCaps} onKeyDown={handleCaps}
                         placeholder="Minimo 8 caratteri" required
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
                       <button type="button" onClick={() => setShowPwd(!showPwd)}
@@ -440,11 +458,17 @@ export default function Setup() {
                         <p className="text-xs text-gray-500">Sicurezza: <span className="font-medium">{strengthLabel}</span></p>
                       </div>
                     )}
+                    {capsOn && (
+                      <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                        <AlertCircle size={12} /> Caps Lock attivo
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Conferma password <span className="text-red-500">*</span></label>
                     <input type={showPwd ? 'text' : 'password'} value={adminPwd2}
                       onChange={e => setAdminPwd2(e.target.value)}
+                      onKeyUp={handleCaps} onKeyDown={handleCaps}
                       placeholder="Ripeti la password" required
                       className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         adminPwd2 && adminPwd !== adminPwd2 ? 'border-red-300 bg-red-50' : 'border-gray-300'
@@ -486,6 +510,12 @@ export default function Setup() {
                     <p className="text-xs text-gray-500 mt-1.5">
                       Necessario per OAuth (Microsoft 365 / Google) e per accesso esterno. Lascia vuoto per installazioni solo interne.
                     </p>
+                    {detectedUrl && appUrl.trim() !== detectedUrl && (
+                      <button type="button" onClick={() => setAppUrl(detectedUrl)}
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline">
+                        <Globe size={12} /> Usa l'indirizzo rilevato: {detectedUrl}
+                      </button>
+                    )}
                   </div>
                 </div>
 

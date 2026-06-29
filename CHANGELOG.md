@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.59] - 2026-06-29
+### Changed
+- **Setup wizard — riavvio intelligente**: la schermata finale ora sonda `/api/health`
+  e reindirizza al login appena il backend è di nuovo online (mostra spinner→spunta
+  "Tutto pronto"), invece di aspettare 60s fissi. Tetto di sicurezza a 90s.
+### Added
+- **Setup wizard — ritocchi**: pulsante "Usa l'indirizzo rilevato" per pre-compilare
+  l'URL pubblico con l'origine corrente del browser; avviso "Caps Lock attivo" sui
+  campi password dell'amministratore.
 ## [0.1.58] - 2026-06-29
 ### Changed
 - **Setup wizard rinnovato**: nuovo layout split-screen con pannello brand a sinistra
