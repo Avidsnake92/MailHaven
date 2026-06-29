@@ -93,9 +93,12 @@ WEOF
 chmod +x "$WATCHER"
 
 CRON_LINE="* * * * * INSTALL_DIR=$INSTALL_DIR $WATCHER"
-# Rimuove vecchie righe relative a MailHaven e reinserisce quella corretta
-( crontab -l 2>/dev/null | grep -v -F "$WATCHER" | grep -v 'mailhaven.*update' ; echo "$CRON_LINE" ) | crontab -
-ok "Cron-watcher installato: $(crontab -l | grep -F "$WATCHER")"
+# Rimuove vecchie righe MailHaven e reinserisce quella corretta.
+# NB: gestito senza far fallire set -e/pipefail quando il crontab non esiste ancora.
+EXISTING="$(crontab -l 2>/dev/null || true)"
+EXISTING="$(printf '%s\n' "$EXISTING" | grep -v -F "$WATCHER" | grep -v 'mailhaven.*update' || true)"
+printf '%s\n%s\n' "$EXISTING" "$CRON_LINE" | grep -v '^[[:space:]]*$' | crontab -
+ok "Cron-watcher installato: $(crontab -l 2>/dev/null | grep -F "$WATCHER" || true)"
 
 # ── 6. Esegue subito l'aggiornamento (rebuild backend + frontend) ──────────
 say "Avvio aggiornamento immediato (rebuild dei container, il DB NON viene toccato)..."
