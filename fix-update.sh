@@ -100,6 +100,17 @@ EXISTING="$(printf '%s\n' "$EXISTING" | grep -v -F "$WATCHER" | grep -v 'mailhav
 printf '%s\n%s\n' "$EXISTING" "$CRON_LINE" | grep -v '^[[:space:]]*$' | crontab -
 ok "Cron-watcher installato: $(crontab -l 2>/dev/null | grep -F "$WATCHER" || true)"
 
+# ── 5b. Self-heal: update-status.json DEVE essere un file, non una directory ─
+# Il mount nginx ':ro' (docker-compose) lo ricrea come cartella se manca sull'host,
+# e do-update.sh muore con "Is a directory". Lo converto in file.
+if [ -d "$INSTALL_DIR/data/update-status.json" ]; then
+  warn "data/update-status.json e' una directory (mount Docker): la converto in file."
+  docker compose stop mailhaven-frontend >/dev/null 2>&1 || true
+  rm -rf "$INSTALL_DIR/data/update-status.json"
+  printf '{"step":"idle","progress":0,"message":""}\n' > "$INSTALL_DIR/data/update-status.json"
+  ok "update-status.json ora e' un file."
+fi
+
 # ── 6. Esegue subito l'aggiornamento (rebuild backend + frontend) ──────────
 say "Avvio aggiornamento immediato (rebuild dei container, il DB NON viene toccato)..."
 echo "--------------------------------------------------------------------------"
