@@ -107,8 +107,15 @@ const CACHE_MS = 60000;
 async function getEntitlements(db, force = false) {
   if (!force && _cache && Date.now() - _cacheAt < CACHE_MS) return _cache;
   const installId = await getInstallationId(db);
-  const r = await db.query("SELECT value FROM settings WHERE key='license_key'");
-  const ent = computeFromKey(r.rows[0] && r.rows[0].value, installId);
+  const r = await db.query("SELECT key, value FROM settings WHERE key IN ('license_key','license_revoked')");
+  const m = {}; r.rows.forEach((x) => { m[x.key] = x.value; });
+  let ent;
+  if (m.license_revoked === '1') {
+    // Revocata dal server licenze → Community (dati intatti, ingest mai bloccato)
+    ent = Object.assign(COMMUNITY(), { status: 'revoked', installationId: installId });
+  } else {
+    ent = computeFromKey(m.license_key, installId);
+  }
   _cache = ent; _cacheAt = Date.now();
   return ent;
 }

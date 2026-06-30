@@ -64,13 +64,14 @@ export default function Layout() {
   // Banner di scadenza licenza (visibile ai gestori)
   const licStatus = user?.entitlements?.status
   const licExp = user?.entitlements?.expires
-  const licBanner = (isManager && ['expiring', 'grace', 'expired'].includes(licStatus)) ? (
-    <div className={`px-4 py-2 text-sm flex items-center gap-2 shrink-0 ${licStatus === 'expired' ? 'bg-red-50 text-red-700 border-b border-red-200' : 'bg-amber-50 text-amber-800 border-b border-amber-200'}`}>
+  const licBanner = (isManager && ['expiring', 'grace', 'expired', 'revoked'].includes(licStatus)) ? (
+    <div className={`px-4 py-2 text-sm flex items-center gap-2 shrink-0 ${(licStatus === 'expired' || licStatus === 'revoked') ? 'bg-red-50 text-red-700 border-b border-red-200' : 'bg-amber-50 text-amber-800 border-b border-amber-200'}`}>
       <ShieldAlert size={15} className="shrink-0" />
       <span>
         {licStatus === 'expiring' && `Licenza in scadenza${licExp ? ' il ' + new Date(licExp).toLocaleDateString('it-IT') : ''}.`}
         {licStatus === 'grace' && 'Licenza scaduta — periodo di tolleranza: rinnova per non perdere le funzioni Pro.'}
         {licStatus === 'expired' && 'Licenza scaduta: funzioni Pro disattivate (edizione Community).'}
+        {licStatus === 'revoked' && 'Licenza revocata: funzioni Pro disattivate (edizione Community).'}
       </span>
       {isSuper && <NavLink to="/settings?tab=license" className="ml-auto underline font-medium whitespace-nowrap">Gestisci licenza</NavLink>}
     </div>

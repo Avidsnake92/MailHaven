@@ -6,14 +6,47 @@ const { auditMiddleware } = require('../middleware/audit');
 router.use(authMiddleware);
 router.use(auditMiddleware('LICENZA'));
 
-// GET /license — stato edizione + entitlements + ID installazione (solo superadmin)
+// GET /license — stato edizione + entitlements + ID installazione + sync (superadmin)
 router.get('/', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
   try {
-    const ent = await license.getEntitlements(req.app.locals.db, true);
+    const ent = await license.getEntitlements(db, true);
+    const r = await db.query("SELECT key,value FROM settings WHERE key IN ('license_server_url','license_last_sync','license_sync_ok')");
+    const m = {}; r.rows.forEach((x) => { m[x.key] = x.value; });
+    ent.sync = {
+      serverUrl: process.env.LICENSE_SERVER_URL || m.license_server_url || '',
+      lastSync: m.license_last_sync ? parseInt(m.license_last_sync, 10) : null,
+      ok: m.license_sync_ok === '1',
+      envLocked: !!process.env.LICENSE_SERVER_URL,
+    };
     res.json(ent);
   } catch (e) {
     res.status(500).json({ error: 'Errore lettura licenza' });
   }
+});
+
+// POST /license/server — imposta/azzera l'URL del server licenze (verifica online)
+router.post('/server', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  const { url } = req.body || {};
+  try {
+    if (url && String(url).trim()) {
+      await db.query("INSERT INTO settings(key,value) VALUES('license_server_url',$1) ON CONFLICT(key) DO UPDATE SET value=$1", [String(url).trim()]);
+    } else {
+      await db.query("DELETE FROM settings WHERE key='license_server_url'");
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: 'Errore salvataggio URL' }); }
+});
+
+// POST /license/sync — forza una verifica online adesso
+router.post('/sync', requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const result = await require('../services/licenseSync').syncNow(db);
+    const ent = await license.getEntitlements(db, true);
+    res.json({ result, edition: ent.edition, status: ent.status });
+  } catch (e) { res.status(500).json({ error: 'Errore sincronizzazione' }); }
 });
 
 // POST /license — attiva una Feature Key (solo superadmin)

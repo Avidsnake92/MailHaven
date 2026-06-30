@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.65] - 2026-06-29
+### Added
+- **Licenza — verifica online opzionale (revoca a distanza).** Nuovo client
+  `services/licenseSync.js` **fail-open**: se è configurato un server licenze,
+  l'istanza sincronizza ogni 6h (e on-demand) e applica l'eventuale **revoca**
+  → torna a Community (dati intatti, ingest mai bloccato). Se il server è giù,
+  lo stato NON cambia. Sezione "Verifica online" in Impostazioni → Licenza
+  (URL server + "Sincronizza ora" + ultima sincronizzazione). Endpoint
+  `POST /license/server` e `POST /license/sync`. La CLI di emissione stampa ora
+  il **Key ID** (utile per la revoca puntuale).
+- **Server di licenze di riferimento** in `license-server/` (Express minimale +
+  CLI `revoke.js`), da deployare dove si vuole. Revoca per **ID installazione**
+  o **Key ID**; endpoint pubblico `/verify` e admin protetti da token.
 ## [0.1.64] - 2026-06-29
 ### Added
 - **Licenza — Fase 3: gate delle funzioni per edizione.** Le funzioni Pro sono ora

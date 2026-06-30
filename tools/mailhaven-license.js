@@ -98,5 +98,6 @@ const _u = (v) => (v == null ? 'illimitato' : v);
 console.error('Limiti:     caselle ' + _u(payload.lim.mailboxes) + ' | aziende ' + _u(payload.lim.clients) + ' | rivenditori ' + _u(payload.lim.resellers));
 console.error('Funzioni:   ' + Object.keys(feat).filter((k) => feat[k]).join(', '));
 console.error('Scadenza:   ' + (payload.exp ? payload.exp + ' (grace ' + payload.grace + ' gg)' : 'nessuna (a vita)'));
+console.error('Key ID:     ' + crypto.createHash('sha256').update(key).digest('hex').slice(0, 32) + '  (per la revoca)');
 console.error('--- Feature Key (incolla in Impostazioni -> Licenza) ---');
 console.log(key);

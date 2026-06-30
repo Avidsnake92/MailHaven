@@ -833,6 +833,7 @@ const ST_META = {
   grace:           { label: 'Scaduta — periodo di tolleranza',   cls: 'text-amber-600' },
   expired:         { label: 'Scaduta (tornata a Community)',     cls: 'text-red-600' },
   invalid_install: { label: 'Chiave per un altro ID installazione', cls: 'text-red-600' },
+  revoked:         { label: 'Revocata (tornata a Community)',          cls: 'text-red-600' },
 }
 const FEAT_LABELS = { reseller: 'Rivenditori (MSP)', antivirus: 'Antivirus', antispam: 'Doppio antispam', backup: 'Backup .mhbak', legal_hold: 'Legal Hold', import: 'Import', logs: 'Log' }
 
@@ -843,10 +844,27 @@ function LicenseTab() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [serverUrl, setServerUrl] = useState('')
+  const [syncing, setSyncing] = useState(false)
 
   const load = async () => {
     setLoading(true)
-    try { const r = await api.get('/license'); setLic(r.data) } catch { setLic(null) } finally { setLoading(false) }
+    try { const r = await api.get('/license'); setLic(r.data); setServerUrl(r.data?.sync?.serverUrl || '') } catch { setLic(null) } finally { setLoading(false) }
+  }
+
+  const saveServer = async () => {
+    setSaving(true); setMsg(null)
+    try { await api.post('/license/server', { url: serverUrl.trim() }); await load(); setMsg({ type: 'ok', text: 'URL del server salvato.' }) }
+    catch { setMsg({ type: 'error', text: 'Errore salvataggio URL' }) }
+    finally { setSaving(false) }
+  }
+  const syncNow = async () => {
+    setSyncing(true); setMsg(null)
+    try {
+      const r = await api.post('/license/sync'); await load()
+      setMsg({ type: 'ok', text: r.data?.result?.ok ? 'Sincronizzazione completata.' : 'Server non raggiungibile (stato invariato).' })
+    } catch { setMsg({ type: 'error', text: 'Errore sincronizzazione' }) }
+    finally { setSyncing(false) }
   }
   useEffect(() => { load() }, [])
 
@@ -948,6 +966,30 @@ function LicenseTab() {
             className="px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Attiva licenza
           </button>
+        </div>
+      </div>
+
+      {/* Verifica online (opzionale) */}
+      <div className="border border-gray-200 rounded-xl p-5">
+        <h2 className="font-semibold text-gray-900 mb-1">Verifica online <span className="text-xs font-normal text-gray-400">(opzionale)</span></h2>
+        <p className="text-sm text-gray-500 mb-3">Collega un server licenze per consentire la revoca a distanza. Se vuoto, la licenza resta solo offline. La verifica è fail-open: se il server è giù, l'app continua a funzionare.</p>
+        <div className="flex gap-2">
+          <input value={serverUrl} onChange={e => setServerUrl(e.target.value)} placeholder="https://licenze.tuodominio.it"
+            className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button onClick={saveServer} disabled={saving}
+            className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">Salva</button>
+        </div>
+        <div className="flex items-center gap-3 mt-3 flex-wrap">
+          <button onClick={syncNow} disabled={syncing || !lic?.sync?.serverUrl}
+            className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900 disabled:opacity-50 flex items-center gap-2">
+            {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Sincronizza ora
+          </button>
+          {lic?.sync?.lastSync && (
+            <span className="text-xs text-gray-400 flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${lic.sync.ok ? 'bg-green-500' : 'bg-amber-500'}`} />
+              Ultima sync: {new Date(lic.sync.lastSync * 1000).toLocaleString('it-IT')}{lic.sync.ok ? '' : ' (server non raggiungibile)'}
+            </span>
+          )}
         </div>
       </div>
     </div>
