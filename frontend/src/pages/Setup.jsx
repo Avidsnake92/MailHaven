@@ -16,7 +16,7 @@ const STEPS = [
   { label: 'Completato',     desc: 'Tutto pronto',             icon: CheckCircle },
 ]
 
-export default function Setup() {
+export default function Setup({ preview = false }) {
   const [step, setStep]       = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
@@ -157,7 +157,13 @@ export default function Setup() {
     setStep(s => s + 1)
   }
 
+  const exitPreview = async () => {
+    try { await api.post('/setup/preview', { on: false }) } catch {}
+    window.location.href = '/'
+  }
+
   const handleComplete = async (skipSmtp = false) => {
+    if (preview) { setStep(4); return }   // anteprima dev: nessuna scrittura
     setLoading(true)
     setError('')
     try {
@@ -315,7 +321,14 @@ export default function Setup() {
 
   // ── Layout principale split-screen ─────────────────────────────────────────
   return (
-    <div className="min-h-screen flex bg-white">
+    <>
+    {preview && (
+      <div className="bg-amber-500 text-white text-sm text-center py-2 px-4 font-medium flex items-center justify-center gap-3" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }}>
+        <span>Anteprima wizard (dev) — il completamento è disattivato: nessuna modifica verrà salvata.</span>
+        <button onClick={exitPreview} className="underline shrink-0 hover:text-amber-100">Esci anteprima</button>
+      </div>
+    )}
+    <div className="min-h-screen flex bg-white" style={preview ? { paddingTop: '38px' } : undefined}>
       {BrandPanel}
 
       {/* Colonna form */}
@@ -602,5 +615,6 @@ export default function Setup() {
         </div>
       </div>
     </div>
+    </>
   )
 }

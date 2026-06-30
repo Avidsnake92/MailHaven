@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.66] - 2026-06-30
+### Fixed
+- **Il wizard di configurazione ora appare in modo affidabile.** All'apertura il
+  frontend RIPROVA `/setup/status` (fino a ~90s) se il backend è ancora in avvio,
+  invece di ripiegare subito sul login: era la causa di "il wizard non parte" su
+  installazioni appena create.
+### Added
+- **Anteprima wizard (dev/diagnostica).** Pulsante superadmin in Impostazioni
+  "Mostra wizard (anteprima)" per rivedere il wizard su un'istanza già configurata,
+  in modalità SICURA: il completamento è disattivato e non viene scritto nulla
+  (`/setup/complete` resta 403). Endpoint `POST /setup/preview`; `/setup/status`
+  espone il flag `preview`. Banner con "Esci anteprima" per tornare.
 ## [0.1.65] - 2026-06-29
 ### Added
 - **Licenza — verifica online opzionale (revoca a distanza).** Nuovo client

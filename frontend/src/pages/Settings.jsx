@@ -1089,6 +1089,14 @@ export default function Settings() {
     setTimeout(() => setMsg(''), 3000)
   }
 
+  // Mostra il wizard di configurazione in ANTEPRIMA (dev/diagnostica). Sicuro:
+  // il completamento è disattivato (isSetupDone resta true), non scrive nulla.
+  const showWizardPreview = async () => {
+    if (!window.confirm("Mostrare il wizard di configurazione in ANTEPRIMA?\n\nÈ sicuro: il completamento è disattivato e non viene salvato nulla. Per tornare userai 'Esci anteprima' nel banner in alto.")) return
+    try { await api.post('/setup/preview', { on: true }); window.location.href = '/' }
+    catch { showMsg('Errore avvio anteprima', 'error') }
+  }
+
   const saveSettings = async () => {
     setSaving(true)
     try {
@@ -1158,11 +1166,19 @@ export default function Settings() {
       </div>
     )}
     <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <SettingsIcon size={20} className="text-gray-500" /> Impostazioni
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">Configurazione del sistema MailHaven</p>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <SettingsIcon size={20} className="text-gray-500" /> Impostazioni
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">Configurazione del sistema MailHaven</p>
+        </div>
+        {user?.role === 'superadmin' && (
+          <button onClick={showWizardPreview}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 shrink-0 whitespace-nowrap">
+            Mostra wizard (anteprima)
+          </button>
+        )}
       </div>
 
 

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const { authMiddleware, requireRole } = require('../middleware/auth');
 
 // Setup completato = esiste un superadmin attivo E encryption_key è nelle settings
 const isSetupDone = async (db) => {
@@ -18,10 +19,34 @@ const isSetupDone = async (db) => {
   }
 };
 
+// Anteprima (dev/diagnostica): forza la visualizzazione del wizard SENZA
+// riconfigurare nulla — il completamento resta bloccato perché isSetupDone=true.
+const isPreview = async (db) => {
+  try {
+    const r = await db.query("SELECT value FROM settings WHERE key='setup_preview'");
+    return r.rows[0]?.value === '1';
+  } catch { return false; }
+};
+
 router.get('/status', async (req, res) => {
   const db = req.app.locals.db;
   const done = await isSetupDone(db);
-  res.json({ setup_done: done });
+  const preview = await isPreview(db);
+  res.json({ setup_done: done && !preview, preview });
+});
+
+// POST /setup/preview — superadmin: mostra/nasconde il wizard in anteprima
+router.post('/preview', authMiddleware, requireRole('superadmin'), async (req, res) => {
+  const db = req.app.locals.db;
+  const on = !!(req.body && req.body.on);
+  try {
+    if (on) {
+      await db.query("INSERT INTO settings(key,value) VALUES('setup_preview','1') ON CONFLICT (key) DO UPDATE SET value='1'");
+    } else {
+      await db.query("DELETE FROM settings WHERE key='setup_preview'");
+    }
+    res.json({ ok: true, preview: on });
+  } catch (e) { res.status(500).json({ error: 'Errore' }); }
 });
 
 router.get('/generate-keys', (req, res) => {

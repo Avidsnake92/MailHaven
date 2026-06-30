@@ -33,11 +33,26 @@ const ProtectedRoute = ({ children, roles }) => {
 function AppContent() {
   const { user } = useAuth()
   const [setupDone, setSetupDone] = useState(null)
+  const [setupPreview, setSetupPreview] = useState(false)
 
   useEffect(() => {
-    api.get('/setup/status')
-      .then(res => setSetupDone(res.data.setup_done))
-      .catch(() => setSetupDone(true))
+    let cancelled = false
+    const check = async (attempt = 1) => {
+      try {
+        const res = await api.get('/setup/status')
+        if (cancelled) return
+        setSetupPreview(!!res.data.preview)
+        setSetupDone(res.data.setup_done)
+      } catch (e) {
+        // Backend ancora in avvio o irraggiungibile: NON assumere "configurato".
+        // Riprova (fino a ~90s) così il wizard appare appena il backend risponde,
+        // invece di mostrare per errore il login (causa di "il wizard non parte").
+        if (!cancelled && attempt < 30) { setTimeout(() => check(attempt + 1), 3000); return }
+        if (!cancelled) setSetupDone(true)
+      }
+    }
+    check()
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
@@ -57,7 +72,7 @@ function AppContent() {
     </div>
   )
 
-  if (!setupDone) return <Setup />
+  if (!setupDone) return <Setup preview={setupPreview} />
 
   return (
     <>
