@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.67] - 2026-06-30
+### Fixed
+- **Primo avvio delle installazioni NUOVE molto più veloce e affidabile.**
+  L'entrypoint del backend eseguiva ClamAV (`freshclam`) in modo **bloccante**:
+  su un'installazione pulita il download del database virus (~minuti) teneva il
+  backend "unhealthy", e di conseguenza il frontend (che dipende dal backend
+  healthy) e il **wizard** non partivano finché ClamAV non finiva. Ora ClamAV
+  viene configurato/aggiornato **in background**: Node (portale + wizard) parte in
+  pochi secondi; l'antivirus diventa disponibile poco dopo. Nessun impatto sulle
+  installazioni già avviate.
 ## [0.1.66] - 2026-06-30
 ### Fixed
 - **Il wizard di configurazione ora appare in modo affidabile.** All'apertura il
