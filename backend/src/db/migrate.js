@@ -157,14 +157,17 @@ const migrate = async (db) => {
   }
 
 
-  // Auto-mark setup_completed se esiste gia un superadmin (aggiornamento da versione vecchia)
+  // Auto-mark setup_completed SOLO per aggiornamenti da versioni vecchie: cioè se
+  // esiste un superadmin REALE. Va escluso il segnaposto 'admin@mailhaven.local'
+  // creato da init.sql su ogni DB nuovo, altrimenti il wizard verrebbe saltato su
+  // TUTTE le installazioni pulite (era il vero "il wizard non parte").
   try {
     const sc = await db.query("SELECT value FROM settings WHERE key='setup_completed'");
     if (!sc.rows[0] || sc.rows[0].value !== 'true') {
-      const sa = await db.query("SELECT id FROM users WHERE role='superadmin' AND active=true LIMIT 1");
+      const sa = await db.query("SELECT id FROM users WHERE role='superadmin' AND active=true AND email <> 'admin@mailhaven.local' LIMIT 1");
       if (sa.rows.length > 0) {
         await db.query("INSERT INTO settings (key,value) VALUES ('setup_completed','true') ON CONFLICT (key) DO UPDATE SET value='true'");
-        console.log('[Migration] setup_completed recuperato automaticamente (superadmin esistente)');
+        console.log('[Migration] setup_completed recuperato automaticamente (superadmin reale esistente)');
       }
     }
   } catch(e) { console.warn('[Migration] setup_completed check skip:', e.message); }

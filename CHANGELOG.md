@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.68] - 2026-06-30
+### Fixed
+- **Il wizard di configurazione ora appare DAVVERO sulle installazioni nuove.**
+  La migrazione all'avvio marcava `setup_completed=true` se esisteva un superadmin;
+  ma `init.sql` crea un superadmin segnaposto (`admin@mailhaven.local`) su ogni DB
+  nuovo → il wizard veniva saltato su OGNI installazione pulita (compariva il login).
+  Ora l'auto-completamento considera solo un superadmin REALE (esclude il segnaposto):
+  le installazioni nuove partono dal wizard; gli aggiornamenti da versioni vecchie
+  restano invariati. Questo era la causa radice di "il wizard non parte".
 ## [0.1.67] - 2026-06-30
 ### Fixed
 - **Primo avvio delle installazioni NUOVE molto più veloce e affidabile.**
