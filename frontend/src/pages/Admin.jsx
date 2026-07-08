@@ -257,7 +257,7 @@ export default function Admin() {
   const tabs = user?.role === 'superadmin' ? [...BASE_TABS, 'Rivenditori'] : BASE_TABS
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto h-full overflow-y-auto fade-in">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto fade-in">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Gestione</h1>
         <p className="text-sm text-gray-500 mt-0.5">Clienti, utenti e caselle email</p>

@@ -110,7 +110,7 @@ export default function Security() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-2xl mx-auto h-full overflow-y-auto fade-in">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto fade-in">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Sicurezza</h1>
         <p className="text-sm text-gray-500 mt-0.5">Gestione password, 2FA e sicurezza account</p>

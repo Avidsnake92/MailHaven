@@ -345,7 +345,7 @@ export default function Backup() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto h-full overflow-y-auto fade-in">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto fade-in">
       <div className="mb-6 flex items-center gap-4">
         <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
           <HardDrive size={22} className="text-blue-600" />

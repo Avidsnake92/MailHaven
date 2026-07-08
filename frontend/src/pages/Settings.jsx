@@ -1165,7 +1165,7 @@ export default function Settings() {
         </div>
       </div>
     )}
-    <div className="p-6 max-w-4xl mx-auto h-full overflow-y-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">

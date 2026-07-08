@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.69] - 2026-06-30
+### Fixed
+- **Scroll delle pagine a tutta larghezza.** Backup, Impostazioni, Utenti/Caselle,
+  Log, Email e Sicurezza usavano un contenitore di scroll limitato al box centrato
+  (`max-w-* mx-auto h-full overflow-y-auto`): la rotellina funzionava solo col cursore
+  DENTRO il riquadro, non nei margini. Ora lo scroll è gestito dal layout su tutta la
+  larghezza dell'area contenuti, quindi si scorre ovunque.
 ## [0.1.68] - 2026-06-30
 ### Fixed
 - **Il wizard di configurazione ora appare DAVVERO sulle installazioni nuove.**
