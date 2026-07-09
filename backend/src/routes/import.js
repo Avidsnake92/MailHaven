@@ -118,7 +118,7 @@ const insertEmail = async (db, mailboxId, rawBuffer, folderPath, overwrite = fal
   return { inserted: true };
 };
 
-// POST /api/import/eml ??? importa singolo file EML
+// POST /api/import/eml → importa singolo file EML
 router.post('/eml', upload.single('file'), async (req, res) => {
   const db = req.app.locals.db;
   const { mailbox_id, folder = 'Importata' } = req.body;
@@ -128,7 +128,7 @@ router.post('/eml', upload.single('file'), async (req, res) => {
   try {
     const raw = fs.readFileSync(req.file.path);
     const result = await insertEmail(db, parseInt(mailbox_id), raw, folder);
-    res.json({ ...result, message: result.skipped ? 'Email gi?? presente' : 'Email importata' });
+    res.json({ ...result, message: result.skipped ? 'Email già presente' : 'Email importata' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
@@ -136,7 +136,7 @@ router.post('/eml', upload.single('file'), async (req, res) => {
   }
 });
 
-// POST /api/import/zip ??? importa ZIP di file EML
+// POST /api/import/zip → importa ZIP di file EML
 router.post('/zip', upload.single('file'), async (req, res) => {
   const db = req.app.locals.db;
   const { mailbox_id, folder = 'Importata' } = req.body;
@@ -175,7 +175,7 @@ router.post('/zip', upload.single('file'), async (req, res) => {
   }
 });
 
-// POST /api/import/mbox ??? importa file MBOX
+// POST /api/import/mbox → importa file MBOX
 router.post('/mbox', upload.single('file'), async (req, res) => {
   const db = req.app.locals.db;
   const { mailbox_id, folder = 'Importata' } = req.body;
@@ -209,7 +209,7 @@ router.post('/mbox', upload.single('file'), async (req, res) => {
   }
 });
 
-// POST /api/import/pst ??? importa file PST (Outlook)
+// POST /api/import/pst → importa file PST (Outlook)
 router.post('/pst', upload.single('file'), async (req, res) => {
   const db = req.app.locals.db;
   const { mailbox_id } = req.body;

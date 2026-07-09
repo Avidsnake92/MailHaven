@@ -202,7 +202,7 @@ export default function EmailView() {
           <div className="mx-4 sm:mx-6 mb-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             <Shield size={14} className="text-amber-600 shrink-0" />
             <p className="text-xs text-amber-800 font-semibold">Legal Hold attivo</p>
-            {email?.legal_hold_reason && <p className="text-xs text-amber-600">??? {email.legal_hold_reason}</p>}
+            {email?.legal_hold_reason && <p className="text-xs text-amber-600">• {email.legal_hold_reason}</p>}
           </div>
         )}
         {/* Actions */}
@@ -274,13 +274,13 @@ export default function EmailView() {
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900">Attiva Legal Hold</h3>
-                  <p className="text-xs text-gray-500">L'email non potr?? essere eliminata</p>
+                  <p className="text-xs text-gray-500">L'email non potrà essere eliminata</p>
                 </div>
               </div>
               <div className="mb-4">
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Motivo (opzionale)</label>
                 <input value={legalHoldReason} onChange={e => setLegalHoldReason(e.target.value)}
-                  placeholder="Es: Indagine interna, Contenzioso n??123..."
+                  placeholder="Es: Indagine interna, Contenzioso n°123..."
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-amber-400" />
               </div>
               <div className="flex gap-3">

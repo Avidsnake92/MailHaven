@@ -87,7 +87,7 @@ export default function Import() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-gray-900">Importa email</h1>
-          <p className="text-xs text-gray-500">Importa archivi esistenti in MailHaven ??? PST, EML, ZIP, MBOX</p>
+          <p className="text-xs text-gray-500">Importa archivi esistenti in MailHaven — PST, EML, ZIP, MBOX</p>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export default function Import() {
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Cartella di destinazione</label>
             <input value={folder} onChange={e => setFolder(e.target.value)} placeholder="Importata"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
-            <p className="text-xs text-gray-400 mt-1">Per ZIP: verr?? usata la struttura interna del file</p>
+            <p className="text-xs text-gray-400 mt-1">Per ZIP: verrà usata la struttura interna del file</p>
           </div>
         </div>
       </div>
@@ -133,9 +133,9 @@ export default function Import() {
             <div>
               <p className="text-sm font-semibold text-blue-900">Import in corso...</p>
               <p className="text-xs text-blue-700 mt-0.5">
-                {progress.filename} ?? {formatBytes(progress.size)} ?? tipo: {progress.type.toUpperCase()}
+                {progress.filename} · {formatBytes(progress.size)} · tipo: {progress.type.toUpperCase()}
               </p>
-              <p className="text-xs text-blue-600 mt-1">Questo pu?? richiedere alcuni minuti per file grandi</p>
+              <p className="text-xs text-blue-600 mt-1">Questo può richiedere alcuni minuti per file grandi</p>
             </div>
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function Import() {
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
             <CheckCircle size={18} className="text-green-600" />
-            <h2 className="font-semibold text-gray-900">Import completato ??? {results.filename}</h2>
+            <h2 className="font-semibold text-gray-900">Import completato — {results.filename}</h2>
           </div>
           <div className="p-5">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -173,7 +173,7 @@ export default function Import() {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-400">{(results.skipped || 0).toLocaleString('it-IT')}</p>
-                <p className="text-xs text-gray-500">Gi?? presenti</p>
+                <p className="text-xs text-gray-500">Già presenti</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-red-500">{(results.errors || 0).toLocaleString('it-IT')}</p>
@@ -184,7 +184,7 @@ export default function Import() {
               <div className="mt-3 p-3 bg-red-50 rounded-lg">
                 <p className="text-xs font-semibold text-red-700 mb-2">Errori (primi {results.errorList.length}):</p>
                 {results.errorList.map((e, i) => (
-                  <p key={i} className="text-xs text-red-600">{e.file || e.folder || '???'}: {e.error}</p>
+                  <p key={i} className="text-xs text-red-600">{e.file || e.folder || '—'}: {e.error}</p>
                 ))}
               </div>
             )}
@@ -196,7 +196,7 @@ export default function Import() {
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
         <p className="text-xs font-semibold text-gray-600 mb-2">Note sull'importazione</p>
         <ul className="text-xs text-gray-500 space-y-1 list-disc list-inside">
-          <li>Le email gi?? presenti (stesso Message-ID) vengono saltate automaticamente</li>
+          <li>Le email già presenti (stesso Message-ID) vengono saltate automaticamente</li>
           <li>I file PST di grandi dimensioni possono richiedere diversi minuti</li>
           <li>Le email importate vengono cifrate e compresse come le email archiviate normalmente</li>
           <li>Per ZIP: la struttura delle cartelle interne viene preservata come percorso</li>

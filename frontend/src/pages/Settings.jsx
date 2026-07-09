@@ -633,7 +633,7 @@ function UpdateTab({ setUpdating }) {
               Registra l'app su Azure Portal
             </div>
             <p className="text-sm text-gray-500 pl-8">
-              Vai su <a href="https://portal.azure.com" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Azure Portal <ExternalLink size={12}/></a> ??? Microsoft Entra ID ??? Registrazioni app ??? Nuova registrazione.
+              Vai su <a href="https://portal.azure.com" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Azure Portal <ExternalLink size={12}/></a> → Microsoft Entra ID → Registrazioni app → Nuova registrazione.
             </p>
             <div className="pl-8 text-sm text-gray-500">
               Imposta come Redirect URI (Web):
@@ -678,9 +678,9 @@ function UpdateTab({ setUpdating }) {
               Permessi API richiesti
             </div>
             <ul className="pl-8 text-sm text-gray-500 space-y-1 list-disc list-inside">
-              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">User.Read</code> (delega) ??? profilo utente per login SSO</li>
-              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">Mail.Read</code> (delega o applicazione) ??? lettura email per sincronizzazione</li>
-              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">offline_access</code> ??? refresh token</li>
+              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">User.Read</code> (delega) → profilo utente per login SSO</li>
+              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">Mail.Read</code> (delega o applicazione) → lettura email per sincronizzazione</li>
+              <li><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">offline_access</code> → refresh token</li>
             </ul>
           </div>
 
@@ -697,7 +697,7 @@ function UpdateTab({ setUpdating }) {
               </button>
               <button onClick={testConnectivity} disabled={testing}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">
-                {testing ? <Loader2 size={14} className="animate-spin"/> : <Wifi size={14}/>} Test connettivit??
+                {testing ? <Loader2 size={14} className="animate-spin"/> : <Wifi size={14}/>} Test connettività
               </button>
               {config?.microsoft?.configured && (
                 <StatusBadge ok={true} label="Configurato" />
@@ -722,7 +722,7 @@ function UpdateTab({ setUpdating }) {
               Crea le credenziali su Google Cloud Console
             </div>
             <p className="text-sm text-gray-500 pl-8">
-              Vai su <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={12}/></a> ??? Credenziali ??? Crea credenziali ??? ID client OAuth (tipo Applicazione web).
+              Vai su <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={12}/></a> → Credenziali → Crea credenziali → ID client OAuth (tipo Applicazione web).
             </p>
             <div className="pl-8 text-sm text-gray-500">
               Aggiungi questi URI di reindirizzamento autorizzati:
@@ -766,7 +766,7 @@ function UpdateTab({ setUpdating }) {
               </button>
               <button onClick={testConnectivity} disabled={testing}
                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">
-                {testing ? <Loader2 size={14} className="animate-spin"/> : <Wifi size={14}/>} Test connettivit??
+                {testing ? <Loader2 size={14} className="animate-spin"/> : <Wifi size={14}/>} Test connettività
               </button>
               {config?.google?.configured && (
                 <StatusBadge ok={true} label="Configurato" />

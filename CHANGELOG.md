@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.70] - 2026-07-10
+### Fixed
+- **Caratteri accentati corrotti (`??`) nelle scritte dell'interfaccia.** Le pagine
+  Legal Hold, Login, Impostazioni (sezioni SSO/OAuth), Import e il dialog Legal Hold
+  in EmailView erano state salvate con encoding errato: à è é ° • — → ⚠️ erano
+  diventati `??`. Ripristinati tutti i testi corretti (es. "Cosa è il Legal Hold?",
+  "Test connettività", "Verifica identità", "n°123", frecce nelle guide OAuth).
+  Corretto anche il messaggio backend "Email già presente" (import).
+
 ## [0.1.69] - 2026-06-30
 ### Fixed
 - **Scroll delle pagine a tutta larghezza.** Backup, Impostazioni, Utenti/Caselle,

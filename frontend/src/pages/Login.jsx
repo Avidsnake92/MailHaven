@@ -47,7 +47,7 @@ export default function Login() {
     const sso2fa   = params.get('sso_2fa')
 
     if (ssoToken) {
-      // Login SSO riuscito ??? recupera profilo e accedi
+      // Login SSO riuscito → recupera profilo e accedi
       api.get('/auth/me', { headers: { Authorization: 'Bearer ' + ssoToken } })
         .then(res => {
           doLogin(ssoToken, res.data)
@@ -95,7 +95,7 @@ export default function Login() {
           : { email, password }
         const res = await api.post('/auth/login', body)
         const remaining = parseInt(res.headers?.['x-ratelimit-remaining'] ?? '99')
-        if (remaining === 1) setWarning('Attenzione: questo ?? l\'ultimo tentativo disponibile. Dopo verrai bloccato per 15 minuti.')
+        if (remaining === 1) setWarning('Attenzione: questo è l\'ultimo tentativo disponibile. Dopo verrai bloccato per 15 minuti.')
         if (res.data.token) { doLogin(res.data.token, res.data.user); return; }
         if (res.data.requires_2fa) { setRequires2fa(true); setError(''); }
       }
@@ -105,7 +105,7 @@ export default function Login() {
       if (data?.blocked) { setLocked(true); setRetryMinutes(data.retryAfterMinutes || 15); setError(data.error) }
       else if (data?.locked) { setLocked(true); setError(data.error) }
       else if (data?.requires_2fa) { setRequires2fa(true); setError(data.error || 'Codice 2FA non valido') }
-      else { setError(data?.error || 'Email o password non corretti'); if (remaining === 1) setWarning('Attenzione: questo ?? l\'ultimo tentativo disponibile.') }
+      else { setError(data?.error || 'Email o password non corretti'); if (remaining === 1) setWarning('Attenzione: questo è l\'ultimo tentativo disponibile.') }
     } finally { setLoading(false) }
   }
 
@@ -120,7 +120,7 @@ export default function Login() {
           <div className="flex flex-col items-center mb-8">
             <img src="/logo.svg" alt="MailHaven" className="w-full max-w-[280px] h-auto mb-2" />
             <p className="text-sm text-gray-500 mt-1">
-              {requires2fa ? 'Verifica identit??' : 'Accedi al tuo archivio email'}
+              {requires2fa ? 'Verifica identità' : 'Accedi al tuo archivio email'}
             </p>
           </div>
 
@@ -162,7 +162,7 @@ export default function Login() {
               </button>
               <button type="button" onClick={() => { setRequires2fa(false); setTotpCode(''); setError(''); setSso2faPartial(null) }}
                 className="w-full text-sm text-gray-500 hover:text-gray-700 py-2">
-                ??? Torna al login
+                ← Torna al login
               </button>
             </form>
           )}
@@ -170,7 +170,7 @@ export default function Login() {
           {/* Form login normale */}
           {!requires2fa && !locked && (
             <div className="space-y-4">
-              {/* Bottoni SSO ??? visibili solo se configurati */}
+              {/* Bottoni SSO — visibili solo se configurati */}
               {hasSso && (
                 <div className="space-y-2">
                   {ssoAvailable.microsoft && (
@@ -217,7 +217,7 @@ export default function Login() {
                 </div>
                 {warning && (
                   <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
-                    <span className="text-amber-500 shrink-0 mt-0.5">??????</span>
+                    <span className="text-amber-500 shrink-0 mt-0.5">⚠️</span>
                     <span>{warning}</span>
                   </div>
                 )}

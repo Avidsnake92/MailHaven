@@ -2,7 +2,7 @@
 import { Shield, ShieldCheck, ShieldOff, Search, RefreshCw, AlertTriangle, Calendar, User, Inbox } from 'lucide-react'
 import api from '../services/api'
 
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '???'
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
 
 export default function LegalHold() {
   const [items, setItems] = useState([])
@@ -86,8 +86,8 @@ export default function LegalHold() {
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
         <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
         <div className="text-sm text-amber-800">
-          <p className="font-semibold mb-1">Cosa ?? il Legal Hold?</p>
-          <p className="text-amber-700">Le email in Legal Hold sono protette da qualsiasi eliminazione ??? n?? manuale n?? automatica da policy. Usato per conservare prove in caso di indagini legali, audit o contenziosi.</p>
+          <p className="font-semibold mb-1">Cosa è il Legal Hold?</p>
+          <p className="text-amber-700">Le email in Legal Hold sono protette da qualsiasi eliminazione — né manuale né automatica da policy. Usato per conservare prove in caso di indagini legali, audit o contenziosi.</p>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default function LegalHold() {
                     <p className="text-sm font-medium text-gray-900 truncate">{item.subject || '(senza oggetto)'}</p>
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">
-                    {item.sender_email} ?? <span className="text-gray-500">{item.legal_hold_reason || 'Nessun motivo specificato'}</span>
+                    {item.sender_email} · <span className="text-gray-500">{item.legal_hold_reason || 'Nessun motivo specificato'}</span>
                   </p>
                 </div>
                 <div className="w-36 hidden md:block text-xs text-gray-500 truncate">
@@ -168,14 +168,14 @@ export default function LegalHold() {
               <div className="flex gap-2">
                 <button disabled={page === 1} onClick={() => setPage(p => p-1)}
                   className="px-3 py-1 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
-                  ??? Precedente
+                  ← Precedente
                 </button>
                 <span className="px-3 py-1 text-xs text-gray-500">
                   {page} / {Math.ceil(total / LIMIT)}
                 </span>
                 <button disabled={page >= Math.ceil(total / LIMIT)} onClick={() => setPage(p => p+1)}
                   className="px-3 py-1 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
-                  Successiva ???
+                  Successiva →
                 </button>
               </div>
             </div>
