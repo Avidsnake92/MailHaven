@@ -173,7 +173,7 @@ const migrate = async (db) => {
   } catch(e) { console.warn('[Migration] setup_completed check skip:', e.message); }
 
 
-  // Legal Hold ??? conservazione a norma di legge
+  // Legal Hold — conservazione a norma di legge
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS legal_hold BOOLEAN DEFAULT false`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS legal_hold_reason TEXT`);
   await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS legal_hold_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);

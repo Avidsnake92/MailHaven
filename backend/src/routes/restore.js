@@ -94,10 +94,12 @@ const uploadToImap = (config, folder, emlBuffer, sentAt) => {
 };
 
 // Helper: ottieni mailbox completa per restore
-const getMailboxForRestore = async (db, mailboxEmail) => {
+// Accetta sia l'id numerico sia l'email della casella
+const getMailboxForRestore = async (db, target) => {
+  const byId = /^[0-9]+$/.test(String(target).trim());
   const result = await db.query(
-    'SELECT * FROM mailboxes WHERE email=$1 AND active=true',
-    [mailboxEmail]
+    `SELECT * FROM mailboxes WHERE ${byId ? 'id' : 'email'}=$1 AND active=true`,
+    [String(target).trim()]
   );
   return result.rows[0] || null;
 };
@@ -122,7 +124,7 @@ router.post('/imap', async (req, res, next) => {
   if (!target_mailbox) return next(new AppError(ERRORS.MH_1503));
   try {
     const mailbox = await getMailboxForRestore(db, target_mailbox);
-    if (!mailbox) return next(new AppError(ERRORS.MH_1204, target_mailbox));
+    if (!mailbox) return next(new AppError(ERRORS.MH_1201, String(target_mailbox)));
 
     const allowedIds = await getUserMailboxIds(db, req.user);
     const s = await db.query(`SELECT value FROM settings WHERE key='badge_duration_days'`);

@@ -507,7 +507,7 @@ router.post('/app-config', authMiddleware, async (req, res) => {
   res.json({ ok: true, message: 'Credenziali salvate. Riavvia il backend per applicarle.' });
 });
 
-// GET /oauth/sso-settings ??? stato auto-provisioning SSO
+// GET /oauth/sso-settings — stato auto-provisioning SSO
 router.get('/sso-settings', authMiddleware, async (req, res) => {
   if (!['superadmin', 'admin'].includes(req.user.role))
     return res.status(403).json({ error: 'Accesso negato' });
@@ -516,7 +516,7 @@ router.get('/sso-settings', authMiddleware, async (req, res) => {
   res.json({ auto_provision: r.rows[0]?.value === 'true' });
 });
 
-// POST /oauth/sso-settings ??? abilita/disabilita creazione automatica utenti al login SSO
+// POST /oauth/sso-settings — abilita/disabilita creazione automatica utenti al login SSO
 router.post('/sso-settings', authMiddleware, async (req, res) => {
   if (!['superadmin', 'admin'].includes(req.user.role))
     return res.status(403).json({ error: 'Accesso negato' });

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.72] - 2026-07-10
+### Fixed
+- **Restore IMAP: `target_mailbox` accetta ora sia l'ID numerico sia l'email della
+  casella** (prima solo l'email); con casella inesistente risponde 404 "Casella non
+  trovata" (MH-1201) invece del fuorviante "Credenziali IMAP non configurate" (MH-1204).
+- **Ripuliti gli ultimi caratteri corrotti** rimasti nei commenti del backend
+  (frecce e separatori in auth.js, oauth.js, migrate.js).
+
 ## [0.1.71] - 2026-07-10
 ### Fixed
 - **Rilevamento "eliminate esternamente" completamente rotto (mismatch di tipo UID).**
