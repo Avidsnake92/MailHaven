@@ -144,14 +144,13 @@ router.get('/storage', async (req, res) => {
 });
 
 // GET /emails/global-search — ricerca full-text su tutte le caselle accessibili
-router.get('/global-search', authMiddleware, async (req, res, next) => {
+router.get('/global-search', authMiddleware, require('../services/license').requireFeature('global_search', 'Ricerca globale'), async (req, res, next) => {
   const db = req.app.locals.db;
   const { search, page = 1, limit = 30, from_date, to_date } = req.query;
   if (!search || search.trim().length < 2) return res.status(400).json({ error: 'Query troppo corta (min 2 caratteri)', code: 'MH-1406' });
   const offset = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
   try {
-    let mailboxFilter = '';
-    let extraParams = [];
+    let mailboxIds = null;
     if (req.user.role !== 'superadmin') {
       const mbR = await db.query(
         `SELECT m.id FROM mailboxes m
@@ -161,19 +160,20 @@ router.get('/global-search', authMiddleware, async (req, res, next) => {
          ))`,
         [req.user.id]
       );
-      const ids = mbR.rows.map(r => r.id);
-      if (!ids.length) return res.json({ items: [], total: 0, totalPages: 0, page: 1 });
-      mailboxFilter = `AND ae.mailbox_id = ANY($${extraParams.length + 3}::int[])`;
-      extraParams = [ids];
+      mailboxIds = mbR.rows.map(r => r.id);
+      if (!mailboxIds.length) return res.json({ items: [], total: 0, totalPages: 0, page: 1 });
     }
 
-    let conditions = [`ae.search_vector @@ plainto_tsquery('simple', $1)`];
-    let params = [search, parseInt(limit)];
-    if (from_date) { conditions.push(`ae.sent_at >= $${params.length + 1}`); params.push(from_date); }
-    if (to_date)   { conditions.push(`ae.sent_at <= $${params.length + 1}`); params.push(to_date); }
-    if (extraParams.length) params.push(...extraParams);
+    // Parametri numerati in ordine di push: la stessa lista (senza LIMIT) serve
+    // anche alla COUNT — parametri inutilizzati fanno errare PostgreSQL.
+    const conditions = [`ae.search_vector @@ plainto_tsquery('simple', $1)`];
+    const params = [search];
+    if (from_date) { params.push(from_date); conditions.push(`ae.sent_at >= $${params.length}`); }
+    if (to_date)   { params.push(to_date);   conditions.push(`ae.sent_at <= $${params.length}`); }
+    if (mailboxIds) { params.push(mailboxIds); conditions.push(`ae.mailbox_id = ANY($${params.length}::int[])`); }
 
-    const where = conditions.join(' AND ') + (mailboxFilter ? ` ${mailboxFilter}` : '');
+    const where = conditions.join(' AND ');
+    const itemsParams = params.concat([parseInt(limit)]);
 
     const [items, count] = await Promise.all([
       db.query(`
@@ -186,8 +186,8 @@ router.get('/global-search', authMiddleware, async (req, res, next) => {
         JOIN mailboxes m ON m.id = ae.mailbox_id
         WHERE ${where}
         ORDER BY ts_rank(ae.search_vector, plainto_tsquery('simple', $1)) DESC, ae.sent_at DESC
-        LIMIT $2 OFFSET ${offset}
-      `, params),
+        LIMIT $${itemsParams.length} OFFSET ${offset}
+      `, itemsParams),
       db.query(`SELECT COUNT(*) FROM archived_emails ae WHERE ${where}`, params),
     ]);
 

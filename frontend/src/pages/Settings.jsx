@@ -835,7 +835,7 @@ const ST_META = {
   invalid_install: { label: 'Chiave per un altro ID installazione', cls: 'text-red-600' },
   revoked:         { label: 'Revocata (tornata a Community)',          cls: 'text-red-600' },
 }
-const FEAT_LABELS = { reseller: 'Rivenditori (MSP)', antivirus: 'Antivirus', antispam: 'Doppio antispam', backup: 'Backup .mhbak', legal_hold: 'Legal Hold', import: 'Import', logs: 'Log' }
+const FEAT_LABELS = { reseller: 'Rivenditori (MSP)', antivirus: 'Antivirus', antispam: 'Doppio antispam', backup: 'Backup .mhbak', legal_hold: 'Legal Hold', import: 'Import', global_search: 'Ricerca globale', logs: 'Log' }
 
 function LicenseTab() {
   const [lic, setLic] = useState(null)

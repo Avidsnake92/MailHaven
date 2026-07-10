@@ -95,7 +95,7 @@ export default function Layout() {
       {sectionLabel('Principale')}
       <NavLink to="/dashboard" className={navClass}><LayoutDashboard size={17} /> Dashboard</NavLink>
       <NavLink to="/" end className={navClass}><Mail size={17} /> Email Archiviate</NavLink>
-      <NavLink to="/global-search" className={navClass}><Search size={17} /> Ricerca Globale</NavLink>
+      {featOn('global_search') && <NavLink to="/global-search" className={navClass}><Search size={17} /> Ricerca Globale</NavLink>}
       {canAntispam && <NavLink to="/antispam" className={navClass}><ShieldAlert size={17} /> Antispam</NavLink>}
 
       {isManager && (<>

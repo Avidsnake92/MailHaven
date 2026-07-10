@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.73] - 2026-07-10
+### Added
+- **Ricerca Globale come funzione licenziabile (`global_search`).** La Feature Key
+  può ora includere/escludere la Ricerca Globale come antivirus, antispam, legal hold
+  ecc. Route `GET /emails/global-search` gateata (403 MH-1010 se non in licenza), voce
+  menu nascosta per edizione, etichetta nel pannello Licenza. Community: esclusa.
+  **Retro-compatibilità**: le chiavi emesse prima di questa versione (senza il flag
+  nel payload) mantengono la Ricerca Globale attiva.
+### Fixed
+- **Ricerca Globale rotta per tutti (500).** La query COUNT riceveva anche il
+  parametro LIMIT che non usa (PostgreSQL: "bind message supplies N parameters...")
+  e la numerazione del filtro caselle collideva con i filtri data. Parametri
+  ristrutturati: lista base condivisa items/count + LIMIT aggiunto solo alla items.
+
 ## [0.1.72] - 2026-07-10
 ### Fixed
 - **Restore IMAP: `target_mailbox` accetta ora sia l'ID numerico sia l'email della

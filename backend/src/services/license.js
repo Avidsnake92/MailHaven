@@ -20,12 +20,12 @@ MCowBQYDK2VwAyEA66ft0iBom9U7Pn8KRc281XkS8VQiEUhpLI3Tw+3PEHI=
 const COMMUNITY = () => ({
   edition: 'community',
   customer: null,
-  feat: { reseller: false, antivirus: false, antispam: false, backup: false, legal_hold: false, import: false, logs: true },
+  feat: { reseller: false, antivirus: false, antispam: false, backup: false, legal_hold: false, import: false, global_search: false, logs: true },
   lim: { clients: 1, mailboxes: 25, resellers: 0 },
   expires: null, graceUntil: null, status: 'community',
 });
 
-const FEATURES = ['reseller', 'antivirus', 'antispam', 'backup', 'legal_hold', 'import', 'logs'];
+const FEATURES = ['reseller', 'antivirus', 'antispam', 'backup', 'legal_hold', 'import', 'global_search', 'logs'];
 
 const b64urlToBuf = (s) => Buffer.from(String(s).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 
@@ -79,6 +79,9 @@ function computeFromKey(key, installId) {
 
   const feat = Object.assign({}, COMMUNITY().feat);
   for (const f of FEATURES) if (data.feat && data.feat[f] != null) feat[f] = !!data.feat[f];
+  // Retro-compatibilità: le chiavi emesse prima dell'introduzione di global_search
+  // (che non hanno il flag nel payload) mantengono la Ricerca Globale attiva.
+  if (!data.feat || data.feat.global_search == null) feat.global_search = true;
   const lim = Object.assign({}, COMMUNITY().lim, data.lim || {});
 
   return {
