@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.71] - 2026-07-10
+### Fixed
+- **Rilevamento "eliminate esternamente" completamente rotto (mismatch di tipo UID).**
+  La colonna `uid` è `bigint` e node-postgres la restituisce come **stringa**, mentre
+  `imap.search` dà **numeri**: ogni confronto falliva. Effetti: TUTTE le email
+  archiviate venivano marcate "eliminate esternamente" a ogni sync (anche quelle
+  appena archiviate e ancora presenti sul server), il ripristino automatico del flag
+  non scattava mai, e ogni email del server veniva ritrattata come "nuova" a ogni
+  ciclo. Ora gli UID dal DB sono normalizzati a Number prima del confronto.
+- **UID driftati: riallineamento automatico.** Se un client sposta/ricarica un
+  messaggio l'UID cambia; il dedup per Message-ID evitava il doppione ma la copia
+  archiviata restava "eliminata" per sempre con l'UID vecchio. Ora quando il crawler
+  rivede un Message-ID noto sotto un UID nuovo aggiorna l'UID salvato e toglie il flag.
+- **Log "N email eliminate esternamente" ripetuto a ogni ciclo.** Il conteggio
+  includeva anche le email già marcate: ora considera solo quelle attive e il log
+  compare solo quando c'è davvero qualcosa da marcare.
+- **`GET /oauth/mailboxes-status` restituiva sempre 500.** La query SQL era
+  letteralmente vuota (`db.query()` senza testo) dalla nascita dell'endpoint:
+  ricostruita (caselle OAuth attive con scadenze token).
+
 ## [0.1.70] - 2026-07-10
 ### Fixed
 - **Caratteri accentati corrotti (`??`) nelle scritte dell'interfaccia.** Le pagine

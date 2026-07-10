@@ -578,7 +578,10 @@ router.get('/mailboxes-status', authMiddleware, async (req, res) => {
   const db = req.app.locals.db;
   try {
     const result = await db.query(
-      
+      `SELECT id, email, display_name, oauth_provider, oauth_expires_at, oauth_refresh_expires_at
+       FROM mailboxes
+       WHERE oauth_provider IS NOT NULL AND active=true
+       ORDER BY email`
     );
     const now = new Date();
     const items = result.rows.map(m => {

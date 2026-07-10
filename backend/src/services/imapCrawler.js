@@ -188,11 +188,14 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
       if (!box.messages.total) return res(0);
 
       const existing = await db.query(
-        'SELECT uid FROM archived_emails WHERE mailbox_id=$1 AND path=$2',
+        'SELECT uid, is_deleted FROM archived_emails WHERE mailbox_id=$1 AND path=$2',
         [mailbox.id, folderPath]
       );
       // Includi anche gli UID già archiviati/eliminati — così non vengono re-scaricati dall'IMAP
-      const existingUids = new Set(existing.rows.map(r => r.uid));
+      // pg restituisce i bigint come stringhe: normalizza a Number per confrontarli con gli UID IMAP
+      const existingUids = new Set(existing.rows.map(r => Number(r.uid)));
+      // Solo le email non ancora marcate: evita di ricontare (e ri-loggare) le già eliminate
+      const activeUids = existing.rows.filter(r => !r.is_deleted).map(r => Number(r.uid));
 
       // Carica tutti i message_id noti (inclusi eliminati/archiviati) per bloccare re-archiviazione
       const existingMsgIds = await db.query(
@@ -213,7 +216,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
         const newUids = uids.filter(uid => !existingUids.has(uid));
 
         const serverUids = new Set(uids);
-        const deletedUids = [...existingUids].filter(uid => !serverUids.has(uid));
+        const deletedUids = activeUids.filter(uid => !serverUids.has(uid));
         const restoredUids = [...serverUids].filter(uid => existingUids.has(uid));
         const updatePromises = [];
         if (deletedUids.length > 0) {
@@ -265,8 +268,30 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
           });
           preFetch.once('error', () => resolve(uidsToCheck));
           preFetch.once('end', () => {
+            const remaps = [];
             for (const [uid, msgId] of Object.entries(uidMsgIds)) {
               if (!knownMessageIds.has(msgId)) unknown.push(parseInt(uid));
+              else remaps.push([parseInt(uid), msgId]);
+            }
+            // UID driftati: Message-ID già in archivio ma con UID diverso (spostamenti/copie
+            // lato client cambiano l'UID). Senza riallineamento la copia archiviata resta
+            // marcata "eliminata esternamente" per sempre.
+            if (remaps.length) {
+              Promise.all(remaps.map(([uid, msgId]) =>
+                db.query(
+                  `UPDATE archived_emails
+                   SET uid=$1, is_deleted=false, deleted_at=NULL,
+                       badge_type=CASE WHEN badge_type='deleted' THEN NULL ELSE badge_type END,
+                       badge_expires_at=CASE WHEN badge_type='deleted' THEN NULL ELSE badge_expires_at END
+                   WHERE mailbox_id=$2 AND path=$3 AND message_id=$4 AND uid<>$1
+                     AND NOT EXISTS (SELECT 1 FROM archived_emails
+                                     WHERE mailbox_id=$2 AND path=$3 AND uid=$1)`,
+                  [uid, mailbox.id, folderPath, msgId]
+                )
+              )).then(rs => {
+                const n = rs.reduce((a, r) => a + (r.rowCount || 0), 0);
+                if (n) console.log(`[Crawler] ${mailbox.email} ${folderPath}: ${n} email riallineate (UID cambiato sul server)`);
+              }).catch(e => console.error('[Crawler] UID remap error:', e.message));
             }
             // UID senza Message-ID header → includili (verranno filtrati dopo)
             const withHeader = new Set(Object.keys(uidMsgIds).map(Number));
