@@ -255,6 +255,7 @@ app.use('/api/backup',   require('./services/license').requireFeature('backup','
 app.use('/api/spam',     require('./services/license').requireFeature('antispam','Antispam'), require('./routes/spam'));
 app.use('/api/import',   require('./services/license').requireFeature('import','Import'), require('./routes/import'));
 app.use('/api/license',  require('./routes/license'));
+app.use('/api/itflow',   require('./routes/itflow'));
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

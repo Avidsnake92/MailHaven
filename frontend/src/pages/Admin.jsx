@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight, Store, KeyRound } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight, Store, KeyRound, Download } from 'lucide-react'
 
 const BASE_TABS = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
 
@@ -477,6 +477,128 @@ function ConfirmDelete({ name, onConfirm, onCancel }) {
   )
 }
 
+// ---- IMPORT CLIENTI DA ITFLOW (solo superadmin) ----
+function ItflowImportModal({ onClose, onImported, branding }) {
+  const [cfg, setCfg] = useState({ url: '', api_key: '' })
+  const [cfgState, setCfgState] = useState({ configured: false, api_key_set: false, loaded: false })
+  const [items, setItems] = useState(null)
+  const [sel, setSel] = useState(new Set())
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [done, setDone] = useState(null)
+
+  const loadClients = async () => {
+    setBusy(true); setErr(''); setDone(null)
+    try {
+      const r = await api.get('/itflow/clients')
+      setItems(r.data.items); setSel(new Set())
+    } catch (e) { setErr(e.response?.data?.error || 'Errore caricamento clienti ITFlow'); setItems(null) }
+    finally { setBusy(false) }
+  }
+
+  useEffect(() => {
+    api.get('/itflow/config').then(r => {
+      setCfgState({ ...r.data, loaded: true })
+      setCfg(c => ({ ...c, url: r.data.url || '' }))
+      if (r.data.configured) loadClients()
+    }).catch(() => setCfgState(s => ({ ...s, loaded: true })))
+  }, [])
+
+  const saveCfg = async () => {
+    setBusy(true); setErr('')
+    try {
+      await api.post('/itflow/config', { url: cfg.url, api_key: cfg.api_key })
+      setCfgState(s => ({ ...s, configured: true, api_key_set: true }))
+      setCfg(c => ({ ...c, api_key: '' }))
+      await loadClients()
+    } catch (e) { setErr(e.response?.data?.error || 'Errore salvataggio configurazione') }
+    finally { setBusy(false) }
+  }
+
+  const toggle = (id) => setSel(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const importables = (items || []).filter(i => !i.imported)
+
+  const doImport = async () => {
+    setBusy(true); setErr('')
+    try {
+      const r = await api.post('/itflow/import', { ids: [...sel] })
+      setDone(r.data)
+      await loadClients()
+      onImported?.()
+    } catch (e) { setErr(e.response?.data?.error || 'Errore durante l\'import') }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900">Importa clienti da ITFlow</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+
+        <div className="p-5 overflow-y-auto flex-1 space-y-3">
+          <div className="space-y-2">
+            <input value={cfg.url} onChange={e => setCfg({ ...cfg, url: e.target.value })}
+              placeholder="URL ITFlow — es. https://itflow.k2tech.it"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            <div className="flex gap-2">
+              <input type="password" value={cfg.api_key} onChange={e => setCfg({ ...cfg, api_key: e.target.value })}
+                placeholder={cfgState.api_key_set ? 'API key salvata — lascia vuoto per non cambiarla' : 'API key ITFlow'}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              <button onClick={saveCfg} disabled={busy || !cfg.url}
+                className="px-3 py-2 text-sm font-medium rounded-lg text-white disabled:opacity-50"
+                style={{ background: branding.primary_color || '#2563eb' }}>
+                {cfgState.configured ? 'Salva e ricarica' : 'Collega'}
+              </button>
+            </div>
+          </div>
+
+          {err && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
+          {done && (
+            <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
+              Import completato: {done.imported} importati, {done.linked} collegati a esistenti, {done.skipped} saltati.
+            </p>
+          )}
+
+          {busy && !items && <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>}
+
+          {items && (
+            <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-t-lg">
+                <span className="text-xs text-gray-500">{items.length} clienti su ITFlow — {importables.length} da importare</span>
+                <div className="flex gap-3">
+                  <button onClick={() => setSel(new Set(importables.map(i => i.itflow_id)))} className="text-xs text-blue-600 hover:underline">Seleziona tutti</button>
+                  <button onClick={() => setSel(new Set())} className="text-xs text-gray-500 hover:underline">Nessuno</button>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                {items.map(i => (
+                  <label key={i.itflow_id} className={`flex items-center gap-3 px-3 py-2 text-sm ${i.imported ? 'opacity-50' : 'cursor-pointer hover:bg-gray-50'}`}>
+                    <input type="checkbox" disabled={i.imported} checked={i.imported || sel.has(i.itflow_id)} onChange={() => toggle(i.itflow_id)} />
+                    <span className="flex-1 text-gray-800">{i.name}</span>
+                    {i.imported && <span className="text-xs text-emerald-600 flex items-center gap-1"><Check size={12} /> già importato</span>}
+                    {!i.imported && i.name_match && <span className="text-xs text-amber-600">omonimo esistente → verrà collegato</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Chiudi</button>
+          <button onClick={doImport} disabled={busy || sel.size === 0}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white disabled:opacity-50"
+            style={{ background: branding.primary_color || '#2563eb' }}>
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Importa selezionati ({sel.size})
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ---- CLIENTS ----
 function ClientsTab({ branding, user }) {
   const [clients, setClients] = useState([])
@@ -486,6 +608,7 @@ function ClientsTab({ branding, user }) {
   const [deleteItem, setDeleteItem] = useState(null)
   const [form, setForm] = useState({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' })
   const [saving, setSaving] = useState(false)
+  const [showItflow, setShowItflow] = useState(false)
   const GB = 1024 * 1024 * 1024
 
   const load = () => {
@@ -527,14 +650,22 @@ function ClientsTab({ branding, user }) {
 
   return (
     <>
+      {showItflow && <ItflowImportModal onClose={() => setShowItflow(false)} onImported={load} branding={branding} />}
       <div className="bg-white border border-gray-200 rounded-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-xl">
           <h2 className="font-semibold text-gray-900">{user.role === 'reseller' ? 'Aziende' : 'Clienti'} ({clients.length})</h2>
           {(user.role === 'superadmin' || user.role === 'reseller') && (
-            <button onClick={openNew} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white"
-              style={{ background: branding.primary_color || '#2563eb' }}>
-              <Plus size={14} /> {user.role === 'reseller' ? 'Nuova azienda' : 'Nuovo cliente'}
-            </button>
+            <div className="flex items-center gap-2">
+              {user.role === 'superadmin' && (
+                <button onClick={() => setShowItflow(true)} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">
+                  <Download size={14} /> Importa da ITFlow
+                </button>
+              )}
+              <button onClick={openNew} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white"
+                style={{ background: branding.primary_color || '#2563eb' }}>
+                <Plus size={14} /> {user.role === 'reseller' ? 'Nuova azienda' : 'Nuovo cliente'}
+              </button>
+            </div>
           )}
         </div>
 

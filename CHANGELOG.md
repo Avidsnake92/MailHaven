@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.74] - 2026-07-11
+### Added
+- **Integrazione ITFlow — import clienti via API.** Nuovo pulsante "Importa da
+  ITFlow" in Utenti/Caselle → Clienti (solo superadmin): si configura URL + API key
+  di ITFlow (salvate nelle settings, la key non lascia mai il server), si vede
+  l'elenco dei clienti ITFlow con spunte e si importano i selezionati come Aziende.
+  Il collegamento è ricordato in `clients.itflow_client_id` (indice univoco):
+  reimportare non crea doppioni, i già importati sono marcati, le aziende omonime
+  esistenti vengono COLLEGATE invece che duplicate. Endpoint: GET/POST
+  `/api/itflow/config`, GET `/api/itflow/clients`, POST `/api/itflow/import`
+  (tutti superadmin, audit ITFLOW). Contratto ITFlow: GET
+  `{base}/api/v1/clients/read.php?api_key=…` → `{success,data:[…]}`.
+
 ## [0.1.73] - 2026-07-10
 ### Added
 - **Ricerca Globale come funzione licenziabile (`global_search`).** La Feature Key

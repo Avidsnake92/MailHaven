@@ -184,6 +184,9 @@ const migrate = async (db) => {
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS quota_bytes BIGINT DEFAULT NULL`);
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS max_mailboxes INTEGER DEFAULT NULL`);
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS max_users INTEGER DEFAULT NULL`);
+  // Collegamento cliente ITFlow (import Aziende via API)
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS itflow_client_id INTEGER DEFAULT NULL`);
+  await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_itflow ON clients(itflow_client_id) WHERE itflow_client_id IS NOT NULL`);
 
   // Reseller (MSP multi-livello) — pacchetto venduto al rivenditore (NULL = illimitato)
   await run(`CREATE TABLE IF NOT EXISTS resellers (
