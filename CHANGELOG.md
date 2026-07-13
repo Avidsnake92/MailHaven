@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.75] - 2026-07-13
+### Added
+- **Installer .exe per il plugin Thunderbird** (`MailHaven-Thunderbird-Setup.exe`):
+  GUI in italiano che rileva i profili Thunderbird (profiles.ini), installa
+  l'estensione in tutti i profili e supporta la disinstallazione; lo .xpi viene
+  scaricato dal server MailHaven (URL configurabile) o usato dal file locale.
+  Modalità CLI: `-Silent` / `-Remove`. Sorgente: `plugins/thunderbird/Install-MailHavenThunderbird.ps1`
+  (compilato con ps2exe).
+- **Endpoint pubblici di download installer**: `GET /api/plugin/download/outlook-setup`
+  e `GET /api/plugin/download/thunderbird-setup` (pacchetti client, nessun dato
+  sensibile). `install-info` aggiornato con i nuovi passi.
+### Fixed
+- **Il download dello .xpi Thunderbird da Impostazioni era rotto** (401): il link
+  `<a>` non può inviare il token Bearer ma l'endpoint richiedeva l'autenticazione.
+  Ora è pubblico, e il file scaricato ha il nome giusto (`mailhaven-archive.xpi`,
+  prima veniva salvato come `.json`).
+- **Pannello Plugin ridisegnato**: pulsante principale "Scarica installer (.exe)"
+  per Outlook e Thunderbird, installazione manuale (manifest XML / .xpi) come
+  opzione secondaria, istruzioni aggiornate.
+
 ## [0.1.74] - 2026-07-11
 ### Added
 - **Integrazione ITFlow — import clienti via API.** Nuovo pulsante "Importa da

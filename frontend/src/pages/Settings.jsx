@@ -1432,27 +1432,34 @@ export default function Settings() {
                 <div className="flex flex-col gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 transition-colors text-center">
                   <img src="/outlook-icon.png" className="w-12 h-12 object-contain mx-auto" alt="Outlook" />
                   <span className="text-sm font-semibold text-gray-800">Outlook Add-in</span>
-                  <span className="text-xs text-gray-500 mb-1">Installa via URL manifest in Outlook</span>
-                  <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+                  <a href={`${window.location.origin}/api/plugin/download/outlook-setup`}
+                    className="text-sm font-medium text-white rounded-lg px-3 py-2 bg-blue-600 hover:bg-blue-700 transition-colors">
+                    Scarica installer (.exe)
+                  </a>
+                  <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 mt-1">
                     <span className="text-xs font-mono text-gray-600 truncate flex-1">{window.location.origin}/api/plugin/manifest/outlook</span>
                     <button onClick={() => { navigator.clipboard.writeText(window.location.origin+'/api/plugin/manifest/outlook'); showMsg('URL copiato!') }}
                       className="text-blue-600 hover:text-blue-700 shrink-0 text-xs font-semibold px-1">Copia</button>
                   </div>
                   <a href={`${window.location.origin}/api/plugin/manifest/outlook`} download="mailhaven-manifest.xml"
-                    className="text-xs text-gray-400 hover:text-gray-600 underline">oppure scarica XML</a>
+                    className="text-xs text-gray-400 hover:text-gray-600 underline">installazione manuale: scarica XML</a>
                 </div>
-                <a href={`${window.location.origin}/api/plugin/download/thunderbird`}
-                  download="mailhaven-thunderbird.json"
-                  className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
-                  <img src="/thunderbird-icon.png" className="w-12 h-12 object-contain" alt="Thunderbird" />
+                <div className="flex flex-col gap-2 p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 transition-colors text-center">
+                  <img src="/thunderbird-icon.png" className="w-12 h-12 object-contain mx-auto" alt="Thunderbird" />
                   <span className="text-sm font-semibold text-gray-800">Thunderbird</span>
-                  <span className="text-xs text-gray-500">Scarica estensione</span>
-                </a>
+                  <a href={`${window.location.origin}/api/plugin/download/thunderbird-setup`}
+                    className="text-sm font-medium text-white rounded-lg px-3 py-2 bg-blue-600 hover:bg-blue-700 transition-colors">
+                    Scarica installer (.exe)
+                  </a>
+                  <a href={`${window.location.origin}/api/plugin/download/thunderbird`} download="mailhaven-archive.xpi"
+                    className="text-xs text-gray-400 hover:text-gray-600 underline mt-1">installazione manuale: scarica .xpi</a>
+                </div>
               </div>
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 mb-6">
                 <p className="font-semibold mb-1">Come installare:</p>
-                <p><b>Outlook:</b> File → Gestisci componenti aggiuntivi → Carica manifest XML</p>
-                <p className="mt-1"><b>Thunderbird:</b> Strumenti → Componenti aggiuntivi → Installa da file</p>
+                <p><b>Outlook:</b> esegui l'installer, conferma l'URL del server nel wizard e riavvia Outlook.</p>
+                <p className="mt-1"><b>Thunderbird:</b> esegui l'installer, poi riavvia Thunderbird e conferma l'attivazione dell'estensione.</p>
+                <p className="mt-1 text-blue-500">In alternativa: Outlook → carica il manifest XML manualmente · Thunderbird → Componenti aggiuntivi → Installa da file (.xpi).</p>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-3">

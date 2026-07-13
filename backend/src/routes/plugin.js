@@ -294,7 +294,7 @@ router.get('/manifest/outlook', (req, res) => {
 });
 
 // ── Download Thunderbird XPI ───────────────────────────────────────────────
-router.get('/download/thunderbird', authMiddleware, (req, res) => {
+router.get('/download/thunderbird', (req, res) => {
   const path = require('path');
   const xpi = path.join(__dirname, '../../plugins/thunderbird/mailhaven.xpi');
   res.download(xpi, 'mailhaven-archive.xpi', (err) => {
@@ -302,16 +302,35 @@ router.get('/download/thunderbird', authMiddleware, (req, res) => {
   });
 });
 
+// ── Download installer .exe (pubblici: pacchetti client, nessun dato sensibile) ──
+router.get('/download/outlook-setup', (req, res) => {
+  const path = require('path');
+  const f = path.join(__dirname, '../../plugins/outlook/MailHaven-Outlook-Setup.exe');
+  res.download(f, 'MailHaven-Outlook-Setup.exe', (err) => {
+    if (err && !res.headersSent) res.status(404).json({ error: 'Installer non trovato. Ricostruire il pacchetto.' });
+  });
+});
+
+router.get('/download/thunderbird-setup', (req, res) => {
+  const path = require('path');
+  const f = path.join(__dirname, '../../plugins/thunderbird/MailHaven-Thunderbird-Setup.exe');
+  res.download(f, 'MailHaven-Thunderbird-Setup.exe', (err) => {
+    if (err && !res.headersSent) res.status(404).json({ error: 'Installer non trovato. Ricostruire il pacchetto.' });
+  });
+});
+
 router.get('/install-info', authMiddleware, (req, res) => {
   var baseUrl = process.env.APP_URL || (req.protocol + '://' + req.hostname);
   res.json({
     outlook: {
+      setup_url: baseUrl + '/api/plugin/download/outlook-setup',
       manifest_url: baseUrl + '/api/plugin/manifest/outlook',
-      steps: ['Apri Outlook', 'Ottieni componenti aggiuntivi', 'Aggiungi da URL', 'Incolla URL manifest', 'Installa e riavvia']
+      steps: ['Scarica ed esegui MailHaven-Outlook-Setup.exe', 'Conferma URL server nel wizard', 'Riavvia Outlook']
     },
     thunderbird: {
+      setup_url: baseUrl + '/api/plugin/download/thunderbird-setup',
       xpi_url: baseUrl + '/api/plugin/download/thunderbird',
-      steps: ['Scarica .xpi', 'Thunderbird - Strumenti - Componenti aggiuntivi', 'Installa da file', 'Riavvia']
+      steps: ['Scarica ed esegui MailHaven-Thunderbird-Setup.exe', 'Installa', "Riavvia Thunderbird e conferma l'attivazione"]
     }
   });
 });
