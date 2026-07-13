@@ -271,6 +271,18 @@ router.get('/emails/:id/eml', pluginAuth, async (req, res) => {
 });
 
 // ── Manifest dinamico Outlook (sostituisce MAILVAULT_URL) ──────────────────
+// ── Pannello archivio per l'add-in Outlook (WebView2) — same-origin, no CORS ──
+router.get('/panel', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  try {
+    const html = fs.readFileSync(path.join(__dirname, '../../plugins/outlook/panel-archive.html'), 'utf8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.send(html);
+  } catch (e) { res.status(500).send('Pannello non trovato'); }
+});
+
 router.get('/manifest/outlook', (req, res) => {
   const fs = require('fs');
   const path = require('path');

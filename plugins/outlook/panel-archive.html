@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MailHaven — Archivio</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --pri: #2563eb; --bg: #f8fafc; --bd: #e5e7eb; --tx: #1f2937; --mut: #6b7280; }
+  html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; color: var(--tx); background: var(--bg); }
+  body { display: flex; flex-direction: column; }
+
+  /* Login */
+  #login { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #login .card { width: 100%; max-width: 360px; background: #fff; border: 1px solid var(--bd); border-radius: 14px; padding: 28px; box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+  #login h1 { font-size: 20px; margin-bottom: 4px; }
+  #login p.sub { font-size: 13px; color: var(--mut); margin-bottom: 20px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--mut); margin-bottom: 5px; }
+  .field input { width: 100%; border: 1px solid var(--bd); border-radius: 9px; padding: 10px 12px; font-size: 14px; }
+  .field input:focus { outline: none; border-color: var(--pri); }
+  button.primary { width: 100%; background: var(--pri); color: #fff; border: 0; border-radius: 9px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.primary:disabled { opacity: .6; cursor: default; }
+  .err { background: #fef2f2; color: #b91c1c; border-radius: 9px; padding: 9px 12px; font-size: 13px; margin-bottom: 14px; }
+
+  /* App */
+  #app { flex: 1; display: none; flex-direction: column; min-height: 0; }
+  header.bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff; border-bottom: 1px solid var(--bd); flex-wrap: wrap; }
+  header.bar select, header.bar input { border: 1px solid var(--bd); border-radius: 8px; padding: 7px 10px; font-size: 13px; }
+  header.bar select { min-width: 200px; }
+  header.bar input.search { flex: 1; min-width: 160px; }
+  header.bar .who { font-size: 12px; color: var(--mut); margin-left: auto; }
+  header.bar a.logout { font-size: 12px; color: var(--pri); cursor: pointer; text-decoration: none; }
+  .split { flex: 1; display: flex; min-height: 0; }
+  .list { width: 42%; max-width: 460px; border-right: 1px solid var(--bd); overflow-y: auto; background: #fff; }
+  .row { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+  .row:hover { background: #f8fafc; }
+  .row.sel { background: #eff6ff; }
+  .row .subj { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta { font-size: 12px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .row .date { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+  .clip { color: #9ca3af; }
+  .view { flex: 1; overflow-y: auto; background: var(--bg); display: flex; flex-direction: column; }
+  .view .vhead { padding: 14px 18px; background: #fff; border-bottom: 1px solid var(--bd); }
+  .view .vhead h2 { font-size: 16px; margin-bottom: 6px; }
+  .view .vhead .line { font-size: 12px; color: var(--mut); margin-top: 2px; }
+  .view .vhead .actions { margin-top: 10px; display: flex; gap: 8px; }
+  .view .vhead button { border: 1px solid var(--bd); background: #fff; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .view .vhead button.pri { background: var(--pri); color: #fff; border-color: var(--pri); }
+  .view iframe { flex: 1; border: 0; background: #fff; width: 100%; }
+  .empty, .loading { padding: 40px 20px; text-align: center; color: var(--mut); font-size: 13px; }
+  .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px; font-size: 12px; color: var(--mut); border-top: 1px solid var(--bd); background: #fff; }
+  .pager button { border: 1px solid var(--bd); background: #fff; border-radius: 7px; padding: 4px 10px; cursor: pointer; }
+  .pager button:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form class="card" id="loginForm">
+    <h1>MailHaven</h1>
+    <p class="sub">Accedi al tuo archivio email</p>
+    <div class="err" id="loginErr" style="display:none"></div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="primary" id="loginBtn">Accedi</button>
+  </form>
+</div>
+
+<div id="app">
+  <header class="bar">
+    <select id="mailbox"></select>
+    <input type="search" class="search" id="search" placeholder="Cerca per oggetto o mittente...">
+    <span class="who" id="who"></span>
+    <a class="logout" id="logout">Esci</a>
+  </header>
+  <div class="split">
+    <div class="list" id="list"><div class="empty">Seleziona una casella</div></div>
+    <div class="view" id="view"><div class="empty">Seleziona un'email per leggerla</div></div>
+  </div>
+  <div class="pager" id="pager" style="display:none">
+    <button id="prev">‹ Precedenti</button>
+    <span id="pageInfo"></span>
+    <button id="next">Successive ›</button>
+  </div>
+</div>
+
+<script>
+const API = location.origin + '/api/plugin';
+let token = null, user = null, page = 1, total = 0, curMailbox = null, selId = null;
+const LIMIT = 25;
+const $ = (id) => document.getElementById(id);
+
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: { 'X-Plugin-Token': token, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+  });
+  if (r.status === 401) { logout(); throw new Error('Sessione scaduta'); }
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('HTTP ' + r.status));
+  return r.json();
+}
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('loginBtn'); btn.disabled = true; btn.textContent = 'Accesso...';
+  $('loginErr').style.display = 'none';
+  try {
+    const r = await fetch(API + '/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $('email').value.trim(), password: $('password').value, client_type: 'outlook' }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Credenziali non valide');
+    token = d.token; user = d.user;
+    localStorage.setItem('mh_token', token);
+    localStorage.setItem('mh_user', JSON.stringify(user));
+    startApp();
+  } catch (err) {
+    $('loginErr').textContent = err.message; $('loginErr').style.display = 'block';
+  } finally { btn.disabled = false; btn.textContent = 'Accedi'; }
+});
+
+function logout() {
+  token = null; user = null;
+  localStorage.removeItem('mh_token'); localStorage.removeItem('mh_user');
+  $('app').style.display = 'none'; $('login').style.display = 'flex';
+}
+$('logout').addEventListener('click', logout);
+
+async function startApp() {
+  $('login').style.display = 'none'; $('app').style.display = 'flex';
+  $('who').textContent = (user && (user.full_name || user.email)) || '';
+  try {
+    const boxes = await api('/mailboxes');
+    const sel = $('mailbox');
+    sel.innerHTML = '';
+    if (!boxes.length) { sel.innerHTML = '<option>Nessuna casella</option>'; return; }
+    boxes.forEach(b => {
+      const o = document.createElement('option');
+      o.value = b.id; o.textContent = b.display_name ? (b.display_name + ' — ' + b.email) : b.email;
+      sel.appendChild(o);
+    });
+    curMailbox = boxes[0].id;
+    loadEmails();
+  } catch (err) { $('list').innerHTML = '<div class="empty">' + err.message + '</div>'; }
+}
+
+$('mailbox').addEventListener('change', (e) => { curMailbox = e.target.value; page = 1; loadEmails(); });
+let searchT = null;
+$('search').addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(() => { page = 1; loadEmails(); }, 350); });
+$('prev').addEventListener('click', () => { if (page > 1) { page--; loadEmails(); } });
+$('next').addEventListener('click', () => { if (page * LIMIT < total) { page++; loadEmails(); } });
+
+async function loadEmails() {
+  $('list').innerHTML = '<div class="loading">Caricamento...</div>';
+  try {
+    const q = new URLSearchParams({ mailbox_id: curMailbox, page, limit: LIMIT });
+    const s = $('search').value.trim(); if (s) q.set('search', s);
+    const d = await api('/emails?' + q.toString());
+    total = d.total || 0;
+    if (!d.items.length) { $('list').innerHTML = '<div class="empty">Nessuna email</div>'; $('pager').style.display = 'none'; return; }
+    $('list').innerHTML = '';
+    d.items.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'row' + (m.id === selId ? ' sel' : '');
+      const when = m.sent_at ? new Date(m.sent_at).toLocaleString('it-IT') : '';
+      row.innerHTML = '<div class="subj">' + esc(m.subject || '(senza oggetto)') + (m.has_attachments ? ' <span class="clip">📎</span>' : '') + '</div>'
+        + '<div class="meta">' + esc(m.sender_name || m.sender_email || '') + '</div>'
+        + '<div class="date">' + when + ' · ' + esc(m.path || '') + '</div>';
+      row.addEventListener('click', () => openEmail(m.id, row));
+      $('list').appendChild(row);
+    });
+    const pages = Math.max(1, Math.ceil(total / LIMIT));
+    $('pageInfo').textContent = 'Pagina ' + page + ' di ' + pages + ' (' + total + ' email)';
+    $('prev').disabled = page <= 1; $('next').disabled = page >= pages;
+    $('pager').style.display = 'flex';
+  } catch (err) { $('list').innerHTML = '<div class="empty">' + err.message + '</div>'; }
+}
+
+async function openEmail(id, row) {
+  selId = id;
+  document.querySelectorAll('.row.sel').forEach(r => r.classList.remove('sel'));
+  if (row) row.classList.add('sel');
+  $('view').innerHTML = '<div class="loading">Caricamento email...</div>';
+  try {
+    const e = await api('/emails/' + id);
+    const recips = Array.isArray(e.recipients) ? e.recipients.map(r => r.email || r).join(', ')
+      : (typeof e.recipients === 'string' ? e.recipients : '');
+    const when = e.sent_at ? new Date(e.sent_at).toLocaleString('it-IT') : '';
+    const atts = Array.isArray(e.attachments) ? e.attachments : [];
+    const head = document.createElement('div'); head.className = 'vhead';
+    head.innerHTML = '<h2>' + esc(e.subject || '(senza oggetto)') + '</h2>'
+      + '<div class="line"><b>Da:</b> ' + esc((e.sender_name ? e.sender_name + ' ' : '') + '<' + (e.sender_email || '') + '>') + '</div>'
+      + (recips ? '<div class="line"><b>A:</b> ' + esc(recips) + '</div>' : '')
+      + '<div class="line">' + when + (atts.length ? ' · 📎 ' + atts.length + ' allegati' : '') + '</div>'
+      + '<div class="actions">'
+      + '<button class="pri" id="btnEml">Apri in Outlook (.eml)</button>'
+      + '<button id="btnDl">Scarica .eml</button>'
+      + '</div>';
+    const frame = document.createElement('iframe');
+    frame.sandbox = 'allow-same-origin allow-popups';
+    $('view').innerHTML = ''; $('view').appendChild(head); $('view').appendChild(frame);
+    const doc = frame.contentDocument;
+    doc.open();
+    doc.write(e.html || ('<pre style="font-family:Segoe UI;white-space:pre-wrap;padding:16px;font-size:13px">' + esc(e.text || '(nessun contenuto)') + '</pre>'));
+    doc.close();
+    const emlUrl = API + '/emails/' + id + '/eml?token=' + encodeURIComponent(token);
+    $('btnEml').addEventListener('click', () => { window.chrome && window.chrome.webview ? window.chrome.webview.postMessage({ action: 'openEml', url: emlUrl }) : window.open(emlUrl); });
+    $('btnDl').addEventListener('click', () => window.open(emlUrl));
+  } catch (err) { $('view').innerHTML = '<div class="empty">' + err.message + '</div>'; }
+}
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// Auto-login se token salvato
+(function () {
+  const t = localStorage.getItem('mh_token');
+  if (t) { token = t; try { user = JSON.parse(localStorage.getItem('mh_user')); } catch {}
+    api('/mailboxes').then(() => startApp()).catch(() => logout()); }
+})();
+</script>
+</body>
+</html>
