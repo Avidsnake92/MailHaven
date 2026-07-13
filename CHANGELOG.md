@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.77] - 2026-07-13
+### Added
+- **Add-in Outlook COM in stile MailStore.** Il nuovo `MailHaven-Outlook-Setup.exe`
+  installa un vero add-in COM (non più il web add-in Office.js, che NON funziona
+  con le caselle IMAP): in Outlook compare il pulsante "Archivio MailHaven" nella
+  scheda Home; al click si apre una finestra dove si indica il server, si accede
+  con le proprie credenziali e si sfoglia/cerca/apre l'archivio — con qualsiasi
+  tipo di account. Funziona via WebView2 sul pannello servito dal backend.
+- **Endpoint pannello archivio**: `GET /api/plugin/panel` serve la UI
+  (`plugins/outlook/panel-archive.html`) usata dall'add-in; login e navigazione
+  sono same-origin (nessun problema di CORS). Usa le API plugin già esistenti
+  (`/login`, `/mailboxes`, `/emails`, `/emails/:id`, `/emails/:id/eml`).
+### Note
+- Sorgenti dell'add-in (.NET) in `claudio/mailhaven-outlook` (fuori da questo repo).
+
+## [0.1.76] - 2026-07-13
+### Changed
+- **Pannello Plugin semplificato**: rimosse le opzioni di installazione manuale
+  (URL/download manifest XML per Outlook e download .xpi per Thunderbird) - resta
+  solo "Scarica installer (.exe)" per entrambi i client. Gli endpoint restano
+  attivi lato server (l'installer Thunderbird scarica lo .xpi da li e Outlook
+  registra il manifest via URL).
+
 ## [0.1.75] - 2026-07-13
 ### Added
 - **Installer .exe per il plugin Thunderbird** (`MailHaven-Thunderbird-Setup.exe`):
