@@ -12,7 +12,7 @@
   "browser_action": {
     "default_icon": "icons/icon48.png",
     "default_title": "MailHaven Archive",
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup.html"
   },
   "browser_specific_settings": {
     "gecko": {

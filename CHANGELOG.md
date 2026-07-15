@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.82] - 2026-07-15
+### Fixed
+- **Estensione Thunderbird: il popup non poteva aprirsi.** `manifest.json`
+  dichiarava `"default_popup": "popup/popup.html"` ma nel pacchetto `popup.html`
+  sta nella radice: il percorso non esisteva, quindi cliccando l'icona non sarebbe
+  successo nulla. Corretto il percorso e ricostruito il `.xpi` verificando che
+  TUTTI i file dichiarati nel manifest (popup e icone) esistano davvero.
+### Note
+- Il `.xpi` **non e' firmato** da Mozilla/ATN: le versioni release di Thunderbird
+  rifiutano le estensioni non firmate. Per la distribuzione ai clienti va
+  sottomesso ad addons.thunderbird.net per la firma, oppure usato su Thunderbird
+  ESR con `xpinstall.signatures.required=false`.
+
 ## [0.1.81] - 2026-07-15
 ### Fixed
 - **Add-in Outlook installabile su qualsiasi PC.** L'add-in referenziava le interop
