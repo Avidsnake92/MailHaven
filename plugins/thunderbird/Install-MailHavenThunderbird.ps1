@@ -46,6 +46,38 @@ function Get-Xpi {
   } catch { throw "Impossibile scaricare l'estensione da $url — $($_.Exception.Message)" }
 }
 
+# L'estensione non e' firmata da Mozilla: senza questa preferenza Thunderbird la
+# rifiuta ("non verificata"). Va scritta in user.js, che viene applicato a ogni
+# avvio. NB: su alcune build (come Firefox release) la preferenza viene ignorata.
+function Set-SignaturePref([string[]]$profiles) {
+  $marker = 'xpinstall.signatures.required'
+  $line = 'user_pref("xpinstall.signatures.required", false);'
+  $done = 0
+  foreach ($p in $profiles) {
+    $f = Join-Path $p 'user.js'
+    $cur = ''
+    if (Test-Path $f) { $cur = [System.IO.File]::ReadAllText($f) }
+    if ($cur -match [regex]::Escape($marker)) { continue }   # gia' presente: non duplicare
+    $sep = if ($cur.Length -gt 0 -and -not $cur.EndsWith("`n")) { "`r`n" } else { '' }
+    $text = $cur + $sep + "// MailHaven: consente l'estensione non firmata`r`n" + $line + "`r`n"
+    # UTF8 SENZA BOM: un BOM in user.js puo' impedirne la lettura
+    [System.IO.File]::WriteAllText($f, $text, (New-Object System.Text.UTF8Encoding($false)))
+    $done++
+  }
+  return $done
+}
+
+function Remove-SignaturePref([string[]]$profiles) {
+  foreach ($p in $profiles) {
+    $f = Join-Path $p 'user.js'
+    if (-not (Test-Path $f)) { continue }
+    $keep = [System.IO.File]::ReadAllLines($f) | Where-Object {
+      $_ -notmatch 'xpinstall\.signatures\.required' -and $_ -notmatch 'MailHaven: consente'
+    }
+    [System.IO.File]::WriteAllLines($f, $keep, (New-Object System.Text.UTF8Encoding($false)))
+  }
+}
+
 function Install-Xpi([byte[]]$bytes, [string[]]$profiles) {
   $done = 0
   foreach ($p in $profiles) {
@@ -54,6 +86,7 @@ function Install-Xpi([byte[]]$bytes, [string[]]$profiles) {
     [System.IO.File]::WriteAllBytes((Join-Path $extDir $XpiName), $bytes)
     $done++
   }
+  Set-SignaturePref $profiles | Out-Null
   return $done
 }
 
@@ -63,6 +96,7 @@ function Remove-Xpi([string[]]$profiles) {
     $f = Join-Path $p "extensions\$XpiName"
     if (Test-Path $f) { Remove-Item -Force $f; $done++ }
   }
+  Remove-SignaturePref $profiles
   return $done
 }
 
@@ -125,7 +159,7 @@ if ($profiles.Count) {
 $status = New-Object System.Windows.Forms.Label
 $status.Location = New-Object System.Drawing.Point(22, 248); $status.Size = New-Object System.Drawing.Size(456, 36)
 $status.ForeColor = [System.Drawing.Color]::FromArgb(70,70,80)
-$status.Text = "Dopo l'installazione riavvia Thunderbird: ti chiederà di confermare l'attivazione dell'estensione."
+$status.Text = "Dopo l'installazione riavvia Thunderbird e conferma l'attivazione dell'estensione. Se Thunderbird la rifiuta come 'non verificata', segnalalo: serve la firma Mozilla."
 $form.Controls.Add($status)
 
 $btnInstall = New-Object System.Windows.Forms.Button

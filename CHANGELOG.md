@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.83] - 2026-07-16
+### Changed
+- **Installer Thunderbird: consente l'estensione non firmata.** Poiche' il `.xpi`
+  non e' firmato da Mozilla (scelta di progetto: non passeremo da ATN), Thunderbird
+  lo rifiuterebbe come "non verificato". L'installer ora scrive
+  `user_pref("xpinstall.signatures.required", false);` nel `user.js` di ogni
+  profilo (UTF8 senza BOM, senza duplicare se gia' presente) e la rimuove in
+  disinstallazione. NB: se una build di Thunderbird ignora la preferenza (come fa
+  Firefox release), l'estensione restera' rifiutata: da verificare sul campo.
+
 ## [0.1.82] - 2026-07-15
 ### Fixed
 - **Estensione Thunderbird: il popup non poteva aprirsi.** `manifest.json`
