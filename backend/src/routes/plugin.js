@@ -222,6 +222,7 @@ router.post('/emails/:id/restore', pluginAuth, async (req, res) => {
     if (!allowedIds.includes(mb.id)) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
     const rawBuf = await decompress(emailR.rows[0].raw);
     const folder = target_folder || emailR.rows[0].path || 'INBOX';
+    let usedFolder = null; // cartella in cui l'email e' finita davvero (puo' differire: fallback INBOX)
 
     if (mb.oauth_provider === 'microsoft') {
       const { uploadMessage } = require('../services/graphCrawler');
@@ -231,7 +232,7 @@ router.post('/emails/:id/restore', pluginAuth, async (req, res) => {
       await uploadMessage(db, mb, rawBuf, folder);
     } else {
       const Imap = require('imap');
-      await new Promise((resolve, reject) => {
+      usedFolder = await new Promise((resolve, reject) => {
         const imap = new Imap({
           user: mb.imap_user || mb.email,
           password: decrypt(mb.imap_password_encrypted),
@@ -239,17 +240,27 @@ router.post('/emails/:id/restore', pluginAuth, async (req, res) => {
           tls: mb.imap_tls !== false, tlsOptions: { rejectUnauthorized: false }, connTimeout: 15000,
         });
         imap.once('ready', () => {
+          // Nota: '\\Seen' va scritto con doppio backslash — '\Seen' in JS vale 'Seen'.
+          const append = (box) => imap.append(rawBuf, { mailbox: box, flags: ['\\Seen'] }, (e) => { imap.end(); e ? reject(e) : resolve(box); });
           imap.openBox(folder, false, (err) => {
-            const append = () => imap.append(rawBuf, { mailbox: folder, flags: ['\Seen'] }, (e) => { imap.end(); e ? reject(e) : resolve(); });
-            if (err) imap.addBox(folder, (e) => { if (e) { imap.end(); return reject(e); } append(); });
-            else append();
+            if (!err) return append(folder);
+            // La cartella non esiste: prova a crearla; se il server non lo
+            // permette (es. namespace che richiede il prefisso INBOX., tipico
+            // delle email importate in cartelle logiche) ripiega su INBOX.
+            imap.addBox(folder, (e) => {
+              if (!e) return append(folder);
+              imap.openBox('INBOX', false, (e2) => {
+                if (e2) { imap.end(); return reject(e2); }
+                append('INBOX');
+              });
+            });
           });
         });
         imap.once('error', reject);
         imap.connect();
       });
     }
-    res.json({ success: true, message: `Email ripristinata in ${folder}` });
+    res.json({ success: true, message: `Email ripristinata in ${usedFolder || folder}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

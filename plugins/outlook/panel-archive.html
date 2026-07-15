@@ -47,6 +47,10 @@
   .view .vhead .actions { margin-top: 10px; display: flex; gap: 8px; }
   .view .vhead button { border: 1px solid var(--bd); background: #fff; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
   .view .vhead button.pri { background: var(--pri); color: #fff; border-color: var(--pri); }
+  .view .vhead button:disabled { opacity: .6; cursor: default; }
+  .actmsg { font-size: 12px; align-self: center; }
+  .actmsg.ok { color: #059669; }
+  .actmsg.err { color: #b91c1c; }
   .view iframe { flex: 1; border: 0; background: #fff; width: 100%; }
   .empty, .loading { padding: 40px 20px; text-align: center; color: var(--mut); font-size: 13px; }
   .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px; font-size: 12px; color: var(--mut); border-top: 1px solid var(--bd); background: #fff; }
@@ -93,7 +97,7 @@
 
 <script>
 const API = location.origin + '/api/plugin';
-let token = null, user = null, page = 1, total = 0, curMailbox = null, selId = null;
+let token = null, user = null, page = 1, total = 0, curMailbox = null, selId = null, boxes = [];
 const LIMIT = 25;
 const $ = (id) => document.getElementById(id);
 
@@ -138,7 +142,7 @@ async function startApp() {
   $('login').style.display = 'none'; $('app').style.display = 'flex';
   $('who').textContent = (user && (user.full_name || user.email)) || '';
   try {
-    const boxes = await api('/mailboxes');
+    boxes = await api('/mailboxes');
     const sel = $('mailbox');
     sel.innerHTML = '';
     if (!boxes.length) { sel.innerHTML = '<option>Nessuna casella</option>'; return; }
@@ -202,7 +206,9 @@ async function openEmail(id, row) {
       + '<div class="line">' + when + (atts.length ? ' · 📎 ' + atts.length + ' allegati' : '') + '</div>'
       + '<div class="actions">'
       + '<button class="pri" id="btnEml">Apri in Outlook (.eml)</button>'
+      + '<button id="btnRestore">Ripristina nella casella</button>'
       + '<button id="btnDl">Scarica .eml</button>'
+      + '<span id="actMsg" class="actmsg"></span>'
       + '</div>';
     const frame = document.createElement('iframe');
     frame.sandbox = 'allow-same-origin allow-popups';
@@ -214,10 +220,49 @@ async function openEmail(id, row) {
     const emlUrl = API + '/emails/' + id + '/eml?token=' + encodeURIComponent(token);
     $('btnEml').addEventListener('click', () => { window.chrome && window.chrome.webview ? window.chrome.webview.postMessage({ action: 'openEml', url: emlUrl }) : window.open(emlUrl); });
     $('btnDl').addEventListener('click', () => window.open(emlUrl));
+
+    // Ripristino: rimette l'email nella casella di origine (IMAP / M365 / Gmail),
+    // nella cartella da cui era stata archiviata.
+    $('btnRestore').addEventListener('click', async () => {
+      const box = boxes.find(b => String(b.id) === String(curMailbox));
+      const msg = $('actMsg'), btn = $('btnRestore');
+      if (!box) { setMsg(msg, 'Casella non trovata', 'err'); return; }
+      if (!confirmInline(btn, box.email)) return;
+      btn.disabled = true; btn.textContent = 'Ripristino...';
+      setMsg(msg, '', '');
+      try {
+        const r = await api('/emails/' + id + '/restore', {
+          method: 'POST',
+          body: JSON.stringify({ target_mailbox: box.email, target_folder: e.path || undefined }),
+        });
+        setMsg(msg, r.message || 'Email ripristinata', 'ok');
+        btn.textContent = 'Ripristinata ✓';
+      } catch (err) {
+        setMsg(msg, err.message, 'err');
+        btn.disabled = false; btn.textContent = 'Ripristina nella casella';
+      }
+    });
   } catch (err) { $('view').innerHTML = '<div class="empty">' + err.message + '</div>'; }
 }
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function setMsg(el, text, kind) {
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'actmsg' + (kind ? ' ' + kind : '');
+}
+
+// Conferma a due click sul pulsante stesso: window.confirm dentro WebView2
+// puo' non comparire, e un click accidentale non deve rimandare l'email.
+function confirmInline(btn, target) {
+  if (btn.dataset.armed === '1') { btn.dataset.armed = '0'; return true; }
+  btn.dataset.armed = '1';
+  const orig = btn.textContent;
+  btn.textContent = 'Confermi? Rimanda in ' + target;
+  setTimeout(() => { if (btn.dataset.armed === '1') { btn.dataset.armed = '0'; btn.textContent = orig; } }, 5000);
+  return false;
+}
 
 // Auto-login se token salvato
 (function () {

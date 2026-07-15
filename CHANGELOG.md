@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.80] - 2026-07-15
+### Added
+- **Ripristino email dal plugin.** Nel pannello dell'add-in Outlook, aprendo
+  un'email c'e' il pulsante "Ripristina nella casella": rimette il messaggio nella
+  casella di origine (IMAP / Microsoft 365 / Gmail), nella cartella da cui era
+  stato archiviato. Conferma a due click (un click accidentale non rimanda nulla).
+### Fixed
+- **Add-in Outlook: crash del runtime .NET dentro Outlook.** `IDTExtensibility2` e
+  `IRibbonExtensibility` erano dichiarate a mano: layout COM errato -> access
+  violation in `clr.dll` (Outlook si chiudeva, in modo intermittente). Ora si usano
+  le interop UFFICIALI di Office presenti nella GAC (`Extensibility`, `Office`),
+  le stesse che userebbe VSTO. La barra ha ora una scheda dedicata "MailHaven"
+  (dopo "Guida") invece di un gruppo agganciato alla scheda Home.
+- **Ripristino su cartelle non esistenti sul server.** Le email importate in
+  cartelle logiche (es. quelle dell'agent Windows) non si ripristinavano: la
+  cartella non esiste su IMAP e certi server non permettono di crearla (namespace
+  con prefisso `INBOX.`). Ora, se la cartella non e' apribile ne' creabile, l'email
+  viene ripristinata in INBOX; la risposta indica la cartella realmente usata.
+- **Flag "letto" errato nel ripristino**: `flags: ['\Seen']` era scritto `['\Seen']`
+  con un solo backslash, che in JavaScript vale `Seen` invece di `\Seen`.
+- **Installer**: ripulisce la quarantena di Outlook e lo stato interno dell'add-in,
+  che se sporco fa ignorare l'add-in senza nemmeno elencarlo.
+
 ## [0.1.79] - 2026-07-15
 ### Fixed
 - **Add-in Outlook: il pulsante non compariva.** Dopo il crash della versione
