@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.79] - 2026-07-15
+### Fixed
+- **Add-in Outlook: il pulsante non compariva.** Dopo il crash della versione
+  precedente, Outlook aveva RIMOSSO la chiave di registrazione dell'add-in
+  (`HKCU\Software\Microsoft\Office\Outlook\Addins\MailHaven.Connect`): senza
+  quella l'add-in non viene nemmeno caricato. L'installer ora ricrea sempre la
+  registrazione e ripulisce la quarantena di Outlook.
+- **`GetCustomUI` restituiva l'XML della ribbon per OGNI finestra di Outlook**,
+  anche per quelle del messaggio, dove la scheda `TabMail` non esiste: Office
+  poteva scartare l'intera personalizzazione (nessun pulsante). Ora l'XML viene
+  restituito solo per la finestra principale (Explorer).
+
 ## [0.1.78] - 2026-07-13
 ### Fixed
 - **L'add-in COM di Outlook faceva crashare Outlook** ("Outlook ha rilevato un
