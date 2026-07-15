@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.81] - 2026-07-15
+### Fixed
+- **Add-in Outlook installabile su qualsiasi PC.** L'add-in referenziava le interop
+  di Office presenti nella GAC (`Extensibility`, `office`), che NON vengono
+  distribuite con l'installer e su un PC con solo Office 365 possono mancare: li'
+  l'add-in non si sarebbe caricato. Ora i tipi COM sono **incorporati**
+  (EmbedInteropTypes, stessi GUID): la DLL dipende solo da .NET Framework 4.8 e
+  dagli assembly WebView2 gia' inclusi nell'installer.
+- **L'installer avvisa se manca il runtime WebView2** (necessario al pannello),
+  con il link per scaricarlo, invece di lasciare una finestra vuota.
+- L'installer ripulisce anche lo stato interno dell'add-in in Outlook, che se
+  sporco (es. dopo un crash) fa ignorare l'add-in senza nemmeno elencarlo.
+
 ## [0.1.80] - 2026-07-15
 ### Added
 - **Ripristino email dal plugin.** Nel pannello dell'add-in Outlook, aprendo
