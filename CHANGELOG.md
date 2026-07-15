@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.78] - 2026-07-13
+### Fixed
+- **L'add-in COM di Outlook faceva crashare Outlook** ("Outlook ha rilevato un
+  problema con un componente aggiuntivo e lo ha disabilitato"). `IDTExtensibility2`
+  e `IRibbonExtensibility` erano dichiarate come IDispatch, mentre in Office sono
+  interfacce **duali**: Outlook chiamava i metodi via vtable in posizioni
+  inesistenti. Ora sono dichiarate `InterfaceIsDual` e la classe usa `AutoDual`,
+  necessario anche perche' Office risolva le callback della ribbon per nome.
+  L'installer ora ripulisce la quarantena di Outlook (Resiliency\DisabledItems e
+  CrashingAddinList) e aggiunge l'add-in a DoNotDisableAddinList.
+### Changed
+- **Pannello Plugin: "Token di accesso" diventa "Client collegati".** I plugin si
+  autenticano da soli al primo accesso (server + credenziali, `/plugin/login`
+  emette il token): i pulsanti per generare token a mano creavano token inutili e
+  sono stati rimossi. Resta l'elenco dei client attivi (tipo, ultimo utilizzo,
+  scadenza) con la revoca, utile per staccare un PC perso o un ex dipendente.
+
 ## [0.1.77] - 2026-07-13
 ### Added
 - **Add-in Outlook COM in stile MailStore.** Il nuovo `MailHaven-Outlook-Setup.exe`

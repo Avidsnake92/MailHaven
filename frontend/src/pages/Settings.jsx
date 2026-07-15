@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
-import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, Plus, ShieldCheck, ShieldOff, Key, KeyRound, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle, Cloud, ChevronRight, ExternalLink, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
+import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, ShieldCheck, ShieldOff, Key, KeyRound, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle, Cloud, ChevronRight, ExternalLink, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
 
 const TABS = [
   { id: 'sync',     label: 'Sincronizzazione', icon: Database    },
@@ -1036,21 +1036,11 @@ export default function Settings() {
     catch {} finally { setLoadingTokens(false) }
   }
 
-  const generateToken = async (clientType) => {
-    try {
-      const res = await api.post('/plugin/tokens', {
-        name: clientType === 'outlook' ? 'Outlook Add-in' : 'Thunderbird Extension',
-        client_type: clientType, expires_days: 365
-      })
-      setPluginTokens(prev => [res.data, ...prev])
-    } catch { showMsg('Errore generazione token', 'error') }
-  }
-
   const revokeToken = async (id) => {
     try {
       await api.delete(`/plugin/tokens/${id}`)
       setPluginTokens(prev => prev.filter(t => t.id !== id))
-      showMsg('Token revocato')
+      showMsg('Accesso revocato')
     } catch { showMsg('Errore revoca', 'error') }
   }
 
@@ -1452,23 +1442,14 @@ export default function Settings() {
                 <p className="mt-1"><b>Thunderbird:</b> esegui l'installer, poi riavvia Thunderbird e conferma l'attivazione dell'estensione.</p>
               </div>
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-800">Token di accesso</h3>
-                  <div className="flex gap-2">
-                    <button onClick={() => generateToken('outlook')}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <Plus size={12} /> Outlook
-                    </button>
-                    <button onClick={() => generateToken('thunderbird')}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <Plus size={12} /> Thunderbird
-                    </button>
-                  </div>
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800">Client collegati</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">I plugin si collegano da soli al primo accesso (server + credenziali). Qui puoi vedere i client attivi e revocarne l'accesso.</p>
                 </div>
                 {loadingTokens ? (
                   <div className="text-center py-4 text-gray-400 text-sm">Caricamento...</div>
                 ) : pluginTokens.length === 0 ? (
-                  <div className="text-center py-6 text-gray-400 text-sm">Nessun token generato.</div>
+                  <div className="text-center py-6 text-gray-400 text-sm">Nessun client collegato.</div>
                 ) : (
                   <div className="space-y-2">
                     {pluginTokens.map(t => (
