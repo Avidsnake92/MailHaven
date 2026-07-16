@@ -310,30 +310,41 @@ export default function EmailView() {
                 </span>
               )}
               {avResults && !avScanning && (
-                <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${avResults.allClean ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {avResults.allClean ? <ShieldCheck size={11} /> : <ShieldAlert size={11} />}
-                  {avResults.allClean ? 'Tutti puliti' : 'Infetto rilevato!'}
-                </span>
+                avResults.anyInfected ? (
+                  <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                    <ShieldAlert size={11} /> Infetto rilevato!
+                  </span>
+                ) : avResults.skipped ? (
+                  <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Antivirus non disponibile al momento dell'apertura">
+                    <ShieldAlert size={11} /> Non verificato
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                    <ShieldCheck size={11} /> Tutti puliti
+                  </span>
+                )
               )}
             </div>
             <div className="flex flex-wrap gap-2">
               {content.attachments.map((att) => {
                 const avResult = avResults?.results?.find(r => r.filename === att.filename)
+                const attClean = avResult?.clean && !avResult?.skipped
                 return (
                   <button key={att.index} onClick={() => handleDownloadAttachment(att.index, att.filename)}
                     disabled={avResult?.infected}
                     className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors disabled:cursor-not-allowed ${
-                      avResult?.infected 
-                        ? 'bg-red-50 border-red-200 text-red-700' 
-                        : avResult?.clean 
+                      avResult?.infected
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : attClean
                           ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
                           : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
                     }`}>
                     <Paperclip size={13} className="shrink-0" />
                     <span>{att.filename}</span>
                     {att.size && <span className="text-xs opacity-60">({Math.round(att.size / 1024)}KB)</span>}
-                    {avResult?.infected && <ShieldAlert size={13} className="text-red-500" title={avResult.viruses.join(', ')} />}
-                    {avResult?.clean && <ShieldCheck size={13} className="text-green-500" />}
+                    {avResult?.infected && <ShieldAlert size={13} className="text-red-500" title={(avResult.viruses||[]).join(', ')} />}
+                    {attClean && <ShieldCheck size={13} className="text-green-500" />}
+                    {avResult?.skipped && !avResult?.infected && <ShieldAlert size={13} className="text-amber-500" title="Non verificato (antivirus non disponibile)" />}
                     {avScanning && <Loader2 size={11} className="animate-spin opacity-50" />}
                   </button>
                 )

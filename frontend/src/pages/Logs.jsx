@@ -276,8 +276,23 @@ function AvLog() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [avStats, setAvStats] = useState(null)
+  const [avDelTarget, setAvDelTarget] = useState(null)
+  const [avDeleting, setAvDeleting] = useState(false)
   const fmt = (n) => parseInt(n||0).toLocaleString('it-IT')
-  useEffect(() => { api.get('/admin/av-stats').then(r => setAvStats(r.data)).catch(() => {}) }, [])
+  const loadAvStats = useCallback(() => api.get('/admin/av-stats').then(r => setAvStats(r.data)).catch(() => {}), [])
+  useEffect(() => { loadAvStats() }, [loadAvStats])
+
+  const deleteInfected = async () => {
+    if (!avDelTarget) return
+    setAvDeleting(true)
+    try {
+      await api.delete(`/admin/av/email/${avDelTarget.email_id}`)
+      setAvDelTarget(null)
+      await loadAvStats() // aggiorna elenco, totali e minacce
+    } catch (e) {
+      window.alert(e.response?.data?.error || 'Errore eliminazione')
+    } finally { setAvDeleting(false) }
+  }
   const [avNotify, setAvNotify] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const { branding } = useBranding()
@@ -352,26 +367,53 @@ function AvLog() {
           <div className="divide-y divide-gray-50">
             {avStats.recentInfected.map((r, i) => (
               <div key={r.email_id + '-' + i}
-                onClick={() => r.email_id && navigate(`/email/${r.email_id}`)}
-                className="px-4 py-3 hover:bg-red-50/40 cursor-pointer">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{r.subject || '(Nessun oggetto)'}</p>
-                    <p className="text-xs text-gray-500 truncate">
-                      da <span className="text-gray-700">{r.sender_email || '—'}</span>
-                      {r.mailbox_email && <> · casella <span className="text-gray-700">{r.mailbox_email}</span></>}
-                    </p>
-                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                      <ShieldAlert size={12} className="shrink-0" />
-                      <span className="truncate">{r.filename || 'allegato'} — {(r.viruses || []).join(', ') || 'infetto'}</span>
-                    </p>
-                  </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
+                className="px-4 py-3 hover:bg-red-50/40 flex items-start justify-between gap-3">
+                <div className="min-w-0 cursor-pointer flex-1" onClick={() => r.email_id && navigate(`/email/${r.email_id}`)}>
+                  <p className="text-sm font-medium text-gray-900 truncate">{r.subject || '(Nessun oggetto)'}</p>
+                  <p className="text-xs text-gray-500 truncate">
+                    da <span className="text-gray-700">{r.sender_email || '—'}</span>
+                    {r.mailbox_email && <> · casella <span className="text-gray-700">{r.mailbox_email}</span></>}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <ShieldAlert size={12} className="shrink-0" />
+                    <span className="truncate">{r.filename || 'allegato'} — {(r.viruses || []).join(', ') || 'infetto'}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
                     {r.created_at ? format(new Date(r.created_at), 'dd MMM yy, HH:mm', { locale: it }) : ''}
                   </span>
+                  <button onClick={() => setAvDelTarget(r)} title="Elimina definitivamente"
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Conferma eliminazione email infetta (definitiva) */}
+      {avDelTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setAvDelTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0"><ShieldAlert size={20} className="text-red-600" /></div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900">Eliminare l'email infetta?</h3>
+                <p className="text-sm text-gray-500 mt-1 break-words">
+                  «{avDelTarget.subject || '(Nessun oggetto)'}» verrà <strong>eliminata definitivamente</strong> dall'archivio (allegato infetto: {avDelTarget.filename}). L'operazione non è reversibile; le email in Legal Hold non vengono toccate.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setAvDelTarget(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Annulla</button>
+              <button onClick={deleteInfected} disabled={avDeleting}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                {avDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Elimina definitivamente
+              </button>
+            </div>
           </div>
         </div>
       )}

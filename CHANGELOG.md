@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.90] - 2026-07-16
+### Fixed
+- **Un'email infetta poteva risultare "pulita" aprendola (e i totali AV azzeravano gli infetti).**
+  La scansione all'apertura falliva-aperto: se ClamAV non era disponibile restituiva
+  "pulito" e SOVRASCRIVEVA `av_status` a 'clean' → l'email infetta appariva pulita e
+  spariva dai totali "Infette". Ora: uno scan "saltato" (ClamAV non raggiungibile) NON
+  è più considerato pulito né sovrascrive lo stato; l'interfaccia mostra "Non verificato"
+  (giallo) invece di "Tutti puliti", e i singoli allegati non risultano puliti se non
+  sono stati davvero scansionati.
+### Added
+- **Log Antivirus: elimina definitivamente l'email infetta.** Ogni email nella lista
+  "Email con allegati infetti" ha ora un pulsante di eliminazione (con conferma):
+  rimuove definitivamente l'email dall'archivio. Salta le email in Legal Hold.
+  Endpoint `DELETE /admin/av/email/:id` (gate antivirus, scoping per ruolo).
+
 ## [0.1.89] - 2026-07-16
 ### Fixed
 - **La barra di avanzamento dell'aggiornamento restava ferma su "In coda... 1%"**

@@ -1039,6 +1039,32 @@ router.get('/av-logs', require('../services/license').requireFeature('antivirus'
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
+// DELETE /admin/av/email/:id — elimina DEFINITIVAMENTE un'email infetta dal log AV.
+// Scoping per ruolo, salta il Legal Hold.
+router.delete('/av/email/:id', require('../services/license').requireFeature('antivirus', 'Antivirus'), async (req, res) => {
+  const db = req.app.locals.db;
+  if (!(await resellerFeatOk(db, req, res, 'feat_antivirus'))) return;
+  try {
+    const e = (await db.query('SELECT mailbox_id, legal_hold FROM archived_emails WHERE id=$1', [req.params.id])).rows[0];
+    if (!e) return res.status(404).json({ error: 'Email non trovata' });
+    // Verifica che l'email sia nell'ambito dell'utente (superadmin: tutte)
+    if (req.user.role === 'admin') {
+      const ok = (await db.query('SELECT 1 FROM mailboxes WHERE id=$1 AND client_id=$2', [e.mailbox_id, req.user.client_id])).rows[0];
+      if (!ok) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    } else if (req.user.role === 'reseller') {
+      const ok = (await db.query('SELECT 1 FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE m.id=$1 AND c.reseller_id=$2', [e.mailbox_id, req.user.reseller_id])).rows[0];
+      if (!ok) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    } else if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    }
+    if (e.legal_hold) return res.status(409).json({ error: 'Email in Legal Hold: rimuovi il blocco prima di eliminarla.' });
+    await db.query('DELETE FROM av_log WHERE email_id=$1', [String(req.params.id)]);
+    await db.query('DELETE FROM spam_cache WHERE email_id=$1', [String(req.params.id)]);
+    await db.query('DELETE FROM archived_emails WHERE id=$1', [req.params.id]);
+    res.json({ message: 'Email eliminata definitivamente' });
+  } catch (err) { res.status(500).json({ error: err.message || 'Errore eliminazione' }); }
+});
+
 // ---- SETTINGS ----
 router.get('/settings', async (req, res) => {
   const db = req.app.locals.db;

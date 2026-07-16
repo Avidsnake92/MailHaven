@@ -489,14 +489,23 @@ router.get('/:id/scan', async (req, res) => {
       const result = await scanAttachment(att.content, att.filename);
       results.push({ filename: att.filename, ...result });
     }
-    const allClean = results.every(r => r.clean);
-    // Salva risultato nel DB
-    const avStatus = results.length === 0 ? 'clean' : (allClean ? 'clean' : 'infected');
-    await db.query(
-      'UPDATE archived_emails SET av_status=$1 WHERE id=$2',
-      [avStatus, req.params.id]
-    );
-    res.json({ results, allClean, avStatus, hasAttachments: results.length > 0 });
+    const anyInfected = results.some(r => r.infected);
+    const anySkipped = results.some(r => r.skipped);
+    // allClean = TUTTO scansionato davvero e pulito (uno "skipped" NON è pulito).
+    const allClean = results.length > 0 && !anyInfected && !anySkipped;
+    // Aggiorna av_status nel DB SOLO quando la scansione è affidabile:
+    // - se infetto → 'infected'
+    // - se davvero tutto pulito → 'clean'
+    // - se saltata (ClamAV non disponibile) → NON toccare lo stato esistente,
+    //   altrimenti aprire un'email infetta la marcherebbe "pulita" (fail-open).
+    let avStatus;
+    if (anyInfected) avStatus = 'infected';
+    else if (results.length === 0) avStatus = 'clean';
+    else if (!anySkipped) avStatus = 'clean';
+    if (avStatus) {
+      await db.query('UPDATE archived_emails SET av_status=$1 WHERE id=$2', [avStatus, req.params.id]);
+    }
+    res.json({ results, allClean, anyInfected, skipped: anySkipped, avStatus: avStatus || 'unknown', hasAttachments: results.length > 0 });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
