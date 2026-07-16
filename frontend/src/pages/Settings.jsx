@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import api from '../services/api'
+import { copyText } from '../services/clipboard'
 import { useAuth } from '../context/AuthContext'
 import { Shield, Save, Loader2, RefreshCw, Check, AlertCircle, Mail, Database, Settings as SettingsIcon, Puzzle, Download, Copy, Trash2, ShieldCheck, ShieldOff, Key, KeyRound, Lock, Unlock, ChevronDown, AlertTriangle, CheckCircle2, ArrowDownCircle, Cloud, ChevronRight, ExternalLink, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
 
@@ -908,7 +909,7 @@ function LicenseTab() {
     catch { setMsg({ type: 'error', text: 'Errore rimozione' }) }
     finally { setSaving(false) }
   }
-  const copyId = () => { navigator.clipboard.writeText(lic?.installationId || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }
+  const copyId = async () => { await copyText(lic?.installationId || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }
 
   if (loading) return <div className="text-sm text-gray-500 flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Caricamento…</div>
 
@@ -1068,9 +1069,9 @@ export default function Settings() {
     } catch { showMsg('Errore revoca', 'error') }
   }
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text)
-    showMsg('Copiato!')
+  const copyToClipboard = async (text) => {
+    const ok = await copyText(text)
+    showMsg(ok ? 'Copiato!' : 'Copia non riuscita, selezionalo a mano')
   }
 
   useEffect(() => {

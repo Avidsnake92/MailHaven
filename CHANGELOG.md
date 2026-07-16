@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.86] - 2026-07-16
+### Fixed
+- **Il tasto "Copia" (ID installazione e altri) non copiava nulla su installazioni
+  in HTTP.** `navigator.clipboard` e' disponibile solo in contesti sicuri (HTTPS o
+  localhost): sulle installazioni raggiunte via `http://IP:8080` l'API non esiste e
+  la copia falliva in silenzio, costringendo a selezionare il testo a mano. Aggiunto
+  un helper `services/clipboard.js` con fallback (textarea + execCommand) usato dal
+  pannello Licenza e dagli altri pulsanti di copia in Impostazioni; se anche il
+  fallback fallisce, l'utente viene avvisato.
+
 ## [0.1.85] - 2026-07-16
 ### Fixed
 - **Le funzioni sbloccate da una licenza non comparivano nel menu finche' non si
