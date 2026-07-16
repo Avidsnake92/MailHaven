@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.89] - 2026-07-16
+### Fixed
+- **La barra di avanzamento dell'aggiornamento restava ferma su "In coda... 1%"**
+  per tutta la durata (poi la pagina si ricaricava). Due cause: (1) nginx non aveva
+  una location per `/update-status.json` e cadeva nel fallback SPA restituendo
+  `index.html`, quindi il polling riceveva HTML e non aggiornava mai lo stato;
+  (2) durante l'aggiornamento sia backend sia frontend si riavviano, quindi nessun
+  componente è raggiungibile con continuità. Ora: nginx serve il file di stato reale
+  (montato in sola lettura da `data/`), e la barra **avanza comunque in modo fluido**
+  lato client in base al tempo trascorso (con gli step reali quando raggiungibili),
+  senza superare il 96% finché non arriva il completamento effettivo. Timeout di
+  sicurezza esteso a 12 min.
+
 ## [0.1.88] - 2026-07-16
 ### Added
 - **Antispam: eliminazione in blocco su tutte le pagine.** Quando tutte le email

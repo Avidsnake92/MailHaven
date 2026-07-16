@@ -217,44 +217,64 @@ const UPDATE_STEPS = [
   { id: 'done',            label: 'Aggiornamento completato' },
 ]
 
+// Avanzamento SIMULATO in base al tempo: l'aggiornamento reale dura ~8-10 min e
+// durante i rebuild dei container lo stato non è raggiungibile, quindi la barra
+// deve muoversi comunque. Non supera il 96% finché non arriva il "done" reale.
+function simulatedProgress(sec) {
+  const phases = [
+    { until: 10,  from: 1,  to: 5,  step: 'queued' },
+    { until: 30,  from: 5,  to: 12, step: 'pull' },
+    { until: 240, from: 12, to: 50, step: 'backend_build' },
+    { until: 275, from: 50, to: 60, step: 'backend_restart' },
+    { until: 540, from: 60, to: 93, step: 'frontend_build' },
+  ]
+  let prev = 0
+  for (const p of phases) {
+    if (sec <= p.until) {
+      const t = (sec - prev) / (p.until - prev)
+      return { progress: p.from + (p.to - p.from) * Math.min(1, Math.max(0, t)), step: p.step }
+    }
+    prev = p.until
+  }
+  // Oltre il tempo stimato: crawl lento 93→96% in attesa del "done" reale
+  return { progress: Math.min(96, 93 + (sec - 540) / 120), step: 'frontend_build' }
+}
+
 function UpdateProgress({ startVersion, onComplete }) {
-  const [status, setStatus] = useState({ step: 'queued', progress: 1, message: 'In coda...' })
+  const [real, setReal] = useState(null)     // ultimo stato reale letto dal server
+  const [elapsed, setElapsed] = useState(0)  // secondi trascorsi (per la simulazione)
   const [done, setDone] = useState(false)
   const [failed, setFailed] = useState(false)
   const [rolledBack, setRolledBack] = useState(false)
+  const startRef = useRef(Date.now())
 
   useEffect(() => {
+    const tick = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 400)
     const poll = setInterval(async () => {
       try {
         const res = await fetch('/update-status.json?t=' + Date.now(), { cache: 'no-store' })
+        const ct = res.headers.get('content-type') || ''
+        // Durante i riavvii nginx può rispondere HTML (fallback SPA): ignora tutto
+        // ciò che non è JSON valido — la barra intanto avanza con la simulazione.
+        if (!res.ok || !ct.includes('json')) return
         const data = await res.json()
-        if (data.step === 'error') {
-          setFailed(true)
-          clearInterval(poll)
-          return
-        }
-        if (data.step === 'rolled_back') {
-          setRolledBack(true)
-          clearInterval(poll)
-          setTimeout(() => window.location.reload(), 5000)
-          return
-        }
-        setStatus(data)
-        if (data.step === 'done' && data.progress >= 100) {
-          setDone(true)
-          clearInterval(poll)
-          setTimeout(() => window.location.reload(), 2500)
-        }
-      } catch {
-        // Backend/nginx non raggiungibile — normale durante il riavvio, riprova
-      }
+        if (data.step === 'error') { setFailed(true); stop(); return }
+        if (data.step === 'rolled_back') { setRolledBack(true); stop(); setTimeout(() => window.location.reload(), 5000); return }
+        setReal(data)
+        if (data.step === 'done' && data.progress >= 100) { setDone(true); stop(); setTimeout(() => window.location.reload(), 2500) }
+      } catch { /* non raggiungibile durante i restart: normale */ }
     }, 1500)
-    const timeout = setTimeout(() => { clearInterval(poll); window.location.reload() }, 6 * 60 * 1000)
-    return () => { clearInterval(poll); clearTimeout(timeout) }
+    const timeout = setTimeout(() => window.location.reload(), 12 * 60 * 1000)
+    function stop() { clearInterval(poll); clearInterval(tick); clearTimeout(timeout) }
+    return stop
   }, [startVersion])
 
-  const stepIndex = Math.max(0, UPDATE_STEPS.findIndex(s => s.id === status.step))
-  const progress = done ? 100 : status.progress || 0
+  const sim = simulatedProgress(elapsed)
+  const realProg = real?.progress || 0
+  const progress = done ? 100 : Math.round(Math.max(sim.progress, realProg))
+  const curStep = done ? 'done' : ((realProg > sim.progress && real?.step) ? real.step : sim.step)
+  const stepIndex = Math.max(0, UPDATE_STEPS.findIndex(s => s.id === curStep))
+  const message = done ? '' : (real?.message || UPDATE_STEPS[stepIndex]?.label || '')
 
   if (rolledBack) {
     return (
@@ -287,7 +307,7 @@ function UpdateProgress({ startVersion, onComplete }) {
           {done ? <CheckCircle2 size={22} className="text-green-600" /> : <RefreshCw size={22} className="text-blue-600 animate-spin" />}
         </div>
         <h2 className="text-base font-bold text-gray-900">{done ? 'Aggiornamento completato con successo!' : 'Aggiornamento in corso...'}</h2>
-        {!done && <p className="text-xs text-gray-400 mt-1">{status.message}</p>}
+        {!done && <p className="text-xs text-gray-400 mt-1">{message}</p>}
         {done && <p className="text-xs text-gray-400 mt-1">Ricarico la pagina...</p>}
       </div>
       <div>
