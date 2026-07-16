@@ -157,9 +157,10 @@ const syncAllMailboxes = async () => {
       `SELECT m.*, c.name as client_name 
        FROM mailboxes m 
        LEFT JOIN clients c ON c.id = m.client_id
-       WHERE m.active = true 
+       WHERE m.active = true
        AND (m.imap_password_encrypted IS NOT NULL OR m.oauth_access_token IS NOT NULL)
-       AND (m.sync_paused IS NULL OR m.sync_paused = false)`
+       AND (m.sync_paused IS NULL OR m.sync_paused = false)
+       AND (m.sync_retry_after IS NULL OR m.sync_retry_after <= NOW())`
     );
     const mailboxes = result.rows;
     console.log(`[Scheduler] Syncing ${mailboxes.length} mailboxes...`);
@@ -217,6 +218,15 @@ const syncAllMailboxes = async () => {
           try { const avBatch = require('./avBatchScanner'); avBatch.runNow(db); } catch(e) {}
         }
 
+        // Sync riuscita: azzera il contatore fallimenti e l'eventuale backoff
+        if (mailbox.sync_fail_count > 0 || mailbox.sync_retry_after) {
+          console.log(`[Scheduler] ${mailbox.email}: ripristinata dopo ${mailbox.sync_fail_count} fallimenti`);
+          await db.query(
+            `UPDATE mailboxes SET sync_fail_count=0, sync_retry_after=NULL WHERE id=$1`,
+            [mailbox.id]
+          );
+        }
+
         // Policy gira DOPO il completamento del ciclo con un delay
         // Evita che le email appena archiviate vengano subito eliminate e riarchiviete
         setTimeout(async () => {
@@ -236,11 +246,32 @@ const syncAllMailboxes = async () => {
           `UPDATE sync_log SET status='error', error=$1, finished_at=NOW() WHERE id=$2`,
           [err.message, logId]
         );
-        // Notifica email su errore sync — non bloccante
+
+        // Backoff progressivo: i primi 2 fallimenti sono trattati come transitori
+        // (riprova al ciclo successivo); dopo, si rallentano i tentativi su QUESTA
+        // casella per non alimentare un blocco lato server (Tiscali/Libero ecc.).
+        const failCount = (mailbox.sync_fail_count || 0) + 1;
+        const backoffMin = failCount <= 2 ? 0
+          : failCount === 3 ? 30
+          : failCount === 4 ? 120
+          : failCount === 5 ? 360
+          : 720; // cap 12h
+        const retryAfter = backoffMin > 0 ? new Date(Date.now() + backoffMin * 60000) : null;
+        await db.query(
+          `UPDATE mailboxes SET sync_fail_count=$1, sync_retry_after=$2 WHERE id=$3`,
+          [failCount, retryAfter, mailbox.id]
+        );
+        if (backoffMin > 0) {
+          console.log(`[Scheduler] ${mailbox.email}: ${failCount} fallimenti consecutivi → prossimo tentativo tra ${backoffMin} min`);
+        }
+
+        // Notifica email SOLO al primo fallimento di una serie (evita spam a ogni
+        // ciclo quando una casella resta a lungo non raggiungibile/bloccata).
+        const notify = failCount === 1;
         try {
           const { getSmtpConfig, getTransport } = require('./mailer');
           const cfg = await getSmtpConfig(db);
-          if (cfg.host && cfg.user) {
+          if (notify && cfg.host && cfg.user) {
             const admins = await db.query("SELECT email FROM users WHERE role='superadmin' AND active=true");
             const transport = getTransport(cfg);
             for (const admin of admins.rows) {

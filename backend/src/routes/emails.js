@@ -584,6 +584,8 @@ router.post('/sync/:mailbox_id', async (req, res) => {
     if (applyArchivePolicy) {
       await applyArchivePolicy(mailbox, db).catch(e => console.error('[Policy]', e.message));
     }
+    // Sync manuale riuscita: azzera l'eventuale backoff così lo scheduler riprende
+    await db.query('UPDATE mailboxes SET sync_fail_count=0, sync_retry_after=NULL WHERE id=$1', [mailbox.id]).catch(() => {});
     console.log(`Manual sync ${mailbox.email}: +${n} emails`);
     res.json({ message: 'Sincronizzazione completata', synced: n });
   } catch (err) {

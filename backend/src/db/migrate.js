@@ -26,6 +26,10 @@ const migrate = async (db) => {
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS oauth_refresh_expires_at TIMESTAMP`);
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS archive_policy JSONB DEFAULT NULL`);
   await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT NULL`);
+  // Backoff sui fallimenti di sync: evita di martellare un server che rifiuta il
+  // login (es. Tiscali/Libero che bloccano temporaneamente dopo troppi tentativi).
+  await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS sync_fail_count INTEGER DEFAULT 0`);
+  await run(`ALTER TABLE mailboxes ADD COLUMN IF NOT EXISTS sync_retry_after TIMESTAMP DEFAULT NULL`);
   await run(`ALTER TABLE spam_cache ADD COLUMN IF NOT EXISTS mailbox_id INTEGER REFERENCES mailboxes(id) ON DELETE CASCADE`);
   // Assicura ON DELETE CASCADE sul vincolo (su installazioni vecchie poteva mancare)
   await run(`ALTER TABLE spam_cache DROP CONSTRAINT IF EXISTS spam_cache_mailbox_id_fkey`);

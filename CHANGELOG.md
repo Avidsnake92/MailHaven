@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.87] - 2026-07-16
+### Added
+- **Backoff sui fallimenti di sincronizzazione.** Se una casella fallisce ripetutamente
+  il login (tipico di Tiscali/Libero, che bloccano temporaneamente l'IMAP dopo troppi
+  tentativi), lo scheduler smette di ritentare ogni ciclo e rallenta progressivamente
+  su QUELLA casella: i primi 2 fallimenti sono trattati come transitori, poi le riprove
+  passano a 30 min → 2h → 6h → 12h (cap). Appena un tentativo riesce (o con un
+  "Sincronizza ora" manuale) il contatore si azzera e la sincronizzazione riprende
+  normale. Nuove colonne `mailboxes.sync_fail_count` / `sync_retry_after`.
+### Changed
+- **Niente più email di errore sync a ogni ciclo.** L'avviso ai superadmin viene ora
+  inviato SOLO al primo fallimento di una serie, non a ogni tentativo: una casella a
+  lungo irraggiungibile non genera più decine di email.
+
 ## [0.1.86] - 2026-07-16
 ### Fixed
 - **Il tasto "Copia" (ID installazione e altri) non copiava nulla su installazioni
