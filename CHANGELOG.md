@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.85] - 2026-07-16
+### Fixed
+- **Le funzioni sbloccate da una licenza non comparivano nel menu finche' non si
+  usciva e rientrava.** Il menu dipende da `user.entitlements`, caricato al login:
+  applicando (o rimuovendo) una Feature Key da Impostazioni -> Licenza, la chiave
+  veniva salvata correttamente ma il menu restava sull'edizione precedente
+  (Antivirus, Antispam, Backup, Legal Hold, Import, Ricerca globale, MSP mancanti).
+  Aggiunto `refreshUser()` nel contesto di autenticazione: dopo aver attivato o
+  rimosso la licenza, gli entitlements vengono rical­cati da `/auth/me` e il menu
+  si aggiorna subito, senza dover rifare il login.
+
 ## [0.1.84] - 2026-07-16
 ### Added
 - **Aggiornamenti: rollback automatico.** Se dopo un aggiornamento il backend non

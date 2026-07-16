@@ -857,6 +857,7 @@ const ST_META = {
 const FEAT_LABELS = { reseller: 'Rivenditori (MSP)', antivirus: 'Antivirus', antispam: 'Doppio antispam', backup: 'Backup .mhbak', legal_hold: 'Legal Hold', import: 'Import', global_search: 'Ricerca globale', logs: 'Log' }
 
 function LicenseTab() {
+  const { refreshUser } = useAuth()
   const [lic, setLic] = useState(null)
   const [keyInput, setKeyInput] = useState('')
   const [loading, setLoading] = useState(true)
@@ -892,14 +893,18 @@ function LicenseTab() {
     setSaving(true); setMsg(null)
     try {
       const r = await api.post('/license', { key: keyInput.trim() })
-      setLic(r.data); setKeyInput(''); setMsg({ type: 'ok', text: 'Licenza attivata.' })
+      setLic(r.data); setKeyInput('')
+      // Ricarica gli entitlements così il menu mostra subito le funzioni sbloccate
+      // (Antivirus, Antispam, Backup, ecc.) senza dover uscire e rientrare.
+      await refreshUser()
+      setMsg({ type: 'ok', text: 'Licenza attivata. Le funzioni incluse sono ora disponibili nel menu.' })
     } catch (e) { setMsg({ type: 'error', text: e.response?.data?.error || 'Chiave non valida' }) }
     finally { setSaving(false) }
   }
   const remove = async () => {
     if (!window.confirm("Rimuovere la licenza e tornare all'edizione Community?")) return
     setSaving(true); setMsg(null)
-    try { const r = await api.delete('/license'); setLic(r.data); setMsg({ type: 'ok', text: 'Licenza rimossa.' }) }
+    try { const r = await api.delete('/license'); setLic(r.data); await refreshUser(); setMsg({ type: 'ok', text: 'Licenza rimossa.' }) }
     catch { setMsg({ type: 'error', text: 'Errore rimozione' }) }
     finally { setSaving(false) }
   }

@@ -110,8 +110,24 @@ export const AuthProvider = ({ children }) => {
     } catch {}
   }, [])
 
+  // Ricarica il profilo completo (incl. entitlements/edizione) da /auth/me.
+  // Serve dopo aver applicato o rimosso una licenza: il menu dipende da
+  // user.entitlements, altrimenti resta quello del login finché non si rientra.
+  const refreshUser = useCallback(async () => {
+    try {
+      const r = await api.get('/auth/me')
+      setUser(u => {
+        if (!u) return u
+        const updated = { ...u, ...r.data }
+        localStorage.setItem('mv_user', JSON.stringify(updated))
+        return updated
+      })
+      return true
+    } catch { return false }
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, sessionWarning, resetInactivityTimer, refreshAvatar }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, sessionWarning, resetInactivityTimer, refreshAvatar, refreshUser }}>
       {sessionWarning && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
