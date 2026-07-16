@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
@@ -268,6 +268,7 @@ function ActivityLog() {
 }
 
 function AvLog() {
+  const navigate = useNavigate()
   const [logs, setLogs] = useState([])
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -336,6 +337,40 @@ function AvLog() {
               <span key={v.virus} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
                 {v.virus} <strong>({v.count})</strong>
               </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Email infette: mostra a QUALE email appartiene ogni allegato infetto */}
+      {avStats?.recentInfected?.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">Email con allegati infetti</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Clicca una riga per aprire l'email interessata</p>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {avStats.recentInfected.map((r, i) => (
+              <div key={r.email_id + '-' + i}
+                onClick={() => r.email_id && navigate(`/email/${r.email_id}`)}
+                className="px-4 py-3 hover:bg-red-50/40 cursor-pointer">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{r.subject || '(Nessun oggetto)'}</p>
+                    <p className="text-xs text-gray-500 truncate">
+                      da <span className="text-gray-700">{r.sender_email || '—'}</span>
+                      {r.mailbox_email && <> · casella <span className="text-gray-700">{r.mailbox_email}</span></>}
+                    </p>
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <ShieldAlert size={12} className="shrink-0" />
+                      <span className="truncate">{r.filename || 'allegato'} — {(r.viruses || []).join(', ') || 'infetto'}</span>
+                    </p>
+                  </div>
+                  <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
+                    {r.created_at ? format(new Date(r.created_at), 'dd MMM yy, HH:mm', { locale: it }) : ''}
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
         </div>

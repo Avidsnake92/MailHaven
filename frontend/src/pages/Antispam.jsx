@@ -26,9 +26,13 @@ export default function Antispam() {
   const navigate = useNavigate()
 
   const [clients, setClients] = useState([])
-  const [selectedClient, setSelectedClient] = useState(null)
+  // Selezione cliente/casella ricordata in sessione: tornando dallo spam (es. dopo
+  // "Torna all'archivio") la casella resta selezionata senza doverla riscegliere.
+  const [selectedClient, setSelectedClient] = useState(() => sessionStorage.getItem('mh_spam_client') || null)
   const [mailboxes, setMailboxes] = useState([])
-  const [selectedMailbox, setSelectedMailbox] = useState(null)
+  const [selectedMailbox, setSelectedMailbox] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('mh_spam_mailbox') || 'null') } catch { return null }
+  })
   const [emails, setEmails] = useState([])
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -40,9 +44,21 @@ export default function Antispam() {
   const [source, setSource] = useState('origin')
   const [showSettings, setShowSettings] = useState(false)
   const [selected, setSelected] = useState([])
+  const [selectAllMatching, setSelectAllMatching] = useState(false) // tutte le pagine, non solo le 50 visibili
+  const [confirmDel, setConfirmDel] = useState(null) // { type:'single'|'bulk'|'all', id?, count }
   const [deleting, setDeleting] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+
+  // Persiste la selezione in sessione
+  useEffect(() => {
+    if (selectedClient) sessionStorage.setItem('mh_spam_client', selectedClient)
+    else sessionStorage.removeItem('mh_spam_client')
+  }, [selectedClient])
+  useEffect(() => {
+    if (selectedMailbox) sessionStorage.setItem('mh_spam_mailbox', JSON.stringify(selectedMailbox))
+    else sessionStorage.removeItem('mh_spam_mailbox')
+  }, [selectedMailbox])
 
   useEffect(() => {
     if (user?.role === 'superadmin' || user?.role === 'admin') {
@@ -54,13 +70,16 @@ export default function Antispam() {
   useEffect(() => {
     if (user?.role === 'superadmin' && selectedClient) {
       api.get('/emails/mailboxes/list').then(r => {
-        setMailboxes(r.data.filter(m => m.client_id == selectedClient))
-        setSelectedMailbox(null)
+        const list = r.data.filter(m => m.client_id == selectedClient)
+        setMailboxes(list)
+        // Mantieni la casella selezionata se è ancora tra quelle del cliente
+        // (ripristino da sessione); altrimenti azzera (cambio cliente).
+        setSelectedMailbox(prev => (prev && list.some(m => m.id === prev.id)) ? prev : null)
       }).catch(() => {})
     } else if (user?.role !== 'superadmin') {
       api.get('/emails/mailboxes/list').then(r => {
         setMailboxes(r.data)
-        if (r.data.length === 1) setSelectedMailbox(r.data[0])
+        setSelectedMailbox(prev => (prev && r.data.some(m => m.id === prev.id)) ? prev : (r.data.length === 1 ? r.data[0] : null))
       }).catch(() => {})
     }
   }, [selectedClient, user])
@@ -108,35 +127,47 @@ export default function Antispam() {
     } catch { setError('Errore salvataggio') }
   }
 
-  const handleDelete = async (emailId) => {
-    if (!window.confirm('Eliminare questa email dall\'archivio? L\'operazione è irreversibile.')) return
-    setDeleting(true)
+  // Reset selezione quando cambiano i criteri (casella/soglia/sorgente)
+  useEffect(() => { setSelected([]); setSelectAllMatching(false); setPage(1) }, [selectedMailbox, threshold, source])
+
+  // I pulsanti aprono la conferma; l'eliminazione vera avviene in doDelete()
+  const handleDelete = (emailId) => setConfirmDel({ type: 'single', id: emailId })
+  const handleDeleteSelected = () => {
+    if (selectAllMatching) setConfirmDel({ type: 'all', count: total })
+    else if (selected.length) setConfirmDel({ type: 'bulk', count: selected.length })
+  }
+
+  const doDelete = async () => {
+    const c = confirmDel
+    if (!c) return
+    setConfirmDel(null); setDeleting(true); setError('')
     try {
-      await api.delete(`/spam/${emailId}`)
-      setEmails(e => e.filter(x => x.email_id !== emailId))
-      setMsg('Email eliminata')
-      setTimeout(() => setMsg(''), 3000)
+      if (c.type === 'single') {
+        await api.delete(`/spam/${c.id}`)
+        setEmails(e => e.filter(x => x.email_id !== c.id))
+        setSelected(s => s.filter(x => x !== c.id))
+        setMsg('Email eliminata definitivamente')
+      } else if (c.type === 'all') {
+        // Tutte le email spam della casella sopra soglia, su TUTTE le pagine
+        const r = await api.post('/spam/delete-bulk', { mailbox_id: selectedMailbox.id, threshold, source, all: true })
+        setSelected([]); setSelectAllMatching(false); setPage(1)
+        setMsg(`${r.data.deleted} email eliminate definitivamente${r.data.held ? ` · ${r.data.held} in Legal Hold saltate` : ''}`)
+        fetchSpam()
+      } else {
+        // Blocco di id selezionati — una sola richiesta invece di N
+        const r = await api.post('/spam/delete-bulk', { ids: selected })
+        setEmails(e => e.filter(x => !selected.includes(x.email_id)))
+        setSelected([])
+        setMsg(`${r.data.deleted} email eliminate definitivamente${r.data.held ? ` · ${r.data.held} in Legal Hold saltate` : ''}`)
+      }
+      setTimeout(() => setMsg(''), 4000)
     } catch (err) { setError(err.response?.data?.error || 'Errore eliminazione') }
     finally { setDeleting(false) }
   }
 
-  const handleDeleteSelected = async () => {
-    if (!selected.length) return
-    if (!window.confirm(`Eliminare ${selected.length} email dall'archivio? L'operazione è irreversibile.`)) return
-    setDeleting(true)
-    let ok = 0
-    for (const id of selected) {
-      try { await api.delete(`/spam/${id}`); ok++ } catch {}
-    }
-    setEmails(e => e.filter(x => !selected.includes(x.email_id)))
-    setSelected([])
-    setMsg(`${ok}/${selected.length} email eliminate`)
-    setTimeout(() => setMsg(''), 3000)
-    setDeleting(false)
-  }
-
-  const toggleSelect = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
-  const toggleAll = () => selected.length === emails.length ? setSelected([]) : setSelected(emails.map(e => e.email_id))
+  const toggleSelect = (id) => { setSelectAllMatching(false); setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]) }
+  const toggleAll = () => { setSelectAllMatching(false); setSelected(selected.length === emails.length ? [] : emails.map(e => e.email_id)) }
+  const allOnPageSelected = emails.length > 0 && (selectAllMatching || selected.length === emails.length)
 
   return (
     <div className="flex h-full">
@@ -250,11 +281,11 @@ export default function Antispam() {
                     className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${source === id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>{label}</button>
                 ))}
               </div>
-              {selected.length > 0 && (
+              {(selected.length > 0 || selectAllMatching) && (
                 <button onClick={handleDeleteSelected} disabled={deleting}
                   className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
                   {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                  Elimina {selected.length} selezionate
+                  Elimina {selectAllMatching ? total : selected.length} {(selectAllMatching ? total : selected.length) === 1 ? 'selezionata' : 'selezionate'}
                 </button>
               )}
               {selectedMailbox && (
@@ -281,12 +312,29 @@ export default function Antispam() {
             </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              {/* Banner "seleziona tutte le pagine": appare quando tutte le email
+                  visibili sono selezionate ma ce ne sono altre nelle pagine successive. */}
+              {allOnPageSelected && total > emails.length && (
+                <div className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-100 text-sm">
+                  {selectAllMatching ? (
+                    <>
+                      <span className="text-amber-800">Tutte le <strong>{total}</strong> email spam di questa casella sono selezionate.</span>
+                      <button onClick={() => { setSelectAllMatching(false); setSelected([]) }} className="text-blue-600 font-medium hover:underline">Annulla selezione</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-amber-800">Selezionate le {emails.length} di questa pagina.</span>
+                      <button onClick={() => { setSelectAllMatching(true); setSelected(emails.map(e => e.email_id)) }} className="text-blue-600 font-medium hover:underline">Seleziona tutte le {total}</button>
+                    </>
+                  )}
+                </div>
+              )}
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100">
                     <th className="px-4 py-3 w-10">
                       <button onClick={toggleAll} className="text-gray-400 hover:text-gray-600">
-                        {selected.length === emails.length && emails.length > 0
+                        {allOnPageSelected
                           ? <CheckSquare size={16} className="text-blue-600" />
                           : <Square size={16} />}
                       </button>
@@ -314,9 +362,9 @@ export default function Antispam() {
                     </td></tr>
                   ) : emails.map(email => (
                     <tr key={email.email_id}
-                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${selected.includes(email.email_id) ? 'bg-red-50' : ''}`}>
+                      className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${(selectAllMatching || selected.includes(email.email_id)) ? 'bg-red-50' : ''}`}>
                       <td className="px-4 py-3" onClick={e => { e.stopPropagation(); toggleSelect(email.email_id) }}>
-                        {selected.includes(email.email_id)
+                        {(selectAllMatching || selected.includes(email.email_id))
                           ? <CheckSquare size={16} className="text-red-500" />
                           : <Square size={16} className="text-gray-300" />}
                       </td>
@@ -375,6 +423,36 @@ export default function Antispam() {
           )}
         </div>
       </div>
+
+      {/* Conferma eliminazione — l'eliminazione dallo spam è DEFINITIVA */}
+      {confirmDel && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setConfirmDel(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900">
+                  {confirmDel.type === 'single' ? 'Eliminare questa email?' : `Eliminare ${confirmDel.count} email?`}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  L'eliminazione dallo spam è <strong>definitiva</strong>: le email vengono rimosse
+                  dall'archivio e non sono più recuperabili. Le email in Legal Hold non vengono toccate.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setConfirmDel(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Annulla</button>
+              <button onClick={doDelete} disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                Elimina definitivamente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

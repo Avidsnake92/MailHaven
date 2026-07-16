@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.88] - 2026-07-16
+### Added
+- **Antispam: eliminazione in blocco su tutte le pagine.** Quando tutte le email
+  spam visibili sono selezionate compare "Seleziona tutte le N": permette di
+  eliminare in un colpo TUTTE le email spam della casella sopra soglia (prima si
+  potevano gestire solo le 50 della pagina). Nuovo endpoint `POST /spam/delete-bulk`
+  (per id o per criterio `all`), efficiente (una richiesta invece di N) e che salta
+  le email in Legal Hold.
+- **Antispam: avviso di conferma prima di eliminare.** L'eliminazione dallo spam è
+  definitiva: ora un dialog chiaro lo ricorda (per una o più email) prima di
+  procedere.
+- **Log Antivirus: elenco delle email con allegati infetti.** Oltre alle "Minacce
+  più frequenti", il log AV mostra ora QUALE email contiene l'allegato infetto
+  (oggetto, mittente, casella, nome file, virus); cliccando si apre l'email.
+### Changed
+- **Antispam: la casella resta selezionata.** Tornando alla sezione spam (es. dopo
+  aver aperto un'email e cliccato "Torna all'archivio") la casella selezionata viene
+  ricordata, senza doverla riscegliere ogni volta.
+
 ## [0.1.87] - 2026-07-16
 ### Added
 - **Backoff sui fallimenti di sincronizzazione.** Se una casella fallisce ripetutamente

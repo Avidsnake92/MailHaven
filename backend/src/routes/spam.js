@@ -187,6 +187,65 @@ router.delete('/:email_id', async (req, res) => {
   }
 });
 
+// POST /spam/delete-bulk — elimina in blocco: una lista di id, oppure TUTTE le email
+// spam di una casella sopra soglia (all=true). Salta quelle in Legal Hold.
+router.post('/delete-bulk', async (req, res) => {
+  const db = req.app.locals.db;
+  const { mailbox_id, threshold, source = 'origin', ids, all } = req.body || {};
+  try {
+    const allowed = await getUserMailboxIds(db, req.user);
+    let targetIds = [];
+
+    if (all) {
+      const mb = parseInt(mailbox_id);
+      if (!mb || !allowed.includes(mb)) return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+      let scoreThreshold = parseFloat(threshold);
+      if (isNaN(scoreThreshold)) {
+        const s = await db.query("SELECT value FROM settings WHERE key='spam_score_threshold'");
+        scoreThreshold = parseFloat(s.rows[0]?.value || 5);
+      }
+      if (source === 'mh') {
+        const r = await db.query(
+          `SELECT id::text AS email_id FROM archived_emails
+           WHERE mh_spam_score IS NOT NULL AND mh_spam_score >= $1 AND mailbox_id=$2`,
+          [scoreThreshold, mb]);
+        targetIds = r.rows.map(x => x.email_id);
+      } else {
+        const r = await db.query(
+          `SELECT email_id FROM spam_cache WHERE score >= $1 AND mailbox_id=$2`,
+          [scoreThreshold, mb]);
+        targetIds = r.rows.map(x => String(x.email_id));
+      }
+    } else if (Array.isArray(ids) && ids.length) {
+      targetIds = ids.map(String);
+    } else {
+      return res.status(400).json({ error: 'Nessuna email selezionata' });
+    }
+
+    if (!targetIds.length) return res.json({ deleted: 0, held: 0, denied: 0 });
+
+    // Verifica scoping + Legal Hold su tutte le email in un colpo solo
+    const info = await db.query(
+      `SELECT id::text AS email_id, mailbox_id, legal_hold FROM archived_emails WHERE id::text = ANY($1)`,
+      [targetIds]);
+    const deletable = [];
+    let held = 0, denied = 0;
+    for (const row of info.rows) {
+      if (!allowed.includes(row.mailbox_id)) { denied++; continue; }
+      if (row.legal_hold) { held++; continue; }
+      deletable.push(row.email_id);
+    }
+    if (deletable.length) {
+      await db.query('DELETE FROM spam_cache WHERE email_id = ANY($1)', [deletable]);
+      await db.query('DELETE FROM archived_emails WHERE id::text = ANY($1)', [deletable]);
+    }
+    res.json({ deleted: deletable.length, held, denied });
+  } catch (err) {
+    console.error('[spam] delete-bulk:', err.message);
+    res.status(500).json({ error: err.message || 'Errore eliminazione' });
+  }
+});
+
 // GET /spam/settings
 router.get('/settings', async (req, res) => {
   const db = req.app.locals.db;
