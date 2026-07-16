@@ -58,10 +58,37 @@ if [ -n "$(git status --porcelain)" ]; then
   git stash push -u -m "do-update $(date +%Y%m%d-%H%M%S)" >/dev/null 2>&1 || true
   log "modifiche locali messe da parte (git stash)"
 fi
+# Commit e versione ATTUALI (prima del reset): il punto a cui tornare se l'update fallisce
+PREV_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo '')"
+PREV_VERSION="$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' version.json 2>/dev/null | grep -oE '[0-9][^"]*' | head -1 || echo '?')"
 git checkout main --quiet 2>/dev/null || git checkout -B main origin/main --quiet
 git reset --hard origin/main --quiet
-log "target: $(git rev-parse --short HEAD)"
+TARGET_COMMIT="$(git rev-parse --short HEAD)"
+TARGET_VERSION="$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' version.json 2>/dev/null | grep -oE '[0-9][^"]*' | head -1 || echo '?')"
+log "target: $TARGET_COMMIT (v$TARGET_VERSION)"
 set_status "pull" 10 "Aggiornamenti scaricati"
+
+# Attende che il backend diventi healthy. Ritorna 0 se healthy, 1 altrimenti.
+wait_healthy() {
+  local tries="${1:-24}"
+  for i in $(seq 1 "$tries"); do
+    local st
+    st=$(docker inspect --format='{{.State.Health.Status}}' mailhaven-backend 2>/dev/null || echo unknown)
+    [ "$st" = "healthy" ] && { log "backend healthy (${i}x5s)"; return 0; }
+    sleep 5
+  done
+  return 1
+}
+
+# Scrive il file d'allerta: al riavvio il backend lo legge e avvisa i superadmin.
+write_alert() {
+  local outcome="$1"
+  printf '{"outcome":"%s","fromCommit":"%s","toCommit":"%s","version":"%s","message":"%s","logTail":"%s","ts":"%s"}\n' \
+    "$outcome" "$(git rev-parse --short "$PREV_COMMIT" 2>/dev/null || echo '?')" "$TARGET_COMMIT" \
+    "$TARGET_VERSION" "aggiornamento fallito" \
+    "$(tail -n 20 "$LOG" 2>/dev/null | tr '\n' '~' | sed 's/["\\]//g')" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$INSTALL_DIR/data/update-alert.json"
+}
 
 # ── 2. Backup DB in BACKGROUND (non blocca l'update) ────────────────────
 # Il volume postgres persiste tra i build — il backup è precauzionale.
@@ -78,22 +105,43 @@ log "backup DB avviato in background → $BACKUP_FILE"
 ) &
 BACKUP_PID=$!
 
-# ── 3. Build + restart BACKEND ───────────────────────────────────────────
+# ── 3. Build + restart BACKEND (con rollback automatico) ─────────────────
 log "build backend..."
 set_status "backend_build" 20 "Compilazione backend..."
-docker compose up -d --build --no-deps mailhaven-backend 2>&1 | tee -a "$LOG"
+if ! docker compose up -d --build --no-deps mailhaven-backend 2>&1 | tee -a "$LOG"; then
+  log "ERRORE: build backend fallita"
+fi
 set_status "backend_restart" 50 "Riavvio backend..."
 
-# Aspetta healthy (max 120s)
 log "attendo backend healthy..."
-for i in $(seq 1 24); do
-  STATUS=$(docker inspect --format='{{.State.Health.Status}}' mailhaven-backend 2>/dev/null || echo unknown)
-  if [ "$STATUS" = "healthy" ]; then
-    log "backend healthy (${i}x5s)"; break
+if ! wait_healthy 24; then
+  # ── ROLLBACK ──────────────────────────────────────────────────────────
+  trap - ERR   # gestiamo noi l'esito: niente stato "error" generico dal trap
+  log "WARN: backend NON healthy dopo 120s → ROLLBACK a $(git rev-parse --short "$PREV_COMMIT" 2>/dev/null)"
+  set_status "rollback" 40 "Aggiornamento fallito, ripristino versione precedente..."
+  write_alert "rolled_back"   # scritto PRIMA del rebuild: il backend lo legge al riavvio
+  if [ -n "$PREV_COMMIT" ] && git reset --hard "$PREV_COMMIT" --quiet 2>>"$LOG"; then
+    log "codice riportato a $(git rev-parse --short HEAD); ricompilo backend..."
+    docker compose up -d --build --no-deps mailhaven-backend 2>&1 | tee -a "$LOG" || true
+    if wait_healthy 24; then
+      log "ROLLBACK riuscito: backend healthy sulla versione precedente"
+      bash "$INSTALL_DIR/check-update.sh" 2>&1 | tee -a "$LOG" || true
+      rm -f "$TRIGGER"
+      set_status "rolled_back" 100 "Aggiornamento fallito: ripristinata la versione precedente"
+      log "=== Aggiornamento fallito, rollback completato ==="
+      exit 0
+    fi
+    log "ERRORE: backend non healthy nemmeno dopo il rollback"
+  else
+    log "ERRORE: rollback git non riuscito (PREV_COMMIT='$PREV_COMMIT')"
   fi
-  [ "$i" = "24" ] && log "WARN: backend non healthy dopo 120s (status=$STATUS)"
-  sleep 5
-done
+  # Rollback fallito: caso catastrofico. L'allerta e' gia' su disco; se il backend
+  # non riparte non potra' inviarla (lo stato UI resta 'error').
+  set_status "error" 0 "Aggiornamento fallito e ripristino non riuscito: intervento manuale necessario"
+  rm -f "$TRIGGER"
+  log "=== FALLIMENTO CRITICO: update e rollback falliti ==="
+  exit 1
+fi
 set_status "backend_restart" 60 "Backend riavviato"
 
 # ── 4. Build + restart FRONTEND ──────────────────────────────────────────

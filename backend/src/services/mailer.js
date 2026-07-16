@@ -96,4 +96,46 @@ const sendSuspiciousIp = async (db, to, user, newIp, knownIps) => {
   } catch (e) { console.error('[Mailer] sendSuspiciousIp error:', e.message); }
 };
 
-module.exports = { getSmtpConfig, getTransport, sendAccountBlocked, sendSuspiciousIp };
+/**
+ * Avviso agli amministratori quando un aggiornamento fallisce / scatta il rollback.
+ * `info` = { outcome, fromCommit, toCommit, version, message, logTail }
+ */
+const sendUpdateAlert = async (db, to, info) => {
+  try {
+    const cfg = await getSmtpConfig(db);
+    if (!cfg.host || !cfg.user) return false;
+    const recipients = Array.isArray(to) ? to.filter(Boolean) : [to].filter(Boolean);
+    if (!recipients.length) return false;
+    const transport = getTransport(cfg);
+    const rolledBack = info.outcome === 'rolled_back';
+    const subject = rolledBack
+      ? '⚠️ MailHaven — aggiornamento fallito, ripristinata la versione precedente'
+      : '🔴 MailHaven — aggiornamento fallito';
+    const esc = (s) => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    const html = `
+      <div style="font-family:Segoe UI,system-ui,sans-serif;max-width:560px">
+        <h2 style="color:${rolledBack ? '#b45309' : '#b91c1c'}">${rolledBack ? 'Aggiornamento fallito — rollback eseguito' : 'Aggiornamento fallito'}</h2>
+        <p>${rolledBack
+          ? 'Il nuovo aggiornamento non è partito correttamente. MailHaven è stato <b>riportato automaticamente alla versione precedente</b>, che è di nuovo operativa.'
+          : 'L\'aggiornamento è fallito e il ripristino automatico non è riuscito. <b>È necessario un intervento manuale.</b>'}</p>
+        <table style="font-size:13px;color:#374151;border-collapse:collapse">
+          <tr><td style="padding:2px 10px 2px 0"><b>Esito</b></td><td>${esc(info.outcome)}</td></tr>
+          <tr><td style="padding:2px 10px 2px 0"><b>Versione</b></td><td>${esc(info.version || '—')}</td></tr>
+          <tr><td style="padding:2px 10px 2px 0"><b>Commit tentato</b></td><td>${esc(info.toCommit || '—')}</td></tr>
+          <tr><td style="padding:2px 10px 2px 0"><b>Ripristinato a</b></td><td>${esc(info.fromCommit || '—')}</td></tr>
+        </table>
+        ${info.logTail ? `<p style="margin-top:14px"><b>Ultime righe del log:</b></p><pre style="background:#f3f4f6;padding:10px;border-radius:8px;font-size:12px;overflow:auto">${esc(info.logTail)}</pre>` : ''}
+      </div>`;
+    await transport.sendMail({
+      from: cfg.from, to: recipients.join(', '), subject,
+      html,
+      text: `${subject}\n\nEsito: ${info.outcome}\nVersione: ${info.version || '-'}\nCommit tentato: ${info.toCommit || '-'}\nRipristinato a: ${info.fromCommit || '-'}\n\n${info.logTail || ''}`,
+    });
+    return true;
+  } catch (e) {
+    console.error('[UpdateAlert] invio fallito:', e.message);
+    return false;
+  }
+};
+
+module.exports = { getSmtpConfig, getTransport, sendAccountBlocked, sendSuspiciousIp, sendUpdateAlert };

@@ -318,4 +318,23 @@ app.listen(PORT, '0.0.0.0', async () => {
     app.locals.avBatchScanner = avBatchScanner;
     console.log('AV Batch Scanner started');
   } catch (e) { console.error('AV Batch Scanner error:', e.message); }
+
+  // Avviso aggiornamento fallito/rollback: do-update.sh lascia un file d'allerta;
+  // al riavvio (sulla versione ripristinata) lo consumiamo e avvisiamo i superadmin.
+  try {
+    const fs = require('fs');
+    const alertPath = '/app/data/update-alert.json';
+    if (fs.existsSync(alertPath)) {
+      const info = JSON.parse(fs.readFileSync(alertPath, 'utf8'));
+      fs.unlinkSync(alertPath); // consuma comunque: niente reinvii a ogni riavvio
+      const ageMs = Date.now() - (Date.parse(info.ts) || 0);
+      if (ageMs >= 0 && ageMs < 60 * 60 * 1000) { // ignora allerte piu' vecchie di 1h
+        const { sendUpdateAlert } = require('./services/mailer');
+        const admins = await pool.query("SELECT email FROM users WHERE role='superadmin' AND active=true");
+        const to = admins.rows.map(r => r.email).filter(Boolean);
+        const sent = await sendUpdateAlert(pool, to, info);
+        console.log(`[UpdateAlert] esito=${info.outcome} destinatari=${to.length} inviata=${sent}`);
+      }
+    }
+  } catch (e) { console.error('[UpdateAlert] errore:', e.message); }
 });

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.84] - 2026-07-16
+### Added
+- **Aggiornamenti: rollback automatico.** Se dopo un aggiornamento il backend non
+  torna "healthy" entro 120s, `do-update.sh` ripristina automaticamente il commit
+  precedente e ricompila: un aggiornamento difettoso diventa un breve disservizio
+  auto-recuperato invece di lasciare l'istanza ferma. Se anche il rollback fallisce
+  lo stato resta "error" (serve intervento manuale).
+- **Avviso via email agli amministratori** quando un aggiornamento fallisce o
+  scatta il rollback: `do-update.sh` lascia un file d'allerta che il backend, al
+  riavvio sulla versione ripristinata, invia a tutti i superadmin tramite l'SMTP
+  gia' configurato (nessun endpoint o segreto aggiuntivo). La UI mostra lo stato
+  "versione ripristinata" invece di restare in attesa.
+
 ## [0.1.83] - 2026-07-16
 ### Changed
 - **Installer Thunderbird: consente l'estensione non firmata.** Poiche' il `.xpi`

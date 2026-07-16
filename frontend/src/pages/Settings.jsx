@@ -220,6 +220,7 @@ function UpdateProgress({ startVersion, onComplete }) {
   const [status, setStatus] = useState({ step: 'queued', progress: 1, message: 'In coda...' })
   const [done, setDone] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [rolledBack, setRolledBack] = useState(false)
 
   useEffect(() => {
     const poll = setInterval(async () => {
@@ -229,6 +230,12 @@ function UpdateProgress({ startVersion, onComplete }) {
         if (data.step === 'error') {
           setFailed(true)
           clearInterval(poll)
+          return
+        }
+        if (data.step === 'rolled_back') {
+          setRolledBack(true)
+          clearInterval(poll)
+          setTimeout(() => window.location.reload(), 5000)
           return
         }
         setStatus(data)
@@ -248,6 +255,18 @@ function UpdateProgress({ startVersion, onComplete }) {
   const stepIndex = Math.max(0, UPDATE_STEPS.findIndex(s => s.id === status.step))
   const progress = done ? 100 : status.progress || 0
 
+  if (rolledBack) {
+    return (
+      <div className="space-y-4 py-2 text-center">
+        <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto">
+          <AlertCircle size={22} className="text-amber-600" />
+        </div>
+        <h2 className="text-base font-bold text-gray-900">Aggiornamento non riuscito — versione ripristinata</h2>
+        <p className="text-sm text-gray-500">Il nuovo aggiornamento non è partito correttamente. MailHaven è stato riportato automaticamente alla versione precedente ed è di nuovo operativo. Gli amministratori hanno ricevuto un avviso via email.</p>
+      </div>
+    )
+  }
+
   if (failed) {
     return (
       <div className="space-y-4 py-2 text-center">
@@ -255,7 +274,7 @@ function UpdateProgress({ startVersion, onComplete }) {
           <AlertCircle size={22} className="text-red-600" />
         </div>
         <h2 className="text-base font-bold text-gray-900">Aggiornamento fallito</h2>
-        <p className="text-sm text-gray-500">Controlla i log sul server (data/update.log) e riprova.</p>
+        <p className="text-sm text-gray-500">Ripristino automatico non riuscito: è necessario un intervento manuale. Controlla i log sul server (data/update.log).</p>
       </div>
     )
   }
