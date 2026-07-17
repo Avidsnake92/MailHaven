@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.92] - 2026-07-16
+### Added
+- **Archivio: eliminazione a due opzioni.** Cliccando "Elimina" su una o più email
+  archiviate ora si sceglie tra:
+  - **Elimina** (come prima): le email vengono rimosse dall'IMAP e marcate come
+    eliminate — restano nell'archivio con l'etichetta ELIMINATA e sono recuperabili;
+  - **Elimina definitivamente**: rimozione irreversibile dall'archivio, protetta da
+    una frase casuale in MAIUSCOLO (diversa ogni volta) da ridigitare per conferma.
+    Salta le email in Legal Hold. Endpoint `POST /emails/delete-permanent`.
+
 ## [0.1.91] - 2026-07-16
 ### Added
 - **Antispam: whitelist mittenti/domini.** Selezionando una o più email spam si può

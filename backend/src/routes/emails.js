@@ -653,6 +653,34 @@ router.post('/undelete', authMiddleware, async (req, res, next) => {
   } catch (err) { next(new AppError(ERRORS.MH_1403, err.message)); }
 });
 
+// POST /emails/delete-permanent — eliminazione DEFINITIVA dall'archivio (irreversibile).
+// Salta le email in Legal Hold. Solo per le caselle a cui l'utente ha accesso.
+router.post('/delete-permanent', authMiddleware, async (req, res, next) => {
+  const db = req.app.locals.db;
+  const { email_ids } = req.body;
+  if (!email_ids?.length) return next(new AppError(ERRORS.MH_1402));
+  try {
+    const allowed = await getUserMailboxIds(db, req.user);
+    const rows = (await db.query(
+      'SELECT id::text AS id, mailbox_id, legal_hold FROM archived_emails WHERE id=ANY($1::uuid[])',
+      [email_ids]
+    )).rows;
+    const deletable = [];
+    let held = 0, denied = 0;
+    for (const r of rows) {
+      if (!allowed.includes(r.mailbox_id)) { denied++; continue; }
+      if (r.legal_hold) { held++; continue; }
+      deletable.push(r.id);
+    }
+    if (deletable.length) {
+      await db.query('DELETE FROM spam_cache WHERE email_id = ANY($1)', [deletable]);
+      await db.query('DELETE FROM av_log WHERE email_id = ANY($1)', [deletable]);
+      await db.query('DELETE FROM archived_emails WHERE id::text = ANY($1)', [deletable]);
+    }
+    res.json({ ok: true, deleted: deletable.length, held, denied });
+  } catch (err) { next(new AppError(ERRORS.MH_1403, err.message)); }
+});
+
 // POST /emails/delete-imap — elimina fisicamente dall'IMAP
 router.post('/delete-imap', authMiddleware, async (req, res, next) => {
   const db = req.app.locals.db;

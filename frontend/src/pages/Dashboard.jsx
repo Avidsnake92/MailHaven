@@ -10,7 +10,7 @@ import {
   Calendar, Inbox, ChevronDown, ChevronUp, Folder, FolderOpen, Building2,
   Paperclip, Shield, ShieldCheck, ShieldAlert, HelpCircle, Trash2, X,
   RefreshCw, CheckSquare, Square, ArrowUpDown, User, Clock,
-  AlertCircle, ExternalLink, Menu, Database, Server
+  AlertCircle, AlertTriangle, ExternalLink, Menu, Database, Server
 } from 'lucide-react'
 
 // ─── Resizable divider hook ───────────────────────────────────────────────────
@@ -351,6 +351,9 @@ export default function Dashboard() {
   const [restoreTarget, setRestoreTarget] = useState('')
   const [confirmBulk, setConfirmBulk] = useState(null)
   const [bulkLoading, setBulkLoading] = useState(false)
+  // Eliminazione definitiva: frase random in MAIUSCOLO da ridigitare per conferma
+  const [permPhrase, setPermPhrase] = useState('')
+  const [permInput, setPermInput] = useState('')
   const [exportLoading, setExportLoading] = useState(false)
   const [previewId, setPreviewId] = useState(null)
   const [storage, setStorage] = useState(null)
@@ -457,6 +460,27 @@ export default function Dashboard() {
       fetchEmails()
     } catch { showMsg('Errore durante eliminazione', 'error') }
     finally { setBulkLoading(false); setConfirmBulk(null) }
+  }
+
+  // Genera una frase casuale in maiuscolo (cambia a ogni richiesta)
+  const genPhrase = () => {
+    const words = ['MARE', 'MONTE', 'SOLE', 'LUNA', 'FERRO', 'VETRO', 'CARTA', 'PIETRA', 'ROSSO', 'VERDE', 'FUOCO', 'VENTO', 'NEVE', 'SABBIA', 'ONDA', 'STELLA']
+    const w = () => words[Math.floor(Math.random() * words.length)]
+    let a = w(), b = w(); while (b === a) b = w()
+    return `${a}-${b}-${Math.floor(100 + Math.random() * 900)}`
+  }
+
+  const handlePermanentDelete = async () => {
+    if (!selected.length) return
+    if (permInput.trim().toUpperCase() !== permPhrase) return
+    setBulkLoading(true)
+    try {
+      const r = await api.post('/emails/delete-permanent', { email_ids: selected })
+      showMsg(`${r.data.deleted} email eliminate definitivamente${r.data.held ? ` · ${r.data.held} in Legal Hold saltate` : ''}`)
+      setSelected([])
+      fetchEmails()
+    } catch { showMsg('Errore eliminazione definitiva', 'error') }
+    finally { setBulkLoading(false); setConfirmBulk(null); setPermPhrase(''); setPermInput('') }
   }
 
   const handleRestoreSelected = async () => {
@@ -689,7 +713,7 @@ export default function Dashboard() {
                 className="flex items-center gap-2.5 text-sm px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors">
                 <RotateCcw size={17} /> Ripristina
               </button>
-              <button onClick={() => setConfirmBulk('delete')}
+              <button onClick={() => { setPermPhrase(''); setPermInput(''); setConfirmBulk('delete') }}
                 className="flex items-center gap-2.5 text-sm px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-md hover:bg-red-100 transition-colors">
                 <Trash2 size={17} /> Elimina
               </button>
@@ -860,39 +884,69 @@ export default function Dashboard() {
       </div>
 
       {/* ── Modal conferma bulk ── */}
-      {confirmBulk && (
+      {confirmBulk === 'restore' && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
-            <h2 className="text-sm font-bold text-gray-900 mb-1">
-              {confirmBulk === 'delete'
-                ? `Elimina ${selected.length} email`
-                : `Ripristina ${selected.length} email`}
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              {confirmBulk === 'delete'
-                ? "Le email verranno rimosse dall'IMAP e marchiate come eliminate. L'archivio rimane immutabile."
-                : 'Ogni email verrà reinserita nell\'IMAP con la sua data originale.'}
-            </p>
-            {confirmBulk === 'restore' && (
-              <input value={restoreTarget} onChange={e => setRestoreTarget(e.target.value)}
-                placeholder="Email destinazione (es. office@k2tech.it)"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" />
-            )}
+            <h2 className="text-sm font-bold text-gray-900 mb-1">Ripristina {selected.length} email</h2>
+            <p className="text-sm text-gray-500 mb-4">Ogni email verrà reinserita nell'IMAP con la sua data originale.</p>
+            <input value={restoreTarget} onChange={e => setRestoreTarget(e.target.value)}
+              placeholder="Email destinazione (es. office@k2tech.it)"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" />
             <div className="flex gap-2">
-              <button
-                onClick={confirmBulk === 'delete' ? handleDeleteSelected : handleRestoreSelected}
-                disabled={bulkLoading || (confirmBulk === 'restore' && !restoreTarget)}
-                className={`flex items-center gap-2.5 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-40 transition-colors
-                  ${confirmBulk === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
-                {bulkLoading
-                  ? <Loader2 size={16} className="animate-spin" />
-                  : confirmBulk === 'delete' ? <Trash2 size={16} /> : <RotateCcw size={16} />}
-                Conferma
+              <button onClick={handleRestoreSelected} disabled={bulkLoading || !restoreTarget}
+                className="flex items-center gap-2.5 px-4 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-40 bg-emerald-600 hover:bg-emerald-700 transition-colors">
+                {bulkLoading ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />} Conferma
               </button>
               <button onClick={() => setConfirmBulk(null)} disabled={bulkLoading}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                Annulla
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Annulla</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmBulk === 'delete' && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+            <h2 className="text-base font-bold text-gray-900 mb-4">Elimina {selected.length} email — scegli come</h2>
+
+            {/* Opzione 1 — eliminazione normale (resta in archivio con badge) */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-3">
+              <p className="text-sm font-semibold text-gray-900">Elimina</p>
+              <p className="text-xs text-gray-500 mt-1 mb-3">Le email vengono rimosse dall'IMAP e marcate come eliminate: restano nell'archivio con l'etichetta <span className="font-semibold">ELIMINATA</span> e sono recuperabili.</p>
+              <button onClick={handleDeleteSelected} disabled={bulkLoading}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-40">
+                {bulkLoading && !permPhrase ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} Elimina
               </button>
+            </div>
+
+            {/* Opzione 2 — eliminazione definitiva con frase di conferma */}
+            <div className="border border-red-200 bg-red-50/40 rounded-lg p-4">
+              <p className="text-sm font-semibold text-red-700">Elimina definitivamente</p>
+              <p className="text-xs text-gray-600 mt-1">Le email verranno <span className="font-semibold">rimosse per sempre dagli archivi</span> e non saranno più recuperabili. Le email in Legal Hold non vengono toccate.</p>
+              {!permPhrase ? (
+                <button onClick={() => { setPermPhrase(genPhrase()); setPermInput('') }}
+                  className="mt-3 flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-red-300 text-red-700 hover:bg-red-50">
+                  <AlertTriangle size={15} /> Elimina definitivamente
+                </button>
+              ) : (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-600 mb-1">Per confermare digita esattamente questa frase:</p>
+                  <div className="font-mono font-bold tracking-wider text-red-700 bg-white border border-red-200 rounded-md px-3 py-2 text-center select-all mb-2">{permPhrase}</div>
+                  <input value={permInput} onChange={e => setPermInput(e.target.value)} autoFocus
+                    placeholder="Scrivi qui la frase"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 uppercase" />
+                  <button onClick={handlePermanentDelete}
+                    disabled={bulkLoading || permInput.trim().toUpperCase() !== permPhrase}
+                    className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-40">
+                    {bulkLoading ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} Conferma eliminazione definitiva
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <button onClick={() => { setConfirmBulk(null); setPermPhrase(''); setPermInput('') }} disabled={bulkLoading}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Annulla</button>
             </div>
           </div>
         </div>
