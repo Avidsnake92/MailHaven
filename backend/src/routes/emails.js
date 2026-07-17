@@ -179,7 +179,7 @@ router.get('/global-search', authMiddleware, require('../services/license').requ
       db.query(`
         SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email, ae.sent_at,
                ae.path, ae.has_attachments, ae.is_deleted, ae.is_restored,
-               ae.badge_type, ae.mailbox_id, m.email as mailbox_email,
+               ae.badge_type, ae.mailbox_id, m.email as mailbox_email, ae.legal_hold,
                ts_headline('simple', COALESCE(ae.body_text,''), plainto_tsquery('simple', $1),
                  'MaxFragments=1, MaxWords=15, MinWords=5') as snippet
         FROM archived_emails ae
@@ -198,6 +198,7 @@ router.get('/global-search', authMiddleware, require('../services/license').requ
         hasAttachments: e.has_attachments, isDeleted: e.is_deleted,
         isRestored: e.is_restored, badgeType: e.badge_type,
         mailboxId: e.mailbox_id, mailboxEmail: e.mailbox_email,
+        legalHold: e.legal_hold,
         snippet: e.snippet,
       })),
       total: parseInt(count.rows[0].count),
@@ -260,7 +261,7 @@ router.get('/', async (req, res) => {
       db.query(
         `SELECT ae.id, ae.subject, ae.sender_name, ae.sender_email,
                 ae.sent_at, ae.path, ae.has_attachments, ae.spam_score, ae.is_restored, ae.av_status, ae.is_deleted,
-                ae.mailbox_id, m.email as mailbox_email, ae.badge_type, ae.badge_expires_at
+                ae.mailbox_id, m.email as mailbox_email, ae.badge_type, ae.badge_expires_at, ae.legal_hold
          FROM archived_emails ae
          JOIN mailboxes m ON m.id = ae.mailbox_id
          WHERE ${where}
@@ -288,6 +289,7 @@ router.get('/', async (req, res) => {
       tags: e.spam_score >= 5 ? ['spam'] : null,
       badgeType: e.badge_type,
       badgeExpiresAt: e.badge_expires_at,
+      legalHold: e.legal_hold,
     }));
 
     res.json({ items, total, totalPages: Math.ceil(total / parseInt(limit)), page: parseInt(page) });

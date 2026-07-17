@@ -138,6 +138,11 @@ function EmailBadges({ email, compact = false }) {
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
+      {email.legalHold && (
+        <span className={`inline-flex items-center gap-0.5 ${px} py-0.5 rounded-full ${size} font-bold tracking-wide bg-amber-100 text-amber-700 border border-amber-300 shrink-0`} title="In Legal Hold: non eliminabile finché il blocco è attivo">
+          <ShieldCheck size={ic} strokeWidth={2.5} /> LEGAL HOLD
+        </span>
+      )}
       {badgeType === 'archived' && (
         <span className={`inline-flex items-center gap-0.5 ${px} py-0.5 rounded-full ${size} font-bold tracking-wide bg-gray-100 text-gray-500 border border-gray-300 shrink-0`}>
           <Folder size={ic} strokeWidth={2.5} /> ARCHIVIATA
