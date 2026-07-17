@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.93] - 2026-07-16
+### Added
+- **Etichetta "LEGAL HOLD" nella lista email.** Le email sotto Legal Hold hanno ora
+  un badge giallo visibile nell'archivio e nella ricerca globale: sono quelle che
+  l'eliminazione (normale o definitiva) salta. La lista `/emails` restituisce `legalHold`.
+
 ## [0.1.92] - 2026-07-16
 ### Added
 - **Archivio: eliminazione a due opzioni.** Cliccando "Elimina" su una o più email
