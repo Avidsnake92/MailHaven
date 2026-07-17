@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.91] - 2026-07-16
+### Added
+- **Antispam: whitelist mittenti/domini.** Selezionando una o più email spam si può
+  aggiungere il mittente ("Whitelist mittente") o il suo dominio ("Whitelist dominio")
+  a una whitelist: da quel momento le email di quei mittenti/domini non compaiono più
+  tra lo spam. Pannello "Whitelist" in Antispam per vedere e rimuovere le voci.
+  Tabella `spam_whitelist`, endpoint `GET/POST/DELETE /spam/whitelist`.
+### Changed
+- **Antispam: la soglia scelta resta.** La soglia impostata nella vista viene ora
+  ricordata (per utente) e resta finché non la si cambia, senza dover premere ogni
+  volta "Salva soglia (globale)". La soglia globale continua a persistere come prima.
+
 ## [0.1.90] - 2026-07-16
 ### Fixed
 - **Un'email infetta poteva risultare "pulita" aprendola (e i totali AV azzeravano gli infetti).**

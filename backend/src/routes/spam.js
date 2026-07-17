@@ -15,6 +15,16 @@ router.use(async (req, res, next) => {
 });
 router.use(require('../middleware/audit').auditMiddleware('ANTISPAM'));
 
+// Esclusione whitelist: un'email è whitelisted se il mittente (email esatta) o il
+// suo dominio è in spam_whitelist. Due varianti per le due sorgenti spam.
+const WL_MH = `NOT EXISTS (SELECT 1 FROM spam_whitelist w
+  WHERE (w.kind='email' AND lower(w.value)=lower(ae.sender_email))
+     OR (w.kind='domain' AND lower(w.value)=lower(split_part(ae.sender_email,'@',2))))`;
+const WL_ORIGIN = `NOT EXISTS (SELECT 1 FROM archived_emails aw JOIN spam_whitelist w
+  ON ((w.kind='email' AND lower(w.value)=lower(aw.sender_email))
+   OR (w.kind='domain' AND lower(w.value)=lower(split_part(aw.sender_email,'@',2))))
+  WHERE aw.id::text = sc.email_id)`;
+
 const getUserMailboxIds = async (db, user) => {
   if (user.role === 'superadmin') {
     const r = await db.query('SELECT id FROM mailboxes WHERE active=true');
@@ -56,7 +66,7 @@ router.get('/', async (req, res) => {
       const params = [scoreThreshold, allowedIds];
       let mbF = '';
       if (mailbox_id) { params.push(parseInt(mailbox_id)); mbF = ` AND ae.mailbox_id=$${params.length}`; }
-      const baseWhere = `ae.mh_spam_score IS NOT NULL AND ae.mh_spam_score >= $1 AND ae.mailbox_id=ANY($2::int[])${mbF}`;
+      const baseWhere = `ae.mh_spam_score IS NOT NULL AND ae.mh_spam_score >= $1 AND ae.mailbox_id=ANY($2::int[])${mbF} AND ${WL_MH}`;
       const countParams = params.slice();
       params.push(parseInt(limit)); params.push(parseInt(offset));
       const result = await db.query(
@@ -85,7 +95,7 @@ router.get('/', async (req, res) => {
       `SELECT sc.*, ae.subject, ae.sender_email, ae.sent_at, ae.path, ae.mh_spam_score, ae.mh_spam_action
        FROM spam_cache sc
        JOIN archived_emails ae ON sc.email_id=ae.id::text
-       WHERE sc.score >= $1 ${mailboxFilter}
+       WHERE sc.score >= $1 ${mailboxFilter} AND ${WL_ORIGIN}
        ORDER BY sc.score DESC, ae.sent_at DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
@@ -93,7 +103,7 @@ router.get('/', async (req, res) => {
 
     const countParams = params.slice(0, -2);
     const count = await db.query(
-      `SELECT COUNT(*) FROM spam_cache sc WHERE sc.score >= $1 ${mailboxFilter}`,
+      `SELECT COUNT(*) FROM spam_cache sc WHERE sc.score >= $1 ${mailboxFilter} AND ${WL_ORIGIN}`,
       countParams
     );
 
@@ -244,6 +254,67 @@ router.post('/delete-bulk', async (req, res) => {
     console.error('[spam] delete-bulk:', err.message);
     res.status(500).json({ error: err.message || 'Errore eliminazione' });
   }
+});
+
+// ── Whitelist antispam ─────────────────────────────────────────────────────
+const canManage = (u) => ['superadmin', 'admin', 'reseller'].includes(u.role);
+
+// GET /spam/whitelist — elenco voci whitelist
+router.get('/whitelist', async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const r = await db.query(
+      `SELECT w.id, w.value, w.kind, w.created_at, u.full_name AS created_by_name
+       FROM spam_whitelist w LEFT JOIN users u ON u.id=w.created_by
+       ORDER BY w.value`);
+    res.json({ items: r.rows });
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
+// POST /spam/whitelist — aggiungi: {value,kind} diretto, oppure {email_ids,mode:'sender'|'domain'}
+router.post('/whitelist', async (req, res) => {
+  const db = req.app.locals.db;
+  if (!canManage(req.user)) return res.status(403).json({ error: 'Non autorizzato', code: 'MH-1003' });
+  const { value, kind, email_ids, mode } = req.body || {};
+  try {
+    let entries = []; // {value, kind}
+    if (Array.isArray(email_ids) && email_ids.length) {
+      const allowed = await getUserMailboxIds(db, req.user);
+      const r = await db.query(
+        'SELECT DISTINCT sender_email FROM archived_emails WHERE id=ANY($1::uuid[]) AND mailbox_id=ANY($2::int[]) AND sender_email IS NOT NULL',
+        [email_ids, allowed]);
+      const k = mode === 'domain' ? 'domain' : 'email';
+      for (const row of r.rows) {
+        const em = String(row.sender_email).trim().toLowerCase();
+        if (!em) continue;
+        entries.push({ value: k === 'domain' ? (em.split('@')[1] || em) : em, kind: k });
+      }
+    } else if (value) {
+      const v = String(value).trim().toLowerCase();
+      const k = kind === 'domain' ? 'domain' : 'email';
+      if (v) entries.push({ value: v, kind: k });
+    }
+    if (!entries.length) return res.status(400).json({ error: 'Niente da aggiungere' });
+    let added = 0;
+    for (const e of entries) {
+      const r = await db.query(
+        `INSERT INTO spam_whitelist (value, kind, created_by) VALUES ($1,$2,$3)
+         ON CONFLICT (lower(value), kind) DO NOTHING RETURNING id`,
+        [e.value, e.kind, req.user.id]);
+      if (r.rows.length) added++;
+    }
+    res.json({ ok: true, added, total: entries.length });
+  } catch (err) { res.status(500).json({ error: err.message || 'Errore server' }); }
+});
+
+// DELETE /spam/whitelist/:id — rimuovi una voce
+router.delete('/whitelist/:id', async (req, res) => {
+  const db = req.app.locals.db;
+  if (!canManage(req.user)) return res.status(403).json({ error: 'Non autorizzato', code: 'MH-1003' });
+  try {
+    await db.query('DELETE FROM spam_whitelist WHERE id=$1', [parseInt(req.params.id)]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
 // GET /spam/settings

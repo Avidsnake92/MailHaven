@@ -221,6 +221,16 @@ const migrate = async (db) => {
   await run(`ALTER TABLE backup_config ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE CASCADE`);
   await run(`ALTER TABLE backup_log ADD COLUMN IF NOT EXISTS reseller_id INTEGER REFERENCES resellers(id) ON DELETE CASCADE`);
 
+  // Whitelist antispam: mittenti/domini che NON sono spam (esclusi dalla lista spam)
+  await run(`CREATE TABLE IF NOT EXISTS spam_whitelist (
+    id SERIAL PRIMARY KEY,
+    value VARCHAR(320) NOT NULL,
+    kind VARCHAR(10) NOT NULL DEFAULT 'email',
+    created_by INTEGER,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_spam_whitelist_val ON spam_whitelist(lower(value), kind)`);
+
     console.log('[Migration] Completata');
 
 };

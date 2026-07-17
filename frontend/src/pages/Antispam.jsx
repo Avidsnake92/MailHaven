@@ -6,7 +6,7 @@ import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
 import {
-  ShieldAlert, Trash2, Loader2, Mail, ChevronLeft, ChevronRight,
+  ShieldAlert, ShieldCheck, Trash2, Loader2, Mail, ChevronLeft, ChevronRight,
   Building2, Inbox, RefreshCw, Settings, CheckSquare, Square, X, AlertTriangle
 } from 'lucide-react'
 
@@ -39,7 +39,12 @@ export default function Antispam() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
-  const [threshold, setThreshold] = useState(5)
+  // La soglia della VISTA persiste per l'utente (localStorage): resta finché non
+  // la cambia lui, senza dover premere "Salva soglia (globale)".
+  const [threshold, setThreshold] = useState(() => {
+    const v = localStorage.getItem('mh_spam_threshold')
+    return v != null && !isNaN(parseFloat(v)) ? parseFloat(v) : 5
+  })
   const [autoscore, setAutoscore] = useState(true)
   const [source, setSource] = useState('origin')
   const [showSettings, setShowSettings] = useState(false)
@@ -49,6 +54,11 @@ export default function Antispam() {
   const [deleting, setDeleting] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  // Whitelist mittenti/domini non-spam
+  const [showWhitelist, setShowWhitelist] = useState(false)
+  const [whitelist, setWhitelist] = useState([])
+
+  useEffect(() => { if (threshold != null && !isNaN(threshold)) localStorage.setItem('mh_spam_threshold', String(threshold)) }, [threshold])
 
   // Persiste la selezione in sessione
   useEffect(() => {
@@ -64,8 +74,33 @@ export default function Antispam() {
     if (user?.role === 'superadmin' || user?.role === 'admin') {
       api.get('/admin/clients').then(r => setClients(r.data)).catch(() => {})
     }
-    api.get('/spam/settings').then(r => { setThreshold(r.data.threshold); setAutoscore(r.data.autoscore !== false) }).catch(() => {})
+    api.get('/spam/settings').then(r => {
+      // usa il globale solo se l'utente non ha una sua soglia salvata
+      if (localStorage.getItem('mh_spam_threshold') == null) setThreshold(r.data.threshold)
+      setAutoscore(r.data.autoscore !== false)
+    }).catch(() => {})
+    loadWhitelist()
   }, [user])
+
+  const loadWhitelist = () => api.get('/spam/whitelist').then(r => setWhitelist(r.data.items || [])).catch(() => {})
+
+  const addToWhitelist = async (mode) => {
+    if (!selected.length && !selectAllMatching) return
+    try {
+      // Per "tutte le pagine" prendiamo comunque gli id visibili (i mittenti unici bastano)
+      const ids = selectAllMatching ? emails.map(e => e.email_id) : selected
+      const r = await api.post('/spam/whitelist', { email_ids: ids, mode })
+      setSelected([]); setSelectAllMatching(false)
+      await loadWhitelist(); fetchSpam()
+      setMsg(`${r.data.added} ${mode === 'domain' ? 'domini' : 'mittenti'} aggiunti alla whitelist`)
+      setTimeout(() => setMsg(''), 3500)
+    } catch (e) { setError(e.response?.data?.error || 'Errore whitelist') }
+  }
+
+  const removeWhitelist = async (id) => {
+    try { await api.delete(`/spam/whitelist/${id}`); await loadWhitelist(); fetchSpam() }
+    catch { setError('Errore rimozione') }
+  }
 
   useEffect(() => {
     if (user?.role === 'superadmin' && selectedClient) {
@@ -282,12 +317,26 @@ export default function Antispam() {
                 ))}
               </div>
               {(selected.length > 0 || selectAllMatching) && (
-                <button onClick={handleDeleteSelected} disabled={deleting}
-                  className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-                  {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                  Elimina {selectAllMatching ? total : selected.length} {(selectAllMatching ? total : selected.length) === 1 ? 'selezionata' : 'selezionate'}
-                </button>
+                <>
+                  <button onClick={handleDeleteSelected} disabled={deleting}
+                    className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                    {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Elimina {selectAllMatching ? total : selected.length} {(selectAllMatching ? total : selected.length) === 1 ? 'selezionata' : 'selezionate'}
+                  </button>
+                  <button onClick={() => addToWhitelist('sender')} title="Segna i mittenti come NON spam"
+                    className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-50">
+                    <ShieldCheck size={14} /> Whitelist mittente
+                  </button>
+                  <button onClick={() => addToWhitelist('domain')} title="Segna i domini come NON spam"
+                    className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-50">
+                    <ShieldCheck size={14} /> Whitelist dominio
+                  </button>
+                </>
               )}
+              <button onClick={() => { setShowWhitelist(v => !v); loadWhitelist() }}
+                className={`flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border transition-colors ${showWhitelist ? 'border-green-300 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                <ShieldCheck size={14} /> Whitelist ({whitelist.length})
+              </button>
               {selectedMailbox && (
                 <button onClick={handleAnalyze} disabled={analyzing}
                   className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
@@ -297,6 +346,31 @@ export default function Antispam() {
               )}
             </div>
           </div>
+
+          {/* Pannello whitelist */}
+          {showWhitelist && (
+            <div className="mb-4 bg-white border border-green-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-green-100 bg-green-50/50">
+                <h3 className="text-sm font-semibold text-gray-900">Whitelist — mittenti e domini NON spam</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Le email da questi mittenti/domini non compaiono più tra lo spam. Selezionane alcune spam e usa "Whitelist mittente/dominio" per aggiungerle.</p>
+              </div>
+              {whitelist.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-6">Nessuna voce in whitelist</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 p-3">
+                  {whitelist.map(w => (
+                    <span key={w.id} className="inline-flex items-center gap-1.5 text-xs bg-green-50 border border-green-200 text-green-800 px-2 py-1 rounded-full">
+                      <span className="text-green-500">{w.kind === 'domain' ? '@' : '✉'}</span>
+                      {w.value}
+                      <button onClick={() => removeWhitelist(w.id)} className="text-green-400 hover:text-red-500" title="Rimuovi">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Messages */}
           {msg && <div className="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">{msg}</div>}
