@@ -359,6 +359,9 @@ export default function Dashboard() {
   // Eliminazione definitiva: frase random in MAIUSCOLO da ridigitare per conferma
   const [permPhrase, setPermPhrase] = useState('')
   const [permInput, setPermInput] = useState('')
+  // Legal Hold in blocco sulle email selezionate
+  const [showLegalHold, setShowLegalHold] = useState(false)
+  const [legalHoldReason, setLegalHoldReason] = useState('')
   const [exportLoading, setExportLoading] = useState(false)
   const [previewId, setPreviewId] = useState(null)
   const [storage, setStorage] = useState(null)
@@ -486,6 +489,18 @@ export default function Dashboard() {
       fetchEmails()
     } catch { showMsg('Errore eliminazione definitiva', 'error') }
     finally { setBulkLoading(false); setConfirmBulk(null); setPermPhrase(''); setPermInput('') }
+  }
+
+  const handleLegalHoldSelected = async () => {
+    if (!selected.length) return
+    setBulkLoading(true)
+    try {
+      const r = await api.post('/emails/legal-hold', { email_ids: selected, enable: true, reason: legalHoldReason || undefined })
+      showMsg(`${r.data.count || selected.length} email messe in Legal Hold`)
+      setSelected([]); setLegalHoldReason('')
+      fetchEmails()
+    } catch (e) { showMsg(e.response?.data?.error || 'Errore Legal Hold', 'error') }
+    finally { setBulkLoading(false); setShowLegalHold(false) }
   }
 
   const handleRestoreSelected = async () => {
@@ -722,6 +737,12 @@ export default function Dashboard() {
                 className="flex items-center gap-2.5 text-sm px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-md hover:bg-red-100 transition-colors">
                 <Trash2 size={17} /> Elimina
               </button>
+              {['admin', 'superadmin', 'reseller'].includes(user?.role) && (!user?.entitlements?.feat || user?.entitlements?.feat?.legal_hold) && (
+                <button onClick={() => { setLegalHoldReason(''); setShowLegalHold(true) }}
+                  className="flex items-center gap-2.5 text-sm px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-md hover:bg-amber-100 transition-colors">
+                  <ShieldCheck size={17} /> Legal Hold
+                </button>
+              )}
               <button onClick={handleExport} disabled={exportLoading}
                 className="flex items-center gap-2.5 text-sm px-2 py-1 bg-gray-50 text-gray-600 border border-gray-200 rounded-md hover:bg-gray-100 transition-colors">
                 {exportLoading ? <Loader2 size={17} className="animate-spin" /> : <Download size={17} />} Export
@@ -952,6 +973,31 @@ export default function Dashboard() {
             <div className="flex justify-end mt-4">
               <button onClick={() => { setConfirmBulk(null); setPermPhrase(''); setPermInput('') }} disabled={bulkLoading}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Annulla</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLegalHold && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0"><ShieldCheck size={20} className="text-amber-600" /></div>
+              <div>
+                <h2 className="text-sm font-bold text-gray-900">Metti {selected.length} email in Legal Hold</h2>
+                <p className="text-xs text-gray-500 mt-1">Le email bloccate non potranno essere eliminate (né normalmente né definitivamente) finché non rimuovi il blocco.</p>
+              </div>
+            </div>
+            <input value={legalHoldReason} onChange={e => setLegalHoldReason(e.target.value)}
+              placeholder="Motivo (facoltativo) — es. Contenzioso n°123"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4" />
+            <div className="flex gap-2">
+              <button onClick={handleLegalHoldSelected} disabled={bulkLoading}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40">
+                {bulkLoading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Metti in Legal Hold
+              </button>
+              <button onClick={() => setShowLegalHold(false)} disabled={bulkLoading}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Annulla</button>
             </div>
           </div>
         </div>

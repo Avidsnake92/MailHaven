@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.94] - 2026-07-16
+### Added
+- **Legal Hold in blocco dall'archivio.** Selezionando una o piu email in Email
+  Archiviate compare il pulsante "Legal Hold": con un motivo facoltativo le si mette
+  tutte in Legal Hold in un colpo (prima si poteva solo aprendo la singola email).
+### Fixed
+- **Import PST: allegati persi e Message-ID rigenerato.** L'import PST costruiva una
+  mail senza allegati e con un Message-ID inventato ogni volta: risultato, allegati
+  mancanti nell'archivio e deduplica rotta (re-import duplicati, nessun match con la
+  copia IMAP). Ora ricostruisce un MIME completo con gli ALLEGATI e usa il
+  **Message-ID originale** del PST (dedup corretto). Migliorati anche mittente/CC.
+
 ## [0.1.93] - 2026-07-16
 ### Added
 - **Etichetta "LEGAL HOLD" nella lista email.** Le email sotto Legal Hold hanno ora

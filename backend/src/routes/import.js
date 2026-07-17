@@ -237,29 +237,52 @@ router.post('/pst', upload.single('file'), async (req, res) => {
         while (email !== null) {
           try {
             if (email.messageClass === 'IPM.Note' || email.messageClass?.startsWith('IPM.Note')) {
-              // Costruisci EML grezzo dal PST
-              const from = email.senderEmailAddress || '';
-              const to = email.displayTo || '';
-              const subject = email.subject || '';
-              const date = email.messageDeliveryTime || email.clientSubmitTime || new Date();
-              const body = email.body || email.bodyHTML || '';
-              const isHtml = !!email.bodyHTML;
+              // Ricostruisce un MIME completo dal PST: Message-ID ORIGINALE (per il
+              // dedup) e ALLEGATI inclusi (prima venivano persi e il Message-ID
+              // veniva rigenerato, rompendo la deduplica sui re-import e con l'IMAP).
+              const rawSender = email.senderEmailAddress || '';
+              const from = rawSender.includes('@')
+                ? (email.senderName ? { name: email.senderName, address: rawSender } : rawSender)
+                : (email.senderName ? `"${email.senderName}" <sconosciuto@import.local>` : 'sconosciuto@import.local');
+              const dateVal = email.messageDeliveryTime || email.clientSubmitTime || new Date();
+              const date = dateVal instanceof Date ? dateVal : new Date(dateVal);
+              const midRaw = email.internetMessageId || `pst-${Date.now()}-${Math.random().toString(36).slice(2)}@import`;
+              const messageId = midRaw.replace(/^<|>$/g, '');
 
-              const rawEml = [
-                `From: ${email.senderName ? `"${email.senderName}" <${from}>` : from}`,
-                `To: ${to}`,
-                `Subject: ${subject}`,
-                `Date: ${date instanceof Date ? date.toUTCString() : new Date(date).toUTCString()}`,
-                `Message-ID: <pst-${Date.now()}-${Math.random().toString(36).slice(2)}@import>`,
-                `Content-Type: ${isHtml ? 'text/html' : 'text/plain'}; charset=utf-8`,
-                ``,
-                body,
-              ].join('\r\n');
+              // Allegati (letti dal PST; un allegato illeggibile non blocca l'email)
+              const attachments = [];
+              const nAtt = email.numberOfAttachments || 0;
+              for (let ai = 0; ai < nAtt; ai++) {
+                try {
+                  const att = email.getAttachment(ai);
+                  const size = att?.filesize || 0;
+                  if (!att || size <= 0) continue;
+                  const stream = att.fileInputStream;
+                  if (!stream) continue;
+                  const buf = Buffer.alloc(size);
+                  stream.readCompletely(buf);
+                  attachments.push({ filename: att.longFilename || att.filename || `allegato-${ai + 1}`, content: buf });
+                } catch { /* allegato illeggibile: salta */ }
+              }
+
+              const MailComposer = require('nodemailer/lib/mail-composer');
+              const composer = new MailComposer({
+                from,
+                to: email.displayTo || undefined,
+                cc: email.displayCc || undefined,
+                subject: email.subject || '',
+                date,
+                messageId,
+                text: email.body || undefined,
+                html: email.bodyHTML || undefined,
+                attachments: attachments.length ? attachments : undefined,
+              });
+              const rawEml = await new Promise((resolve, reject) => {
+                composer.compile().build((err, msg) => err ? reject(err) : resolve(msg));
+              });
 
               const result = await insertEmail(
-                db, parseInt(mailbox_id),
-                Buffer.from(rawEml, 'utf8'),
-                folderPath || 'PST Importato'
+                db, parseInt(mailbox_id), rawEml, folderPath || 'PST Importato'
               );
               if (result.skipped) skipped++;
               else inserted++;
