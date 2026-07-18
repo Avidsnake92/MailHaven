@@ -18,6 +18,11 @@
 - **Token plugin a rinnovo scorrevole:** ogni uso estende la scadenza a 30 giorni.
   I client attivi non scadono più in silenzio; i token inutilizzati muoiono
   comunque dopo 30 giorni.
+### Fixed
+- **Outlook: un mittente senza casella non blocca la coda.** Se si spedisce da un
+  account configurato in Outlook ma senza casella in MailHaven (es. una casella
+  personale), il messaggio rifiutato dal server (404/403) finisce nella cartella
+  "scartate" invece di restare in testa alla coda bloccando le inviate valide.
 
 ## [0.1.94] - 2026-07-16
 ### Added
