@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.95] - 2026-07-18
+### Added
+- **Archiviazione della posta inviata dai plugin.** Nuovo endpoint `POST /api/plugin/sent`:
+  riceve l'EML del messaggio appena spedito dal client, individua la casella del mittente
+  tra quelle accessibili all'utente del token e lo archivia in "Posta inviata"
+  (deduplica sul Message-ID: ritentare non crea doppioni).
+  - **Add-in Outlook (COM):** nuovo pulsante "Posta inviata" nella scheda MailHaven.
+    Ci si collega con le credenziali MailHaven (viene salvato solo il token plugin,
+    revocabile dai "Client collegati" — la password non viene memorizzata) e da quel
+    momento ogni email spedita viene ricostruita in EML (allegati e Message-ID
+    originali) e archiviata. Coda su disco con retry: se il server non è raggiungibile
+    l'email resta in coda e viene ritentata.
+  - **Estensione Thunderbird 1.1.0:** archiviazione automatica alla spedizione
+    (compose.onAfterSend, Thunderbird 102+) usando il collegamento già fatto dal popup.
+### Changed
+- **Token plugin a rinnovo scorrevole:** ogni uso estende la scadenza a 30 giorni.
+  I client attivi non scadono più in silenzio; i token inutilizzati muoiono
+  comunque dopo 30 giorni.
+
 ## [0.1.94] - 2026-07-16
 ### Added
 - **Legal Hold in blocco dall'archivio.** Selezionando una o piu email in Email
