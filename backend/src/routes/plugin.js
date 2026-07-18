@@ -91,7 +91,10 @@ const pluginAuth = async (req, res, next) => {
     if (new Date(pt.expires_at) < new Date()) return res.status(401).json({ error: 'Token scaduto' });
     if (!pt.active) return res.status(401).json({ error: 'Account disabilitato' });
     // Aggiorna last_used
-    await db.query('UPDATE plugin_tokens SET last_used_at=NOW() WHERE id=$1', [pt.id]);
+    // Rinnovo scorrevole: un client che si fa vivo resta valido (i token
+    // inutilizzati muoiono comunque dopo 30 giorni). Indispensabile per
+    // l'archiviazione della posta inviata, che lavora in background.
+    await db.query("UPDATE plugin_tokens SET last_used_at=NOW(), expires_at=GREATEST(expires_at, NOW() + interval '30 days') WHERE id=$1", [pt.id]);
     req.user = { id: pt.user_id, email: pt.email, full_name: pt.full_name, role: pt.role, client_id: pt.client_id, reseller_id: pt.reseller_id };
     next();
   } catch (err) {
@@ -279,6 +282,51 @@ router.get('/emails/:id/eml', pluginAuth, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.eml"`);
     res.send(rawBuf);
   } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── API per plugin: archiviazione posta inviata ────────────────────────────
+// Riceve l'EML grezzo del messaggio appena spedito dal client (add-in Outlook
+// o estensione Thunderbird), individua la casella del mittente tra quelle
+// accessibili all'utente del token e lo archivia in "Posta inviata".
+// Dedup sul Message-ID originale (insertEmail): rispedire lo stesso file
+// non crea doppioni, quindi i client possono ritentare senza rischi.
+router.post('/sent', pluginAuth, express.raw({ type: () => true, limit: '100mb' }), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) {
+      return res.status(400).json({ error: 'Corpo EML mancante' });
+    }
+    const { simpleParser } = require('mailparser');
+    const parsed = await simpleParser(req.body);
+    const from = (parsed.from?.value?.[0]?.address || '').toLowerCase();
+
+    const allowedIds = await getPluginMailboxIds(db, req.user);
+    let mailboxId = parseInt(req.query.mailbox_id, 10) || null;
+    if (mailboxId) {
+      if (!allowedIds.includes(mailboxId)) {
+        return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+      }
+    } else if (from) {
+      const r = await db.query(
+        'SELECT id FROM mailboxes WHERE LOWER(email)=$1 AND active=true AND id=ANY($2) LIMIT 1',
+        [from, allowedIds]
+      );
+      mailboxId = r.rows[0]?.id || null;
+    }
+    if (!mailboxId) {
+      return res.status(404).json({
+        error: `Nessuna casella archivio corrisponde al mittente "${from}"`,
+        code: 'MH-1210',
+      });
+    }
+
+    const { insertEmail } = require('./import');
+    const result = await insertEmail(db, mailboxId, req.body, 'Posta inviata');
+    if (result.skipped) return res.status(409).json({ skipped: true, message: 'Email già archiviata' });
+    res.json({ archived: true, mailbox_id: mailboxId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Manifest dinamico Outlook (sostituisce MAILVAULT_URL) ──────────────────
