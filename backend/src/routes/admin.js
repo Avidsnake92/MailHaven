@@ -520,6 +520,59 @@ router.post('/mailboxes', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Errore server' }); }
 });
 
+// POST /admin/mailboxes/bulk — creazione IN BLOCCO di caselle sotto un cliente.
+// items: [{ email, password?, imap_host?, imap_port?, imap_tls?, imap_user?, display_name? }]
+// Salta le caselle già esistenti, rispetta i limiti di licenza e del cliente.
+router.post('/mailboxes/bulk', async (req, res) => {
+  const db = req.app.locals.db;
+  const { client_id, items } = req.body || {};
+  const { encrypt } = require('../services/crypto');
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Nessuna casella da importare' });
+  try {
+    const ownerClientId = scopedClientId(req, client_id);
+    if (!(await checkClientAccess(db, req, res, ownerClientId))) return;
+
+    // Quante caselle possiamo ancora creare secondo l'edizione
+    const ent = await require('../services/license').getEntitlements(db);
+    let remaining = Number.POSITIVE_INFINITY;
+    if (ent.lim.mailboxes != null) {
+      const n = (await db.query('SELECT COUNT(*)::int AS n FROM mailboxes')).rows[0].n;
+      remaining = Math.max(0, ent.lim.mailboxes - n);
+    }
+
+    const created = [], skipped = [], failed = [];
+    for (const raw of items) {
+      const email = String(raw?.email || '').trim().toLowerCase();
+      try {
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          failed.push({ email: raw?.email || '(vuoto)', error: 'Indirizzo non valido' }); continue;
+        }
+        const exists = (await db.query('SELECT id FROM mailboxes WHERE lower(email)=$1', [email])).rows[0];
+        if (exists) { skipped.push({ email, reason: 'già presente' }); continue; }
+        if (created.length >= remaining) {
+          failed.push({ email, error: `Limite caselle dell'edizione ${ent.edition} raggiunto` }); continue;
+        }
+        const limitErr = await checkClientLimits(db, ownerClientId, { addMailbox: true });
+        if (limitErr) { failed.push({ email, error: limitErr }); continue; }
+
+        const domain = email.split('@')[1];
+        await db.query(
+          `INSERT INTO mailboxes (client_id, email, display_name, imap_host, imap_port, imap_tls, imap_user, imap_password_encrypted)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [ownerClientId, email, raw.display_name || null,
+           (raw.imap_host && String(raw.imap_host).trim()) || `mail.${domain}`,
+           parseInt(raw.imap_port) || 993,
+           raw.imap_tls !== false,
+           (raw.imap_user && String(raw.imap_user).trim()) || email,
+           raw.password ? encrypt(String(raw.password)) : null]
+        );
+        created.push(email);
+      } catch (e) { failed.push({ email: email || '(?)', error: e.message }); }
+    }
+    res.json({ created: created.length, skipped: skipped.length, failedCount: failed.length, failed: failed.slice(0, 50), skippedList: skipped.slice(0, 50) });
+  } catch (err) { console.error('[bulk mailboxes]', err.message); res.status(500).json({ error: 'Errore server' }); }
+});
+
 router.put('/mailboxes/:id', async (req, res, next) => {
   const db = req.app.locals.db;
   const { client_id, email, display_name, active, imap_host, imap_port, imap_tls, imap_user, imap_password } = req.body;

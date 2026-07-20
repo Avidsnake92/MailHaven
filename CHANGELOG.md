@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.95] - 2026-07-16
+### Added
+- **Import in blocco delle caselle sotto un cliente.** In Utenti e Caselle -> Caselle
+  Email c'e' ora "Importa caselle": si sceglie il cliente e si incolla l'elenco (una
+  per riga, formato `email;password;host;porta` — solo l'email e' obbligatoria; host
+  e porta di default `mail.dominio` e `993`). Salta le caselle gia' presenti, segnala
+  le righe non valide e rispetta i limiti di licenza e del cliente.
+  Endpoint `POST /admin/mailboxes/bulk`.
+### Fixed
+- **Le finestre di dialogo non erano centrate nello schermo.** L'animazione di
+  ingresso delle pagine usava una `transform`: cosi' il contenitore diventava il
+  riferimento per gli elementi in `position: fixed` e i modal si centravano dentro
+  il riquadro della pagina invece che nella finestra. Ora l'animazione usa solo
+  l'opacita' e tutti i dialoghi dell'app sono centrati correttamente.
+
 ## [0.1.95] - 2026-07-18
 ### Added
 - **Archiviazione della posta inviata dai plugin.** Nuovo endpoint `POST /api/plugin/sent`:

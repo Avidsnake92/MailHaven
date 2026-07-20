@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
-import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight, Store, KeyRound, Download } from 'lucide-react'
+import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight, Store, KeyRound, Download, Upload } from 'lucide-react'
 
 const BASE_TABS = ['Clienti', 'Utenti', 'Caselle Email', 'Storage']
 
@@ -1068,11 +1068,40 @@ function MailboxesTab({ branding, user }) {
   })
   const [clientUsers, setClientUsers] = useState([])
   const [assignedUsers, setAssignedUsers] = useState([])
+  // Import in blocco di caselle
+  const [showBulk, setShowBulk] = useState(false)
+  const [bulkClient, setBulkClient] = useState('')
+  const [bulkText, setBulkText] = useState('')
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkResult, setBulkResult] = useState(null)
 
   const load = async () => {
     setLoading(true)
     const [m, c] = await Promise.all([api.get('/admin/mailboxes'), api.get('/admin/clients')])
     setMailboxes(m.data); setClients(c.data); setLoading(false)
+  }
+
+  // Righe: email;password;host;porta  (separatore ; , o TAB — solo email è obbligatoria)
+  const parseBulk = (text) => text.split(/\r?\n/)
+    .map(l => l.trim()).filter(l => l && !l.startsWith('#'))
+    .map(line => {
+      const p = line.split(/[;,\t]/).map(s => s.trim())
+      return { email: p[0], password: p[1] || '', imap_host: p[2] || '', imap_port: p[3] || '' }
+    })
+
+  const bulkItems = parseBulk(bulkText)
+  const bulkValid = bulkItems.filter(i => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(i.email || ''))
+
+  const handleBulkImport = async () => {
+    if (!bulkClient || !bulkValid.length) return
+    setBulkLoading(true); setBulkResult(null)
+    try {
+      const r = await api.post('/admin/mailboxes/bulk', { client_id: bulkClient, items: bulkItems })
+      setBulkResult(r.data)
+      await load()
+    } catch (e) {
+      setBulkResult({ error: e.response?.data?.error || 'Errore durante l\'import' })
+    } finally { setBulkLoading(false) }
   }
 
   const loadClientUsers = async (clientId) => {
@@ -1271,6 +1300,12 @@ function MailboxesTab({ branding, user }) {
           </div>
           <div className="flex items-center gap-2">
             {syncMsg && <span className="text-xs text-green-600 font-medium">{syncMsg}</span>}
+            <button onClick={() => { setBulkText(''); setBulkResult(null); setBulkClient(clients[0]?.id ? String(clients[0].id) : ''); setShowBulk(true) }}
+              className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">
+              <Upload size={14} />
+              <span className="hidden sm:inline">Importa caselle</span>
+              <span className="sm:hidden">Importa</span>
+            </button>
             <button onClick={openNew}
               className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white"
               style={{ background: branding.primary_color || '#2563eb' }}>
@@ -1431,6 +1466,68 @@ function MailboxesTab({ branding, user }) {
           {oauthToast.msg}
           <button onClick={() => setOauthToast(null)} className="ml-2 opacity-70 hover:opacity-100"><X size={14} /></button>
         </div>
+      )}
+
+      {/* Import in blocco */}
+      {showBulk && (
+        <Modal title="Importa caselle in blocco" onClose={() => setShowBulk(false)}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Cliente di destinazione</label>
+              <select value={bulkClient} onChange={e => setBulkClient(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <option value="">— seleziona —</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Elenco caselle (una per riga)</label>
+              <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={9}
+                placeholder={"email@dominio.it;password\ninfo@dominio.it;password;mail.dominio.it;993\naltro@dominio.it"}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono" />
+              <p className="text-xs text-gray-500 mt-1">
+                Formato: <span className="font-mono">email;password;host;porta</span> — solo l'email è obbligatoria.
+                Se ometti host e porta vengono usati <span className="font-mono">mail.dominio</span> e <span className="font-mono">993</span>.
+                Separatori ammessi: <span className="font-mono">;</span> <span className="font-mono">,</span> o TAB. Le righe che iniziano con <span className="font-mono">#</span> sono ignorate.
+              </p>
+              {bulkText.trim() && (
+                <p className="text-xs mt-2">
+                  <span className="text-gray-700 font-medium">{bulkValid.length}</span> caselle valide rilevate
+                  {bulkItems.length !== bulkValid.length && <span className="text-amber-600"> · {bulkItems.length - bulkValid.length} righe non valide (verranno segnalate)</span>}
+                </p>
+              )}
+            </div>
+
+            {bulkResult && (
+              <div className={`text-sm rounded-lg px-3 py-2 ${bulkResult.error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                {bulkResult.error ? bulkResult.error : (
+                  <>
+                    <p className="font-medium">{bulkResult.created} caselle create
+                      {bulkResult.skipped > 0 && ` · ${bulkResult.skipped} già presenti`}
+                      {bulkResult.failedCount > 0 && ` · ${bulkResult.failedCount} non riuscite`}
+                    </p>
+                    {bulkResult.failed?.length > 0 && (
+                      <ul className="mt-1 text-xs text-red-600 list-disc list-inside max-h-32 overflow-y-auto">
+                        {bulkResult.failed.map((f, i) => <li key={i}>{f.email}: {f.error}</li>)}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setShowBulk(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Chiudi</button>
+              <button onClick={handleBulkImport} disabled={bulkLoading || !bulkClient || !bulkValid.length}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white disabled:opacity-50"
+                style={{ background: branding.primary_color || '#2563eb' }}>
+                {bulkLoading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                Importa {bulkValid.length > 0 ? bulkValid.length : ''} caselle
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Form modal */}
