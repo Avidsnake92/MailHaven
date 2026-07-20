@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.95] - 2026-07-16
+## [0.1.96] - 2026-07-20
 ### Added
 - **Import in blocco delle caselle sotto un cliente.** In Utenti e Caselle -> Caselle
   Email c'e' ora "Importa caselle": si sceglie il cliente e si incolla l'elenco (una
