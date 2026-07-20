@@ -383,6 +383,72 @@ function UserPicker({ users, selected, onChange }) {
   )
 }
 
+// Selettore caselle per la scheda Utente. Speculare a UserPicker: prima si
+// poteva assegnare solo dal lato casella, una alla volta.
+function MailboxPicker({ mailboxes, selected, onChange }) {
+  const [search, setSearch] = useState('')
+  const filtered = mailboxes.filter(m =>
+    m.email.toLowerCase().includes(search.toLowerCase()) ||
+    (m.display_name || '').toLowerCase().includes(search.toLowerCase())
+  )
+  const allIds = filtered.map(m => m.id)
+  const allSelected = allIds.length > 0 && allIds.every(id => selected.includes(id))
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
+        <Search size={13} className="text-gray-400 shrink-0" />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Cerca casella..."
+          className="flex-1 text-sm bg-transparent outline-none text-gray-700 placeholder-gray-400"
+        />
+        {selected.length > 0 && (
+          <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-full">
+            {selected.length}
+          </span>
+        )}
+      </div>
+      {allIds.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange(prev => allSelected
+            ? prev.filter(id => !allIds.includes(id))
+            : [...new Set([...prev, ...allIds])])}
+          className="w-full text-left px-3 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50 border-b border-gray-100"
+        >
+          {allSelected ? 'Deseleziona tutte' : `Seleziona tutte (${allIds.length})`}
+        </button>
+      )}
+      <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
+        {filtered.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-4">Nessuna casella trovata</p>
+        )}
+        {filtered.map(m => (
+          <label key={m.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+            <input type="checkbox"
+              checked={selected.includes(m.id)}
+              onChange={e => onChange(prev =>
+                e.target.checked ? [...prev, m.id] : prev.filter(id => id !== m.id)
+              )}
+              className="rounded text-blue-600 shrink-0"
+            />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Inbox size={14} className="text-gray-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">{m.email}</p>
+                {m.display_name && <p className="text-xs text-gray-400 truncate">{m.display_name}</p>}
+              </div>
+            </div>
+            {selected.includes(m.id) && <Check size={14} className="text-blue-500 shrink-0" />}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ActionMenu({ onEdit, onDelete }) {
   const [open, setOpen] = useState(false)
   return (
@@ -811,6 +877,9 @@ function UsersTab({ branding, user }) {
   const [saving, setSaving] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+  const [mailboxes, setMailboxes] = useState([])
+  const [assignedMailboxes, setAssignedMailboxes] = useState([])
+  const [mbLoaded, setMbLoaded] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -819,14 +888,41 @@ function UsersTab({ branding, user }) {
   }
   useEffect(() => { load() }, [])
 
-  const openNew = () => { setForm({ email: '', password: '', full_name: '', role: 'user', client_id: '', active: true }); setEditItem(null); setShowForm(true) }
-  const openEdit = (u) => { setForm({ email: u.email, password: '', full_name: u.full_name || '', role: u.role, client_id: u.client_id || '', active: u.active }); setEditItem(u); setShowForm(true) }
+  // Caselle del cliente selezionato + quelle gia' assegnate all'utente.
+  useEffect(() => {
+    if (!showForm || form.role !== 'user' || !form.client_id) { setMailboxes([]); return }
+    api.get('/admin/mailboxes')
+      .then(r => setMailboxes((r.data || []).filter(m => String(m.client_id) === String(form.client_id))))
+      .catch(() => setMailboxes([]))
+  }, [showForm, form.role, form.client_id])
+
+  const loadAssignedMailboxes = async (userId) => {
+    if (!userId) { setAssignedMailboxes([]); setMbLoaded(true); return }
+    setMbLoaded(false)
+    try {
+      const r = await api.get(`/admin/users/${userId}/mailboxes`)
+      setAssignedMailboxes((r.data || []).map(x => x.mailbox_id))
+      setMbLoaded(true)
+    } catch { setAssignedMailboxes([]); setMbLoaded(false) }
+  }
+
+  const openNew = () => { setForm({ email: '', password: '', full_name: '', role: 'user', client_id: '', active: true }); setEditItem(null); setAssignedMailboxes([]); setMbLoaded(true); setShowForm(true) }
+  const openEdit = (u) => { setForm({ email: u.email, password: '', full_name: u.full_name || '', role: u.role, client_id: u.client_id || '', active: u.active }); setEditItem(u); loadAssignedMailboxes(u.id); setShowForm(true) }
 
   const handleSave = async () => {
     setSaving(true)
     try {
+      let userId = editItem?.id
       if (editItem) await api.put(`/admin/users/${editItem.id}`, { ...form, client_id: form.client_id || null })
-      else await api.post('/admin/users', { ...form, client_id: form.client_id || null })
+      else {
+        const res = await api.post('/admin/users', { ...form, client_id: form.client_id || null })
+        userId = res.data?.id
+      }
+      // Come per le caselle: si riscrive solo se la lista e' stata caricata,
+      // altrimenti un salvataggio qualsiasi azzererebbe gli accessi.
+      if (userId && form.role === 'user' && mbLoaded) {
+        await api.post(`/admin/users/${userId}/mailboxes`, { mailbox_ids: assignedMailboxes })
+      }
       setShowForm(false); load()
     } catch (err) { alert(err.response?.data?.error || 'Errore') } finally { setSaving(false) }
   }
@@ -965,13 +1061,46 @@ function UsersTab({ branding, user }) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">Cliente</label>
-                <select value={form.client_id} onChange={e => { setForm({ ...form, client_id: e.target.value }); loadClientUsers(e.target.value); setAssignedUsers([]); }}
+                {/* Erano rimaste qui due chiamate di MailboxesTab
+                    (loadClientUsers / setAssignedUsers) non definite in questo
+                    componente: cambiare cliente lanciava un ReferenceError. */}
+                <select value={form.client_id} onChange={e => { setForm({ ...form, client_id: e.target.value }); setAssignedMailboxes([]); }}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none">
                   <option value="">— Nessuno —</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{clientLabel(c)}</option>)}
                 </select>
               </div>
             </div>
+
+            {/* Caselle assegnate — prima si poteva fare solo dal lato casella */}
+            {form.role === 'user' && form.client_id && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2">
+                  Caselle accessibili
+                </label>
+                {editItem && !mbLoaded ? (
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <span>Assegnazioni non caricate: verranno lasciate invariate al salvataggio. Riapri l'utente per modificarle.</span>
+                  </div>
+                ) : mailboxes.length === 0 ? (
+                  <p className="text-xs text-gray-400 border border-gray-200 rounded-lg px-3 py-3">
+                    Nessuna casella per questo cliente.
+                  </p>
+                ) : (
+                  <>
+                    <MailboxPicker
+                      mailboxes={mailboxes}
+                      selected={assignedMailboxes}
+                      onChange={setAssignedMailboxes}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Un utente vede solo le caselle selezionate. Gli admin vedono tutte quelle del cliente.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
             {editItem && (
               <div className="flex items-center gap-3">
                 <label className="text-xs font-medium text-gray-600">Stato</label>
@@ -1097,6 +1226,7 @@ function MailboxesTab({ branding, user }) {
   })
   const [clientUsers, setClientUsers] = useState([])
   const [assignedUsers, setAssignedUsers] = useState([])
+  const [assignedLoaded, setAssignedLoaded] = useState(false)
   // Import in blocco di caselle
   const [showBulk, setShowBulk] = useState(false)
   const [bulkClient, setBulkClient] = useState('')
@@ -1141,12 +1271,18 @@ function MailboxesTab({ branding, user }) {
     } catch { setClientUsers([]) }
   }
 
+  // `assignedLoaded` distingue "nessun utente assegnato" da "non lo so ancora".
+  // Il salvataggio riscrive le assegnazioni con DELETE+INSERT: senza questa
+  // distinzione, salvare una casella mentre la lista non era caricata (o la sua
+  // GET era fallita) cancellava in silenzio gli accessi gia' esistenti.
   const loadAssignedUsers = async (mailboxId) => {
-    if (!mailboxId) { setAssignedUsers([]); return }
+    if (!mailboxId) { setAssignedUsers([]); setAssignedLoaded(true); return } // casella nuova: vuota per davvero
+    setAssignedLoaded(false)
     try {
       const res = await api.get(`/admin/mailboxes/${mailboxId}/users`)
       setAssignedUsers(res.data.map(u => u.user_id) || [])
-    } catch { setAssignedUsers([]) }
+      setAssignedLoaded(true)
+    } catch { setAssignedUsers([]); setAssignedLoaded(false) }
   }
 
   const [oauthToast, setOauthToast] = useState(null) // { type: 'success'|'error', msg }
@@ -1223,7 +1359,9 @@ function MailboxesTab({ branding, user }) {
         mailboxId = res.data.id
       }
       // Salva utenti assegnati
-      if (mailboxId && assignedUsers.length >= 0) {
+      // Solo se le assegnazioni sono state davvero caricate: altrimenti si
+      // riscriverebbe la lista con uno stato che non rispecchia il server.
+      if (mailboxId && assignedLoaded) {
         await api.post(`/admin/mailboxes/${mailboxId}/users`, { user_ids: assignedUsers })
       }
       setShowForm(false); load()
@@ -1623,12 +1761,21 @@ function MailboxesTab({ branding, user }) {
                 <label className="block text-xs font-semibold text-gray-600 mb-2">
                   Utenti con accesso alla casella
                 </label>
-                <UserPicker
-                  users={clientUsers.filter(u => u.role !== 'superadmin')}
-                  selected={assignedUsers}
-                  onChange={setAssignedUsers}
-                />
-                <p className="text-xs text-gray-400 mt-1">Gli admin vedono automaticamente tutte le caselle del cliente</p>
+                {editItem && !assignedLoaded ? (
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <span>Assegnazioni non caricate: verranno lasciate invariate al salvataggio. Riapri la casella per modificarle.</span>
+                  </div>
+                ) : (
+                  <>
+                    <UserPicker
+                      users={clientUsers.filter(u => u.role !== 'superadmin')}
+                      selected={assignedUsers}
+                      onChange={setAssignedUsers}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Gli admin vedono automaticamente tutte le caselle del cliente</p>
+                  </>
+                )}
               </div>
             )}
 

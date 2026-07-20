@@ -737,6 +737,19 @@ router.get('/mailboxes/:id/sync-status', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
 });
 
+// GET /admin/users/:userId/mailboxes — caselle assegnate a un utente
+router.get('/users/:userId/mailboxes', async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    if (!(await checkUser(db, req, res, req.params.userId))) return;
+    const r = await db.query(
+      'SELECT mailbox_id FROM user_mailboxes WHERE user_id=$1',
+      [req.params.userId]
+    );
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: 'Errore server' }); }
+});
+
 // Assign mailboxes to user
 router.post('/users/:userId/mailboxes', async (req, res) => {
   const db = req.app.locals.db;

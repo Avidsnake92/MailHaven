@@ -150,17 +150,14 @@ router.get('/global-search', authMiddleware, require('../services/license').requ
   if (!search || search.trim().length < 2) return res.status(400).json({ error: 'Query troppo corta (min 2 caratteri)', code: 'MH-1406' });
   const offset = Math.max(0, (parseInt(page) - 1) * parseInt(limit));
   try {
+    // Stessa regola dell'archivio: getUserMailboxIds e' l'unica fonte di verita'.
+    // Prima qui si concedeva anche per appartenenza al cliente
+    // (m.client_id IN (SELECT client_id FROM users WHERE id=$1)): un utente
+    // trovava cosi' il contenuto di caselle del suo cliente che NON gli erano
+    // assegnate, mentre l'archivio gliele negava.
     let mailboxIds = null;
     if (req.user.role !== 'superadmin') {
-      const mbR = await db.query(
-        `SELECT m.id FROM mailboxes m
-         LEFT JOIN user_mailboxes um ON um.mailbox_id = m.id
-         WHERE m.active=true AND (um.user_id=$1 OR m.client_id IN (
-           SELECT client_id FROM users WHERE id=$1
-         ))`,
-        [req.user.id]
-      );
-      mailboxIds = mbR.rows.map(r => r.id);
+      mailboxIds = await getUserMailboxIds(db, req.user);
       if (!mailboxIds.length) return res.json({ items: [], total: 0, totalPages: 0, page: 1 });
     }
 

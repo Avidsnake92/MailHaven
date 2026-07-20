@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.1.99] - 2026-07-20
+### Security
+- **La ricerca globale scavalcava le assegnazioni delle caselle.** Concedeva
+  l'accesso per appartenenza al cliente (`m.client_id IN (...)`), mentre
+  archivio e dashboard lo concedono per casella assegnata: un utente trovava
+  cosi' il contenuto di caselle del proprio cliente che non gli erano state
+  assegnate. Ora la ricerca globale usa `getUserMailboxIds`, la stessa e unica
+  fonte di verita' dell'archivio. Verificato: con 1 casella su 2 assegnate, la
+  vecchia regola ne concedeva 2, la nuova 1.
+
+### Fixed
+- **Salvare una casella poteva azzerare gli accessi in silenzio.** La condizione
+  `assignedUsers.length >= 0` era sempre vera e il salvataggio riscrive le
+  assegnazioni con DELETE+INSERT: salvare prima che la lista utenti fosse
+  caricata (o dopo una sua GET fallita) cancellava gli accessi esistenti senza
+  dire nulla. Ora si distingue "nessun utente assegnato" da "non ancora
+  caricato": nel dubbio le assegnazioni restano intatte e il form lo dichiara.
+- **Cambiare il cliente nella scheda Utente lanciava un ReferenceError.** Il
+  menu chiamava `loadClientUsers()` e `setAssignedUsers()`, che appartengono a
+  MailboxesTab e non esistono in quel componente.
+- **L'import PST perdeva la gerarchia delle cartelle.** Quando il crawler
+  ritrovava sul server una mail gia' archiviata ne riallineava il percorso: per
+  le mail importate da PST questo le appiattiva su INBOX, cancellando la
+  struttura di cartelle che su un cliente POP3 esiste solo nell'archivio. Nuova
+  colonna `archived_emails.source`: le mail importate non vengono piu'
+  ripercorse, quelle prese via IMAP continuano a seguire gli spostamenti.
+
+### Added
+- **Assegnazione delle caselle dalla scheda Utente.** L'endpoint di scrittura
+  esisteva gia' ma il frontend non lo chiamava: si poteva assegnare solo
+  aprendo una casella per volta. Ora la scheda utente ha un selettore caselle
+  con ricerca e "seleziona tutte", e c'e' il nuovo
+  `GET /admin/users/:userId/mailboxes` per rileggere le assegnazioni.
+
 ## [0.1.98] - 2026-07-20
 ### Changed
 - **Anagrafica cliente: "Nome referente" non era il referente.** Quel campo

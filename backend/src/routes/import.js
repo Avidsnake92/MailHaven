@@ -93,8 +93,8 @@ const insertEmail = async (db, mailboxId, rawBuffer, folderPath, overwrite = fal
     `INSERT INTO archived_emails
      (mailbox_id, uid, message_id, subject, sender_name, sender_email,
       recipients, cc, bcc, sent_at, path, has_attachments, attachments,
-      raw, body_html, body_text, headers, size_bytes, compressed_size_bytes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+      raw, body_html, body_text, headers, size_bytes, compressed_size_bytes, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'import')
      ON CONFLICT (mailbox_id, uid, path) DO NOTHING`,
     [
       mailboxId, uid, msgId,

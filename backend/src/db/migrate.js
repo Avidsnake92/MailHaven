@@ -231,6 +231,15 @@ const migrate = async (db) => {
   )`);
   await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_spam_whitelist_val ON spam_whitelist(lower(value), kind)`);
 
+  // Origine della mail archiviata: 'import' (PST/EML/MBOX/ZIP) oppure NULL/'imap'
+  // (crawler). Serve al crawler per NON riscrivere il percorso delle mail
+  // importate: la gerarchia di cartelle di un PST esiste solo nell'archivio e
+  // ritrovare la stessa mail in INBOX sul server la appiattirebbe.
+  await run(`ALTER TABLE archived_emails ADD COLUMN IF NOT EXISTS source VARCHAR(16)`);
+  // Backfill prudente: solo i percorsi generati dagli import precedenti.
+  await run(`UPDATE archived_emails SET source='import'
+             WHERE source IS NULL AND (path IN ('Importata','PST Importato'))`);
+
   // Referente del cliente: PRIMA il campo "Nome referente" del form scriveva in
   // clients.name, che pero' e' l'identita' del cliente (elenco, tendine, storage).
   // Chi lo compilava a dovere si ritrovava l'azienda elencata col nome di una

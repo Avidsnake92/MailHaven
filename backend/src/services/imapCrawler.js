@@ -378,7 +378,7 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                   // Se message_id già archiviato, non reinserire — soprattutto se eliminato da policy
                   if (parsed.messageId) {
                     const exists = await db.query(
-                      'SELECT id, path, badge_type, is_deleted FROM archived_emails WHERE mailbox_id=$1 AND message_id=$2 LIMIT 1',
+                      'SELECT id, path, badge_type, is_deleted, source FROM archived_emails WHERE mailbox_id=$1 AND message_id=$2 LIMIT 1',
                       [mailbox.id, parsed.messageId]
                     );
                     if (exists.rows.length > 0) {
@@ -386,7 +386,12 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
                       if (ex.badge_type === 'archived') {
                         return; // non incrementare processed
                       }
-                      if (ex.path !== folderPath && !ex.is_deleted) {
+                      // Il riallineamento del percorso segue le mail spostate a
+                      // mano sul server, ma NON deve toccare quelle importate:
+                      // la gerarchia di cartelle di un PST vive solo qui, e su
+                      // un cliente POP3 il server ha solo INBOX — riscriverla
+                      // appiattirebbe l'archivio proprio dove sta il suo valore.
+                      if (ex.source !== 'import' && ex.path !== folderPath && !ex.is_deleted) {
                         await db.query(
                           'UPDATE archived_emails SET path=$1 WHERE id=$2',
                           [folderPath, ex.id]
