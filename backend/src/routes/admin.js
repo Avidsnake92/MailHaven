@@ -192,7 +192,7 @@ router.get('/clients', async (req, res) => {
 
 router.post('/clients', requireRole('superadmin', 'reseller'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, quota_bytes, max_mailboxes, max_users, reseller_id } = req.body;
+  const { name, contact_name, contact_email, contact_phone, quota_bytes, max_mailboxes, max_users, reseller_id } = req.body;
   try {
     // Limite aziende dell'edizione (Community = 1)
     const _ent = await require('../services/license').getEntitlements(db);
@@ -208,8 +208,11 @@ router.post('/clients', requireRole('superadmin', 'reseller'), async (req, res) 
       if (allocErr) return res.status(409).json({ error: allocErr, code: 'MH-1110' });
     }
     const result = await db.query(
-      'INSERT INTO clients (name, company, quota_bytes, max_mailboxes, max_users, reseller_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [name, company, ql, mb, us, ownerResellerId]
+      `INSERT INTO clients (name, contact_name, contact_email, contact_phone,
+                            quota_bytes, max_mailboxes, max_users, reseller_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, contact_name || null, contact_email || null, contact_phone || null,
+       ql, mb, us, ownerResellerId]
     );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }
@@ -217,7 +220,7 @@ router.post('/clients', requireRole('superadmin', 'reseller'), async (req, res) 
 
 router.put('/clients/:id', requireRole('superadmin', 'reseller'), async (req, res) => {
   const db = req.app.locals.db;
-  const { name, company, active, quota_bytes, max_mailboxes, max_users, reseller_id } = req.body;
+  const { name, contact_name, contact_email, contact_phone, active, quota_bytes, max_mailboxes, max_users, reseller_id } = req.body;
   try {
     const existing = (await db.query('SELECT reseller_id FROM clients WHERE id=$1', [req.params.id])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Cliente non trovato', code: 'MH-1108' });
@@ -233,11 +236,15 @@ router.put('/clients/:id', requireRole('superadmin', 'reseller'), async (req, re
       const allocErr = await checkResellerAllocation(db, ownerResellerId, req.params.id, { quota_bytes: ql, max_mailboxes: mb, max_users: us });
       if (allocErr) return res.status(409).json({ error: allocErr, code: 'MH-1110' });
     }
+    // company NON e' piu' nella UPDATE: il form non lo invia piu' e passarlo
+    // undefined lo azzererebbe in silenzio sulle installazioni che lo usavano.
     const result = await db.query(
-      `UPDATE clients SET name=$1, company=$2, active=$3,
-         quota_bytes=$4, max_mailboxes=$5, max_users=$6, reseller_id=$7, updated_at=NOW()
-       WHERE id=$8 RETURNING *`,
-      [name, company, active !== undefined ? active : true, ql, mb, us, ownerResellerId, req.params.id]
+      `UPDATE clients SET name=$1, contact_name=$2, contact_email=$3, contact_phone=$4,
+         active=$5, quota_bytes=$6, max_mailboxes=$7, max_users=$8,
+         reseller_id=$9, updated_at=NOW()
+       WHERE id=$10 RETURNING *`,
+      [name, contact_name || null, contact_email || null, contact_phone || null,
+       active !== undefined ? active : true, ql, mb, us, ownerResellerId, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }

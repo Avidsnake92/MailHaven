@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
+import { clientLabel } from '../utils/clientLabel'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
 import {
@@ -219,7 +220,7 @@ export default function Antispam() {
               <select value={selectedClient || ''} onChange={e => setSelectedClient(e.target.value || null)}
                 className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none">
                 <option value="">— Seleziona —</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.company ? `(${c.company})` : ''}</option>)}
+                {clients.map(c => <option key={c.id} value={c.id}>{clientLabel(c)}</option>)}
               </select>
             </div>
           )}

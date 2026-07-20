@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.98] - 2026-07-20
+### Changed
+- **Anagrafica cliente: "Nome referente" non era il referente.** Quel campo
+  scriveva in `clients.name`, che e' l'identita' del cliente in tutto il
+  prodotto (elenco, tendine di Dashboard/Antispam/Storage, intestazione delle
+  caselle, report): chi lo compilava come chiedeva l'etichetta si ritrovava
+  l'azienda elencata col nome di una persona. Ora:
+  - il campo si chiama **"Nome cliente / Ragione sociale"**, con nota esplicita
+    su dove comparira';
+  - nasce un blocco **Referente** vero (nome, email, telefono) su tre nuove
+    colonne `clients.contact_name/contact_email/contact_phone`;
+  - il campo "Azienda", che duplicava il nome, e' stato tolto dal form. La
+    colonna `company` NON viene cancellata ne' toccata dalla UPDATE (le
+    installazioni che la usavano conservano il dato) e viene ancora mostrata,
+    ma solo quando aggiunge un'informazione: mai piu' "Acme (Acme)".
+  - l'elenco Clienti mostra la colonna **Referente** al posto di "Azienda".
+- Le notifiche restano indirizzate all'utente admin del cliente: il
+  `contact_email` per ora e' solo anagrafico.
+
 ## [0.1.97] - 2026-07-20
 ### Fixed
 - **Caselle PEC non sincronizzabili per host preconfigurati obsoleti.** Alcuni

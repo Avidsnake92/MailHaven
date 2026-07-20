@@ -231,6 +231,14 @@ const migrate = async (db) => {
   )`);
   await run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_spam_whitelist_val ON spam_whitelist(lower(value), kind)`);
 
+  // Referente del cliente: PRIMA il campo "Nome referente" del form scriveva in
+  // clients.name, che pero' e' l'identita' del cliente (elenco, tendine, storage).
+  // Chi lo compilava a dovere si ritrovava l'azienda elencata col nome di una
+  // persona. Ora clients.name = ragione sociale e il referente sta qui.
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255)`);
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_email VARCHAR(320)`);
+  await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50)`);
+
     console.log('[Migration] Completata');
 
 };

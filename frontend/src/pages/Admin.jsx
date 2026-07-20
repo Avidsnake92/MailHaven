@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
+import { clientLabel } from '../utils/clientLabel'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../context/BrandingContext'
 import { Users, Building2, Inbox, Plus, Check, Loader2, MoreVertical, Pencil, Trash2, RefreshCw, ChevronDown, Search, X, Activity, AlertCircle, CheckCircle2, Clock, Eye, EyeOff, Zap, Pause, Play, ToggleLeft, ToggleRight, Store, KeyRound, Download, Upload } from 'lucide-react'
@@ -606,7 +607,7 @@ function ClientsTab({ branding, user }) {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [deleteItem, setDeleteItem] = useState(null)
-  const [form, setForm] = useState({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' })
+  const [form, setForm] = useState({ name: '', contact_name: '', contact_email: '', contact_phone: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' })
   const [saving, setSaving] = useState(false)
   const [showItflow, setShowItflow] = useState(false)
   const GB = 1024 * 1024 * 1024
@@ -617,10 +618,12 @@ function ClientsTab({ branding, user }) {
   }
   useEffect(() => { load() }, [])
 
-  const openNew = () => { setForm({ name: '', company: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' }); setEditItem(null); setShowForm(true) }
+  const openNew = () => { setForm({ name: '', contact_name: '', contact_email: '', contact_phone: '', active: true, quota_gb: '', max_mailboxes: '', max_users: '' }); setEditItem(null); setShowForm(true) }
   const openEdit = (c) => {
     setForm({
-      name: c.name, company: c.company || '', active: c.active,
+      name: c.name,
+      contact_name: c.contact_name || '', contact_email: c.contact_email || '', contact_phone: c.contact_phone || '',
+      active: c.active,
       quota_gb: c.quota_bytes != null ? +(c.quota_bytes / GB).toFixed(2) : '',
       max_mailboxes: c.max_mailboxes ?? '',
       max_users: c.max_users ?? '',
@@ -631,7 +634,9 @@ function ClientsTab({ branding, user }) {
   const handleSave = async () => {
     setSaving(true)
     const payload = {
-      name: form.name, company: form.company, active: form.active,
+      name: form.name,
+      contact_name: form.contact_name, contact_email: form.contact_email, contact_phone: form.contact_phone,
+      active: form.active,
       quota_bytes: form.quota_gb === '' || form.quota_gb === null ? null : Math.round(Number(form.quota_gb) * GB),
       max_mailboxes: form.max_mailboxes === '' ? null : Number(form.max_mailboxes),
       max_users: form.max_users === '' ? null : Number(form.max_users),
@@ -680,7 +685,7 @@ function ClientsTab({ branding, user }) {
           <table className="w-full">
             <thead><tr className="border-b border-gray-100">
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
-              <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Azienda</th>
+              <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Referente</th>
               {user.role === 'superadmin' && <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rivenditore</th>}
               <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Stato</th>
               <th className="px-6 py-3 w-12"></th>
@@ -688,12 +693,17 @@ function ClientsTab({ branding, user }) {
             <tbody>{clients.map(c => (
               <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
               <td className="px-6 py-3.5">
-  <p className="text-sm font-medium text-gray-900">
-    {c.name}{c.company ? ` (${c.company})` : ''}
-  </p>
+  <p className="text-sm font-medium text-gray-900">{clientLabel(c)}</p>
   <p className="text-xs text-gray-500 sm:hidden">{c.active ? 'Attivo' : 'Disabilitato'}</p>
 </td>
-<td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">{c.company || '�'}</td>
+<td className="hidden sm:table-cell px-6 py-3.5 text-sm text-gray-600">
+  {c.contact_name || c.contact_email
+    ? <>
+        <span className="block">{c.contact_name || '—'}</span>
+        {c.contact_email && <span className="block text-xs text-gray-400">{c.contact_email}</span>}
+      </>
+    : '—'}
+</td>
                 {user.role === 'superadmin' && <td className="hidden md:table-cell px-6 py-3.5 text-sm text-gray-600">{c.reseller_name || 'Diretto'}</td>}
                 <td className="hidden sm:table-cell px-6 py-3.5">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -711,14 +721,33 @@ function ClientsTab({ branding, user }) {
         <Modal title={editItem ? 'Modifica cliente' : 'Nuovo cliente'} onClose={() => setShowForm(false)}>
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Nome referente *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Nome cliente / Ragione sociale *</label>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Mario Rossi" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Azienda</label>
-              <input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Acme Srl" />
+              <p className="mt-1 text-xs text-gray-400">È il nome con cui il cliente compare in elenchi, caselle e report.</p>
+            </div>
+
+            <div className="pt-1 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-3 mb-2">Referente</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Nome e cognome</label>
+                  <input value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Mario Rossi" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Email</label>
+                    <input type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="mario.rossi@acme.it" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Telefono</label>
+                    <input value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="02 1234567" />
+                  </div>
+                </div>
+              </div>
             </div>
             {editItem && (
               <div className="flex items-center gap-3">
@@ -939,7 +968,7 @@ function UsersTab({ branding, user }) {
                 <select value={form.client_id} onChange={e => { setForm({ ...form, client_id: e.target.value }); loadClientUsers(e.target.value); setAssignedUsers([]); }}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none">
                   <option value="">— Nessuno —</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ''}</option>)}
+                  {clients.map(c => <option key={c.id} value={c.id}>{clientLabel(c)}</option>)}
                 </select>
               </div>
             </div>
@@ -1584,7 +1613,7 @@ function MailboxesTab({ branding, user }) {
               <select value={form.client_id} onChange={e => { setForm({ ...form, client_id: e.target.value }); loadClientUsers(e.target.value); setAssignedUsers([]); }}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none">
                 <option value="">— Seleziona cliente —</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name} {c.company ? `(${c.company})` : ''}</option>)}
+                {clients.map(c => <option key={c.id} value={c.id}>{clientLabel(c)}</option>)}
               </select>
             </div>
 
