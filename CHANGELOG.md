@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.97] - 2026-07-20
+### Fixed
+- **Caselle PEC non sincronizzabili per host preconfigurati obsoleti.** Alcuni
+  provider PEC avevano nel prodotto un host IMAP che non esiste piu'
+  (`imap.legalmail.it`, `imap.peclib.it`, `imap.pec.namirial.com`,
+  `imap.pec.poste.it`, `imap.pec.tim.it`, `imap.registerpec.it`) e quell'host
+  **prevaleva su quello scritto in configurazione**: la casella non si sincronizzava
+  e l'amministratore non poteva rimediare nemmeno indicando l'host corretto.
+  Ora: (1) **l'host e la porta configurati sulla casella hanno la precedenza** sul
+  default del provider (che resta come fallback quando il campo e' vuoto, insieme
+  alle opzioni TLS per i provider datati); (2) host aggiornati e verificati:
+  Legalmail -> `mbox.cert.legalmail.it`, Register PEC -> `mbox.registerpec.it`,
+  Namirial -> `mail.sicurezzapostale.it`; (3) rimosse le voci il cui host non
+  esiste piu' (peclib, Poste, TIM), cosi' vale quanto indicato in configurazione.
+
 ## [0.1.96] - 2026-07-20
 ### Added
 - **Import in blocco delle caselle sotto un cliente.** In Utenti e Caselle -> Caselle

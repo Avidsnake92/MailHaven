@@ -85,14 +85,15 @@ const LEGACY_PROVIDERS = {
   // Provider PEC italiani
   'pec.aruba.it':     { host: 'imaps.pec.aruba.it',    port: 993, tls: true, legacy: false, isPec: true },
   'arubapec.it':      { host: 'imaps.pec.aruba.it',    port: 993, tls: true, legacy: false, isPec: true },
-  'legalmail.it':     { host: 'imap.legalmail.it',      port: 993, tls: true, legacy: false, isPec: true },
-  'peclib.it':        { host: 'imap.peclib.it',         port: 993, tls: true, legacy: false, isPec: true },
-  'pec.namirial.com': { host: 'imap.pec.namirial.com', port: 993, tls: true, legacy: false, isPec: true },
+  // Host verificati (DNS + porta 993) il 20/07/2026. Le voci con host non più
+  // esistente sono state RIMOSSE: meglio nessun default che un host morto, così
+  // vale quello configurato nella casella.
+  'legalmail.it':     { host: 'mbox.cert.legalmail.it', port: 993, tls: true, legacy: false, isPec: true },
+  'pec.namirial.com': { host: 'mail.sicurezzapostale.it', port: 993, tls: true, legacy: false, isPec: true },
   'pec.it':           { host: 'imap.pec.it',            port: 993, tls: true, legacy: false, isPec: true },
-  'pec.poste.it':     { host: 'imap.pec.poste.it',     port: 993, tls: true, legacy: false, isPec: true },
-  'postecert.it':     { host: 'imap.pec.poste.it',     port: 993, tls: true, legacy: false, isPec: true },
-  'pec.tim.it':       { host: 'imap.pec.tim.it',       port: 993, tls: true, legacy: false, isPec: true },
-  'registerpec.it':   { host: 'imap.registerpec.it',   port: 993, tls: true, legacy: false, isPec: true },
+  'registerpec.it':   { host: 'mbox.registerpec.it',    port: 993, tls: true, legacy: false, isPec: true },
+  // Rimossi perché l'host non esiste più (peclib.it, pec.poste.it/postecert.it,
+  // pec.tim.it): per queste caselle si usa l'host indicato in configurazione.
 };
 
 
@@ -139,11 +140,15 @@ const syncMailbox = async (mailbox, db) => new Promise(async (resolve, reject) =
   const provider = LEGACY_PROVIDERS[emailDomain];
   const isLegacy = !!provider?.legacy;
 
+  // L'host/porta configurati sulla casella VINCONO sul default del provider:
+  // se un default diventa obsoleto (host dismesso) l'amministratore deve poter
+  // rimediare scrivendo quello giusto. Del provider resta il fallback quando il
+  // campo è vuoto, più le opzioni TLS per i provider datati (isLegacy).
   let imapConfig = {
     user: mailbox.imap_user || mailbox.email,
-    host: provider?.host || mailbox.imap_host,
-    port: provider?.port || mailbox.imap_port || 993,
-    tls: provider ? provider.tls : (mailbox.imap_tls !== false),
+    host: mailbox.imap_host || provider?.host,
+    port: mailbox.imap_port || provider?.port || 993,
+    tls: mailbox.imap_tls !== false,
     tlsOptions: {
       rejectUnauthorized: false,
       ...(isLegacy ? {
