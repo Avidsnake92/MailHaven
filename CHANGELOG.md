@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.100] - 2026-07-21
+### Fixed
+- **La dashboard non ha mai funzionato per il ruolo `user`.** Mostrava "Errore
+  caricamento statistiche": la pagina chiamava `/admin/stats/overview`, ma
+  l'intero router `/admin/*` e' negato a chi non e' admin/superadmin/reseller,
+  quindi rispondeva 403. Le statistiche vivono ora su
+  `GET /emails/stats/overview`, accessibile a tutti i ruoli.
+  Quell'endpoint filtrava inoltre per appartenenza al cliente
+  (`m.client_id = $1`): aprirlo cosi' com'era avrebbe mostrato a un utente le
+  statistiche di caselle non sue. Il nuovo usa la regola per casella assegnata,
+  e conta solo le mail non eliminate.
+
+### Changed
+- **La regola di visibilita' delle caselle ha una sola definizione**
+  (`services/scope.js`). Era duplicata e riscritta a modo proprio da archivio,
+  ricerca globale e statistiche, ed e' la radice comune degli ultimi tre bug di
+  permessi: viste che concedevano accessi diversi sugli stessi dati. Ora
+  archivio, ricerca globale e statistiche chiamano la stessa funzione.
+  `/admin/stats/overview` resta per gli usi amministrativi ma non e' piu'
+  chiamato dal frontend.
+
 ## [0.1.99] - 2026-07-20
 ### Security
 - **La ricerca globale scavalcava le assegnazioni delle caselle.** Concedeva

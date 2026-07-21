@@ -10,39 +10,88 @@ const archiver = require('archiver');
 router.use(authMiddleware);
 router.use(require('../middleware/audit').auditMiddleware());
 
-// Helper: get mailbox IDs accessible by user
-const getUserMailboxIds = async (db, user) => {
-  if (user.role === 'superadmin') {
-    const r = await db.query('SELECT id FROM mailboxes WHERE active=true');
-    return r.rows.map(r => r.id);
-  }
-  if (user.role === 'admin') {
-    const r = await db.query(
-      'SELECT id FROM mailboxes WHERE client_id=$1 AND active=true',
-      [user.client_id]
-    );
-    return r.rows.map(r => r.id);
-  }
-  if (user.role === 'reseller') {
-    const r = await db.query(
-      `SELECT m.id FROM mailboxes m JOIN clients c ON c.id = m.client_id
-       WHERE c.reseller_id = $1 AND m.active = true`,
-      [user.reseller_id]
-    );
-    return r.rows.map(r => r.id);
-  }
-  // Regular user — get assigned mailboxes
-  const r = await db.query(
-    `SELECT m.id FROM mailboxes m
-     JOIN user_mailboxes um ON um.mailbox_id = m.id
-     WHERE um.user_id = $1 AND m.active = true`,
-    [user.id]
-  );
-  return r.rows.map(r => r.id);
-};
+// Regola di visibilita' condivisa (services/scope.js): unica definizione, cosi'
+// archivio, ricerca globale e statistiche non possono piu' divergere.
+const { getUserMailboxIds } = require('../services/scope');
 
 
 // GET /emails/storage — statistiche spazio per casella
+// GET /emails/stats/overview — statistiche della dashboard.
+// Prima stava su /admin/stats/overview, dove il router nega tutto a chi non e'
+// admin/superadmin/reseller: la dashboard di un utente normale rispondeva 403
+// ("Errore caricamento statistiche"). Inoltre filtrava per cliente, non per
+// casella assegnata. Qui vale la regola condivisa, uguale per tutti i ruoli.
+router.get('/stats/overview', async (req, res, next) => {
+  const db = req.app.locals.db;
+  try {
+    const ids = await getUserMailboxIds(db, req.user);
+    if (!ids.length) {
+      return res.json({
+        totals: { mailbox_count: 0, email_count: 0, total_size: 0, last_7_days: 0, last_30_days: 0 },
+        byMailbox: [], timeline: [], spamStats: [],
+      });
+    }
+
+    const [totals, byMailbox, timeline, spamStats] = await Promise.all([
+      db.query(`
+        SELECT
+          COUNT(DISTINCT m.id) AS mailbox_count,
+          COUNT(ae.id) AS email_count,
+          COALESCE(SUM(ae.size_bytes), 0) AS total_size,
+          COUNT(CASE WHEN ae.sent_at > NOW() - INTERVAL '7 days' THEN 1 END) AS last_7_days,
+          COUNT(CASE WHEN ae.sent_at > NOW() - INTERVAL '30 days' THEN 1 END) AS last_30_days
+        FROM mailboxes m
+        LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id AND ae.is_deleted = false
+        WHERE m.id = ANY($1::int[])
+      `, [ids]),
+
+      db.query(`
+        SELECT
+          m.id, m.email, m.display_name,
+          COUNT(ae.id) AS email_count,
+          COALESCE(SUM(ae.size_bytes), 0) AS total_size,
+          MAX(ae.sent_at) AS last_sync,
+          COUNT(CASE WHEN ae.sent_at > NOW() - INTERVAL '30 days' THEN 1 END) AS last_30_days
+        FROM mailboxes m
+        LEFT JOIN archived_emails ae ON ae.mailbox_id = m.id AND ae.is_deleted = false
+        WHERE m.id = ANY($1::int[])
+        GROUP BY m.id, m.email, m.display_name
+        ORDER BY email_count DESC
+      `, [ids]),
+
+      db.query(`
+        SELECT
+          TO_CHAR(ae.sent_at, 'YYYY-MM-DD') AS date,
+          m.email AS mailbox,
+          COUNT(*) AS count
+        FROM archived_emails ae
+        JOIN mailboxes m ON ae.mailbox_id = m.id
+        WHERE m.id = ANY($1::int[])
+          AND ae.is_deleted = false
+          AND ae.sent_at > NOW() - INTERVAL '90 days'
+        GROUP BY TO_CHAR(ae.sent_at, 'YYYY-MM-DD'), m.email
+        ORDER BY date ASC
+      `, [ids]),
+
+      db.query(`
+        SELECT m.email, COUNT(sc.email_id) AS spam_count
+        FROM mailboxes m
+        LEFT JOIN spam_cache sc ON sc.mailbox_id = m.id
+        WHERE m.id = ANY($1::int[])
+        GROUP BY m.email
+        ORDER BY spam_count DESC
+      `, [ids]),
+    ]);
+
+    res.json({
+      totals: totals.rows[0],
+      byMailbox: byMailbox.rows,
+      timeline: timeline.rows,
+      spamStats: spamStats.rows,
+    });
+  } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
 router.get('/storage', async (req, res) => {
   const db = req.app.locals.db;
   const { mailbox_id } = req.query;

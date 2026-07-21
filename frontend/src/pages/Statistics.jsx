@@ -40,7 +40,10 @@ export default function Statistics() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get('/admin/stats/overview')
+      // /admin/* e' negato a chi non e' admin/superadmin/reseller: da qui la
+      // dashboard di un utente normale rispondeva 403. Ora l'endpoint sta sotto
+      // /emails e vale per tutti i ruoli, con lo scoping per casella assegnata.
+      const res = await api.get('/emails/stats/overview')
       setData(res.data)
     } catch {}
     setLoading(false)
