@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.2.0] - 2026-07-21
+
+Versione di consolidamento del **modello dei permessi**. Non introduce codice
+nuovo rispetto alla 0.1.100: promuove a minor release il lavoro delle 0.1.97 →
+0.1.100, che ha toccato il modo in cui il prodotto decide chi vede cosa.
+
+Il filo comune: la regola "quali caselle puo' vedere questo utente" era
+**duplicata in piu' punti**, ognuno con la sua variante. L'archivio concedeva
+per casella assegnata, la ricerca globale e le statistiche per appartenenza al
+cliente. Da qui una serie di difetti che sembravano scollegati — un utente che
+non vedeva nulla nell'archivio ma ne leggeva il contenuto dalla ricerca, una
+dashboard che rispondeva 403, assegnazioni cancellate in silenzio. Ora la
+regola ha **una sola definizione** (`services/scope.js`) usata da tutte le
+viste che mostrano email.
+
+Contenuto, in sintesi:
+- ricerca globale allineata all'archivio (concedeva caselle non assegnate);
+- statistiche accessibili al ruolo `user` e limitate alle caselle assegnate;
+- assegnazione delle caselle direttamente dalla scheda Utente;
+- salvataggi che non azzerano piu' gli accessi quando la lista non e' caricata;
+- import PST che non perde piu' la gerarchia delle cartelle;
+- host IMAP configurato a mano che prevale sul default del provider, con gli
+  host PEC verificati e aggiornati;
+- anagrafica cliente: ragione sociale e referente separati.
+
+Dettaglio completo nelle voci 0.1.97, 0.1.98, 0.1.99 e 0.1.100 qui sotto.
+
 ## [0.1.100] - 2026-07-21
 ### Fixed
 - **La dashboard non ha mai funzionato per il ruolo `user`.** Mostrava "Errore
