@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.1] - 2026-07-21
+### Security
+- **Sync e applicazione policy non verificavano a chi appartiene la casella.**
+  Entrambe controllavano solo il ruolo e poi caricavano la casella per id
+  (`SELECT * FROM mailboxes WHERE id=$1`), senza accertare che fosse del
+  chiamante: un admin poteva far partire la sincronizzazione — e soprattutto
+  `apply-policy`, che **elimina le email in base alla retention** — su caselle
+  di un altro cliente, semplicemente indicandone l'id. Ora entrambe verificano
+  che la casella rientri nella visibilita' del chiamante (`services/scope.js`).
+  `apply-policy` resta riservata ad admin e superadmin.
+
+### Fixed
+- **"Errore sync" per il ruolo `user`.** Il pulsante di sincronizzazione era
+  mostrato a tutti, ma l'endpoint era riservato a admin/superadmin e rispondeva
+  403. Un utente puo' ora aggiornare le caselle che gli sono state assegnate;
+  su quelle non sue riceve 403 come deve.
+
 ## [0.2.0] - 2026-07-21
 
 Versione di consolidamento del **modello dei permessi**. Non introduce codice

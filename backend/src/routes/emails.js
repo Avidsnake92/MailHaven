@@ -610,7 +610,15 @@ router.post('/apply-policy/:mailbox_id', authMiddleware, async (req, res, next) 
   const db = req.app.locals.db;
   if (!['admin', 'superadmin'].includes(req.user.role)) return next(new AppError(ERRORS.MH_1003));
   try {
-    const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.mailbox_id]);
+    // Applicare la policy ELIMINA email in base alla retention: oltre al ruolo
+    // va verificato che la casella sia del chiamante, altrimenti un admin puo'
+    // farla scattare su quelle di un altro cliente indicandone l'id.
+    const mailboxId = parseInt(req.params.mailbox_id, 10);
+    if (!Number.isInteger(mailboxId)) return next(new AppError(ERRORS.MH_1201));
+    const allowed = await getUserMailboxIds(db, req.user);
+    if (!allowed.includes(mailboxId)) return next(new AppError(ERRORS.MH_1003));
+
+    const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [mailboxId]);
     if (!r.rows[0]) return next(new AppError(ERRORS.MH_1201));
     const { applyArchivePolicy } = require('../services/scheduler');
     const count = await applyArchivePolicy(r.rows[0], db);
@@ -621,9 +629,19 @@ router.post('/apply-policy/:mailbox_id', authMiddleware, async (req, res, next) 
 // POST /emails/sync/:mailbox_id — manual sync trigger
 router.post('/sync/:mailbox_id', async (req, res) => {
   const db = req.app.locals.db;
-  if (!['admin', 'superadmin'].includes(req.user.role)) return res.status(403).json({ error: 'Accesso negato' });
   try {
-    const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [req.params.mailbox_id]);
+    // Si controllava il ruolo ma NON l'appartenenza della casella: un admin
+    // poteva far partire sync e applicazione policy (che ELIMINA email in base
+    // alla retention) su una casella di un altro cliente, bastava cambiare id.
+    // Il ruolo da solo non basta: serve che la casella sia nella sua visibilita'.
+    // Cosi' anche un utente puo' aggiornare le proprie caselle assegnate — il
+    // pulsante gli era mostrato ma l'API rispondeva 403 ("Errore sync").
+    const mailboxId = parseInt(req.params.mailbox_id, 10);
+    if (!Number.isInteger(mailboxId)) return res.status(400).json({ error: 'Casella non valida' });
+    const allowed = await getUserMailboxIds(db, req.user);
+    if (!allowed.includes(mailboxId)) return res.status(403).json({ error: 'Accesso negato' });
+
+    const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [mailboxId]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
     const mailbox = r.rows[0];
     const { applyArchivePolicy } = require('../services/scheduler');
