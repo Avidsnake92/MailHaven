@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.2] - 2026-09-07
+### Added
+- **POP3 Sync — backfill di storico e cartelle dall'add-in Outlook.** Nuovo
+  endpoint `POST /api/plugin/messages`: gemello di `/plugin/sent`, ma pensato per
+  la posta IN ARRIVO, dove il mittente e' un terzo e la casella non si puo'
+  dedurre. Richiede `mailbox_id` esplicito (verificato contro le caselle del
+  token) e conserva la cartella di origine (`?folder=` URL-encoded). Riusa
+  `insertEmail`: marca `source='import'` (il crawler non appiattisce la
+  gerarchia) e deduplica sul Message-ID, quindi il backfill e' ripetibile e non
+  duplica cio' che il crawler ha gia' preso da INBOX. Serve ai client POP3, dove
+  sottocartelle e organizzazione della posta vivono solo nello store locale.
+  Lato add-in Outlook: nuovo pulsante "POP3 Sync" con albero cartelle,
+  selezione multipla e mappatura account -> casella (fuori da questo repo).
+
+### Changed
+- **Regola di visibilita' caselle unificata anche per i plugin.** `plugin.js`
+  aveva la propria copia di `getPluginMailboxIds` (quarta copia della stessa
+  logica): ora delega a `services/scope.js`, la fonte unica gia' usata da
+  archivio, ricerca globale e statistiche.
+
 ## [0.2.1] - 2026-07-21
 ### Security
 - **Sync e applicazione policy non verificavano a chi appartiene la casella.**

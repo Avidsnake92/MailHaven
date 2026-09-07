@@ -102,27 +102,11 @@ const pluginAuth = async (req, res, next) => {
   }
 };
 
-// Caselle accessibili dall'utente del token plugin (admin confinato al proprio cliente).
-const getPluginMailboxIds = async (db, user) => {
-  if (user.role === 'superadmin') {
-    const r = await db.query('SELECT id FROM mailboxes WHERE active=true');
-    return r.rows.map(r => r.id);
-  }
-  if (user.role === 'admin') {
-    const r = await db.query('SELECT id FROM mailboxes WHERE client_id=$1 AND active=true', [user.client_id]);
-    return r.rows.map(r => r.id);
-  }
-  if (user.role === 'reseller') {
-    const r = await db.query(`SELECT m.id FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1 AND m.active=true`, [user.reseller_id]);
-    return r.rows.map(r => r.id);
-  }
-  const r = await db.query(
-    `SELECT m.id FROM mailboxes m JOIN user_mailboxes um ON um.mailbox_id=m.id
-     WHERE um.user_id=$1 AND m.active=true`,
-    [user.id]
-  );
-  return r.rows.map(r => r.id);
-};
+// Caselle accessibili dall'utente del token plugin. Stessa identica regola di
+// archivio/ricerca/statistiche: delega a services/scope.js, unica fonte di
+// verita' (era una quarta copia della stessa logica).
+const { getUserMailboxIds } = require('../services/scope');
+const getPluginMailboxIds = (db, user) => getUserMailboxIds(db, user);
 
 // ── API per plugin: caselle accessibili ──────────────────────────────────
 router.get('/mailboxes', pluginAuth, async (req, res) => {
@@ -324,6 +308,40 @@ router.post('/sent', pluginAuth, express.raw({ type: () => true, limit: '100mb' 
     const result = await insertEmail(db, mailboxId, req.body, 'Posta inviata');
     if (result.skipped) return res.status(409).json({ skipped: true, message: 'Email già archiviata' });
     res.json({ archived: true, mailbox_id: mailboxId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Backfill cartelle dall'add-in Outlook (POP3 Sync) ──────────────────────
+// A differenza di /sent, qui la posta e' in ARRIVO: il mittente e' un terzo,
+// non il proprietario della casella, quindi la casella NON si puo' dedurre e
+// va indicata con mailbox_id (verificata contro le caselle del token). La
+// cartella preserva la gerarchia dello store Outlook e arriva come query param
+// URL-encoded (gli header non reggono i nomi non-ASCII). insertEmail marca
+// source='import' e deduplica sul Message-ID: il backfill e' ripetibile e non
+// crea doppioni con quanto il crawler ha gia' preso da INBOX.
+router.post('/messages', pluginAuth, express.raw({ type: () => true, limit: '100mb' }), async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) {
+      return res.status(400).json({ error: 'Corpo EML mancante' });
+    }
+    const mailboxId = parseInt(req.query.mailbox_id, 10);
+    if (!Number.isInteger(mailboxId)) {
+      return res.status(400).json({ error: 'mailbox_id mancante o non valido', code: 'MH-1211' });
+    }
+    const allowedIds = await getPluginMailboxIds(db, req.user);
+    if (!allowedIds.includes(mailboxId)) {
+      return res.status(403).json({ error: 'Accesso non autorizzato', code: 'MH-1003' });
+    }
+    let folder = req.query.folder || 'Importata';
+    folder = String(folder).replace(/[\x00-\x1F]/g, '').slice(0, 512).trim() || 'Importata';
+
+    const { insertEmail } = require('./import');
+    const result = await insertEmail(db, mailboxId, req.body, folder);
+    if (result.skipped) return res.status(409).json({ skipped: true });
+    res.json({ archived: true, mailbox_id: mailboxId, folder });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
