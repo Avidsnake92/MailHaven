@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3] - 2026-09-08
+### Changed
+- **Installer Outlook scaricabile aggiornato con POP3 Sync.** Il pacchetto
+  servito da Impostazioni -> Plugin (`/api/plugin/download/outlook-setup`) era
+  fermo alla build del 18/07, senza il pulsante POP3 Sync. Sostituito con la
+  build corrente. Chi lo scarica dopo l'aggiornamento ottiene l'add-in con il
+  backfill delle cartelle. (L'exe non e' firmato: scelta di prodotto.)
+
 ## [0.2.2] - 2026-09-07
 ### Added
 - **POP3 Sync — backfill di storico e cartelle dall'add-in Outlook.** Nuovo
