@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.4] - 2026-09-08
+### Fixed
+- **Upload oltre 1 MB respinti con 413 (posta inviata con allegati, POP3 Sync,
+  import).** nginx dell'app non aveva `client_max_body_size`, quindi applicava
+  il default di 1 MB e rifiutava le richieste piu' grandi prima ancora del
+  backend (che accetta fino a 100mb). Aggiunto `client_max_body_size 100m` nel
+  server nginx (copre /api, /plugin, /uploads). Verificato: EML da 2 MB e 10 MB
+  ora passano.
+
+  NOTA DEPLOY: in produzione il dominio e' servito da un reverse proxy esterno
+  (openresty / Nginx Proxy Manager) che ha anch'esso il default di 1 MB e
+  risponde 413 per primo. Va alzato ANCHE li' `client_max_body_size 100m`
+  (in NPM: host -> Advanced -> Custom Nginx Configuration), altrimenti questo
+  fix da solo non basta in produzione.
+
 ## [0.2.3] - 2026-09-08
 ### Changed
 - **Installer Outlook scaricabile aggiornato con POP3 Sync.** Il pacchetto
