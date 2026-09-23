@@ -138,4 +138,47 @@ const sendUpdateAlert = async (db, to, info) => {
   }
 };
 
-module.exports = { getSmtpConfig, getTransport, sendAccountBlocked, sendSuspiciousIp, sendUpdateAlert };
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/**
+ * Link di reset password. Ritorna true se l'email e' partita, false se SMTP
+ * non e' configurato o l'invio fallisce (il chiamante lo registra nel log).
+ */
+const sendPasswordReset = async (db, to, user, link, ttlMinutes) => {
+  try {
+    const cfg = await getSmtpConfig(db);
+    if (!cfg.host || !cfg.user) {
+      console.error('[Mailer] sendPasswordReset: SMTP non configurato');
+      return false;
+    }
+    const name = escapeHtml(user.full_name || user.email);
+    await getTransport(cfg).sendMail({
+      from: `"MailHaven" <${cfg.from}>`,
+      to,
+      subject: 'Reimpostazione della password MailHaven',
+      html: `
+        <div style="font-family:sans-serif;max-width:500px;margin:0 auto;color:#111827">
+          <h2 style="color:#1e40af">Reimposta la password</h2>
+          <p>Ciao ${name},</p>
+          <p>abbiamo ricevuto una richiesta di reimpostazione della password per l'account <strong>${escapeHtml(user.email)}</strong>.</p>
+          <p style="margin:24px 0">
+            <a href="${escapeHtml(link)}" style="background:#2563eb;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">Imposta una nuova password</a>
+          </p>
+          <p style="font-size:13px;color:#4b5563">Il link vale ${ttlMinutes} minuti e si puo' usare una sola volta.<br>
+          Se il pulsante non funziona, copia questo indirizzo nel browser:<br>
+          <span style="word-break:break-all">${escapeHtml(link)}</span></p>
+          <p style="font-size:13px;color:#4b5563">Se non hai chiesto tu il reset, ignora questa email: la password attuale resta valida.</p>
+          <p style="color:#9ca3af;font-size:12px">MailHaven</p>
+        </div>
+      `,
+      text: `Reimposta la password MailHaven per ${user.email}:\n${link}\n\nIl link vale ${ttlMinutes} minuti e si puo' usare una sola volta.\nSe non hai chiesto tu il reset, ignora questa email.`,
+    });
+    return true;
+  } catch (e) {
+    console.error('[Mailer] sendPasswordReset error:', e.message);
+    return false;
+  }
+};
+
+module.exports = { getSmtpConfig, getTransport, sendAccountBlocked, sendSuspiciousIp, sendUpdateAlert, sendPasswordReset };

@@ -173,6 +173,8 @@ const authLimiter = rateLimit({
 });
 // Applica SOLO agli endpoint pubblici soggetti a brute force
 app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);  // niente raffiche di email di reset
+app.use('/api/auth/reset-password', authLimiter);   // niente tentativi a tappeto sui token
 app.use('/api/auth/2fa/verify-sso', authLimiter);
 app.use('/api/plugin/login', authLimiter);
 

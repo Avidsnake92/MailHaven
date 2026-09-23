@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.2.7] - 2026-09-23
+### Added
+- **Password dimenticata: reset via email.** Sotto il form di accesso c'e' il
+  link "Password dimenticata?" (anche nel riquadro di account bloccato): si
+  inserisce l'email e arriva un link per impostare una nuova password, sulla
+  nuova pagina `/reset-password` (regole della password spuntate man mano,
+  conferma, poi ritorno al login con avviso di conferma).
+  - Nessun indizio sugli account: la risposta e' sempre identica, nel testo e
+    nei tempi (il lavoro, incluso l'invio, prosegue dopo aver risposto).
+  - Link monouso, valido 60 minuti; un solo link valido per volta. Nel database
+    finisce solo lo SHA-256 del token (tabella `password_resets`).
+  - Il link e' costruito solo da `APP_URL`, mai dall'host della richiesta
+    (niente host header injection).
+  - Limite di 3 richieste ogni 15 minuti per utente, serializzate con un
+    advisory lock: senza, richieste simultanee sforavano il limite e lasciavano
+    piu' link validi (trovato nei test). Anche forgot/reset sono sotto il
+    limitatore anti-forza-bruta del login (20 ogni 15 minuti per IP).
+  - Il reset chiude le sessioni gia' aperte: i jti delle sessioni delle ultime
+    8 ore vanno in blacklist (cancellare le righe di `user_sessions` non
+    bastava, il middleware verifica solo firma e blacklist).
+  - Registro attivita': PASSWORD_RESET_REQUEST (con esito: inviata, SMTP non
+    configurato, troppe richieste, utente inesistente) e PASSWORD_RESET_DONE.
+  - Serve l'SMTP configurato in Impostazioni.
+
+### Changed
+- **Messaggio di accesso errato**: "Email o password errati, riprova." (con i
+  tentativi rimasti), mostrato sotto il pulsante Accedi.
+- Regole della password spostate in `frontend/src/utils/password.js`, usato
+  sia dal pannello utenti sia dalla pagina di reset; il backend applica le
+  stesse regole al reset.
+
 ## [0.2.6] - 2026-09-23
 ### Fixed
 - **Con una password sbagliata la pagina di login si ricaricava senza dire

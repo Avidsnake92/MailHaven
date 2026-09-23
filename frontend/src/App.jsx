@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { BrandingProvider } from './context/BrandingContext'
 import { useState, useEffect, useCallback } from 'react'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import Setup from './pages/Setup'
 import EmailArchive from './pages/Dashboard'
 import Statistics from './pages/Statistics'
@@ -81,6 +82,7 @@ function AppContent() {
       )}
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/" element={
           <ProtectedRoute><Layout /></ProtectedRoute>
         }>

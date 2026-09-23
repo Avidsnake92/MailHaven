@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useBranding } from '../context/BrandingContext'
-import { Eye, EyeOff, Loader2, ShieldCheck, Lock } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ShieldCheck, Lock, Mail, CheckCircle2 } from 'lucide-react'
 import api from '../services/api'
 
 // Icone SVG inline per M365 e Google
@@ -35,7 +35,29 @@ export default function Login() {
   const [retryMinutes, setRetryMinutes] = useState(null)
   const [ssoAvailable, setSsoAvailable] = useState({ microsoft: false, google: false })
   const [sso2faPartial, setSso2faPartial] = useState(null)
+  // Recupero password
+  const [forgot, setForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotDone, setForgotDone] = useState('')
+  const [notice, setNotice] = useState('')
   const { branding } = useBranding()
+
+  const openForgot = () => {
+    setForgotEmail(email); setForgotDone(''); setError(''); setWarning(''); setForgot(true)
+  }
+  const closeForgot = () => { setForgot(false); setForgotDone(''); setError('') }
+
+  const handleForgot = async (e) => {
+    e.preventDefault()
+    setError(''); setForgotLoading(true)
+    try {
+      const res = await api.post('/auth/forgot-password', { email: forgotEmail.trim() })
+      setForgotDone(res.data?.message || "Se l'indirizzo è registrato, riceverai un'email con il link per reimpostare la password.")
+    } catch (err) {
+      setError(err.response?.data?.error || 'Impossibile inviare la richiesta. Riprova tra qualche minuto.')
+    } finally { setForgotLoading(false) }
+  }
 
   const backendBase = window.location.origin.replace(':8080', ':3001')
 
@@ -60,6 +82,12 @@ export default function Login() {
     } else if (sso2fa) {
       setSso2faPartial(decodeURIComponent(sso2fa))
       setRequires2fa(true)
+      window.history.replaceState({}, '', '/login')
+    } else if (params.get('reset') === 'ok') {
+      setNotice('Password aggiornata. Accedi con la nuova password.')
+      window.history.replaceState({}, '', '/login')
+    } else if (params.get('forgot') === '1') {
+      setForgot(true)
       window.history.replaceState({}, '', '/login')
     }
 
@@ -105,7 +133,7 @@ export default function Login() {
       if (data?.blocked) { setLocked(true); setRetryMinutes(data.retryAfterMinutes || 15); setError(data.error) }
       else if (data?.locked) { setLocked(true); setError(data.error) }
       else if (data?.requires_2fa) { setRequires2fa(true); setError(data.error || 'Codice 2FA non valido') }
-      else { setError(data?.error || 'Email o password non corretti'); if (remaining === 1) setWarning('Attenzione: questo è l\'ultimo tentativo disponibile.') }
+      else { setError(data?.error || 'Email o password errati, riprova.'); if (remaining === 1) setWarning('Attenzione: questo è l\'ultimo tentativo disponibile.') }
     } finally { setLoading(false) }
   }
 
@@ -120,12 +148,12 @@ export default function Login() {
           <div className="flex flex-col items-center mb-8">
             <img src="/logo.svg" alt="MailHaven" className="w-full max-w-[280px] h-auto mb-2" />
             <p className="text-sm text-gray-500 mt-1">
-              {requires2fa ? 'Verifica identità' : 'Accedi al tuo archivio email'}
+              {forgot ? 'Recupero password' : requires2fa ? 'Verifica identità' : 'Accedi al tuo archivio email'}
             </p>
           </div>
 
           {/* Account bloccato */}
-          {locked && (
+          {locked && !forgot && (
             <div className="mb-6 flex flex-col items-center text-center p-4 bg-red-50 border border-red-200 rounded-xl">
               <Lock size={28} className="text-red-500 mb-2" />
               <p className="text-sm font-semibold text-red-700">Accesso temporaneamente bloccato</p>
@@ -133,11 +161,51 @@ export default function Login() {
               {retryMinutes && (
                 <p className="text-xs text-red-500 mt-2">Riprova tra circa <strong>{retryMinutes} minut{retryMinutes === 1 ? 'o' : 'i'}</strong>.</p>
               )}
+              <button type="button" onClick={openForgot}
+                className="mt-3 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                Password dimenticata? Reimpostala via email
+              </button>
+            </div>
+          )}
+
+          {/* Recupero password: richiesta del link via email */}
+          {forgot && (
+            <div className="space-y-4">
+              {forgotDone ? (
+                <div className="flex flex-col items-center text-center p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <CheckCircle2 size={28} className="text-green-600 mb-2" />
+                  <p className="text-sm text-green-800">{forgotDone}</p>
+                  <p className="text-xs text-green-700 mt-2">Controlla anche la cartella spam.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleForgot} className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Inserisci l'email del tuo account: ti invieremo un link per impostare una nuova password.
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                    <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus
+                      placeholder="nome@azienda.it"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2" />
+                  </div>
+                  <button type="submit" disabled={forgotLoading}
+                    className="w-full py-2.5 text-white text-sm font-semibold rounded-lg disabled:opacity-60 flex items-center justify-center gap-2"
+                    style={{ background: branding.primary_color || '#2563eb' }}>
+                    {forgotLoading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                    {forgotLoading ? 'Invio in corso...' : 'Inviami il link'}
+                  </button>
+                  {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
+                </form>
+              )}
+              <button type="button" onClick={closeForgot}
+                className="w-full text-sm text-gray-500 hover:text-gray-700 py-2">
+                ← Torna al login
+              </button>
             </div>
           )}
 
           {/* Step 2FA */}
-          {requires2fa && !locked && (
+          {requires2fa && !locked && !forgot && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col items-center mb-4">
                 <ShieldCheck size={32} className="text-blue-500 mb-2" />
@@ -168,8 +236,14 @@ export default function Login() {
           )}
 
           {/* Form login normale */}
-          {!requires2fa && !locked && (
+          {!requires2fa && !locked && !forgot && (
             <div className="space-y-4">
+              {notice && (
+                <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
+                  <CheckCircle2 size={16} className="text-green-600 shrink-0 mt-0.5" />
+                  <span>{notice}</span>
+                </div>
+              )}
               {/* Bottoni SSO — visibili solo se configurati */}
               {hasSso && (
                 <div className="space-y-2">
@@ -215,22 +289,28 @@ export default function Login() {
                     </button>
                   </div>
                 </div>
-                {warning && (
-                  <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
-                    <span className="text-amber-500 shrink-0 mt-0.5">⚠️</span>
-                    <span>{warning}</span>
-                  </div>
-                )}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>
-                )}
                 <button type="submit" disabled={loading}
                   className="w-full py-2.5 text-white text-sm font-semibold rounded-lg disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
                   style={{ background: branding.primary_color || '#2563eb' }}>
                   {loading ? <Loader2 size={16} className="animate-spin" /> : null}
                   {loading ? 'Accesso in corso...' : 'Accedi'}
                 </button>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>
+                )}
+                {warning && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
+                    <span className="text-amber-500 shrink-0 mt-0.5">⚠️</span>
+                    <span>{warning}</span>
+                  </div>
+                )}
               </form>
+              <div className="text-center">
+                <button type="button" onClick={openForgot}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                  Password dimenticata?
+                </button>
+              </div>
             </div>
           )}
         </div>

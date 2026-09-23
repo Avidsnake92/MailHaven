@@ -10,7 +10,7 @@ const { ERRORS, AppError } = require('../errors');
 const { blacklistToken } = require('../services/jwtBlacklist');
 const { validate, schemas } = require('../middleware/validate');
 const { log } = require('../services/logger');
-const { sendAccountBlocked } = require('../services/mailer');
+const { sendAccountBlocked, sendPasswordReset } = require('../services/mailer');
 const { generateSecret, generateQR, verifyToken } = require('../services/totp');
 const { encrypt, decrypt } = require('../services/crypto');
 
@@ -69,7 +69,7 @@ router.post('/login', validate(schemas.login), async (req, res) => {
 
     if (result.rows.length === 0) {
       await log(db, null, 'LOGIN_FAILED', { email, reason: 'Utente non trovato' }, ip);
-      return res.status(401).json({ error: 'Credenziali non valide' });
+      return res.status(401).json({ error: 'Email o password errati, riprova.' });
     }
 
     const user = result.rows[0];
@@ -120,7 +120,7 @@ router.post('/login', validate(schemas.login), async (req, res) => {
       return res.status(401).json({ 
         error: newAttempts >= MAX_ATTEMPTS 
           ? `Account bloccato per ${LOCK_MINUTES} minuti dopo ${MAX_ATTEMPTS} tentativi falliti.`
-          : `Credenziali non valide. ${remaining > 0 ? `Ancora ${remaining} tentativ${remaining === 1 ? 'o' : 'i'} prima del blocco.` : ''}`,
+          : `Email o password errati, riprova. ${remaining > 0 ? `Ancora ${remaining} tentativ${remaining === 1 ? 'o' : 'i'} prima del blocco.` : ''}`,
         locked: newAttempts >= MAX_ATTEMPTS
       });
     }
@@ -360,6 +360,142 @@ router.post('/change-password', authMiddleware, validate(schemas.changePassword)
     await log(db, req.user.id, 'PASSWORD_CHANGED', { email: req.user.email }, ip);
     res.json({ message: 'Password aggiornata con successo' });
   } catch (err) { next(new AppError(ERRORS.MH_1903, err.message)); }
+});
+
+// ── Password dimenticata: link di reset via email ────────────────────────────
+const RESET_TTL_MINUTES = 60;
+const RESET_MAX_PER_15MIN = 3; // richieste per utente: il form non deve diventare un cannone di email
+const FORGOT_MSG = "Se l'indirizzo è registrato, riceverai a breve un'email con il link per reimpostare la password. Il link vale 60 minuti.";
+const RESET_INVALID = { error: 'Link non valido o scaduto. Richiedi un nuovo link dalla pagina di accesso.', code: 'MH-1013' };
+
+const sha256 = (s) => require('crypto').createHash('sha256').update(s).digest('hex');
+
+// Stesse regole del pannello utenti (Admin.jsx / utils/password.js)
+const passwordPolicyError = (pwd) => {
+  if (typeof pwd !== 'string' || pwd.length < 8) return 'La password deve avere almeno 8 caratteri';
+  if (pwd.length > 128) return 'La password è troppo lunga';
+  if (!/[A-Z]/.test(pwd)) return 'La password deve contenere almeno una lettera maiuscola';
+  if (!/[0-9]/.test(pwd)) return 'La password deve contenere almeno un numero';
+  if (!/[^A-Za-z0-9]/.test(pwd)) return 'La password deve contenere almeno un carattere speciale';
+  return null;
+};
+
+const processForgotPassword = async (db, email, ip) => {
+  const r = await db.query('SELECT id, email, full_name, active FROM users WHERE LOWER(email) = $1', [email]);
+  const user = r.rows[0];
+  if (!user || !user.active) {
+    await log(db, null, 'PASSWORD_RESET_REQUEST', { email, esito: 'utente inesistente o disattivato' }, ip);
+    return;
+  }
+  // Il link si costruisce SOLO da APP_URL, mai dall'host della richiesta:
+  // altrimenti chiunque potrebbe far arrivare alla vittima un link verso un
+  // proprio dominio (host header injection) e rubarle il token.
+  const base = (process.env.APP_URL || '').replace(/\/+$/, '');
+  if (!base) {
+    console.error('[Reset] APP_URL non configurato: impossibile costruire il link di reset');
+    await log(db, user.id, 'PASSWORD_RESET_REQUEST', { email: user.email, esito: 'APP_URL mancante, email non inviata' }, ip);
+    return;
+  }
+  const token = require('crypto').randomBytes(32).toString('hex');
+
+  // Limite, invalidazione dei link precedenti e creazione del nuovo in una
+  // transazione serializzata per utente (advisory lock). La risposta HTTP parte
+  // prima di questo lavoro, quindi richieste ravvicinate girano in parallelo:
+  // senza lock leggevano tutte il contatore prima di scrivere, sforavano il
+  // limite e lasciavano piu' link validi insieme (visto nei test).
+  let created = false;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(4271, $1)', [user.id]);
+    const recent = await client.query(
+      "SELECT COUNT(*)::int AS n FROM password_resets WHERE user_id = $1 AND created_at > NOW() - INTERVAL '15 minutes'",
+      [user.id]
+    );
+    if (recent.rows[0].n < RESET_MAX_PER_15MIN) {
+      // Un solo link valido per volta: i precedenti non ancora usati decadono.
+      await client.query('UPDATE password_resets SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL', [user.id]);
+      await client.query(
+        `INSERT INTO password_resets (user_id, token_hash, expires_at, ip_address)
+         VALUES ($1, $2, NOW() + INTERVAL '${RESET_TTL_MINUTES} minutes', $3)`,
+        [user.id, sha256(token), ip]
+      );
+      created = true;
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+  if (!created) {
+    await log(db, user.id, 'PASSWORD_RESET_REQUEST', { email: user.email, esito: 'troppe richieste, email non inviata' }, ip);
+    return;
+  }
+  const sent = await sendPasswordReset(db, user.email, user, `${base}/reset-password?token=${token}`, RESET_TTL_MINUTES);
+  await log(db, user.id, 'PASSWORD_RESET_REQUEST',
+    { email: user.email, esito: sent ? 'email inviata' : 'email NON inviata (SMTP non configurato o errore di invio)' }, ip);
+};
+
+// POST /auth/forgot-password — risposta sempre identica e immediata: ne' il
+// testo ne' i tempi di risposta rivelano se l'email esiste (il lavoro vero,
+// incluso l'invio, prosegue dopo aver risposto).
+router.post('/forgot-password', async (req, res) => {
+  const db = req.app.locals.db;
+  const ip = getIp(req);
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  res.json({ message: FORGOT_MSG });
+  if (!email || email.length > 320 || !email.includes('@')) return;
+  processForgotPassword(db, email, ip).catch(e => console.error('[Reset] forgot-password:', e.message));
+});
+
+// POST /auth/reset-password — consuma il link e imposta la nuova password.
+router.post('/reset-password', async (req, res) => {
+  const db = req.app.locals.db;
+  const ip = getIp(req);
+  const token = String(req.body?.token || '');
+  const newPassword = req.body?.new_password;
+  if (!/^[a-f0-9]{64}$/.test(token)) return res.status(400).json(RESET_INVALID);
+  const policyErr = passwordPolicyError(newPassword);
+  if (policyErr) return res.status(400).json({ error: policyErr, code: 'MH-1103' });
+  try {
+    // UPDATE ... RETURNING: il link si consuma in modo atomico, due invii
+    // contemporanei dello stesso link non possono riuscire entrambi.
+    const t = await db.query(
+      `UPDATE password_resets SET used_at = NOW()
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+       RETURNING user_id`,
+      [sha256(token)]
+    );
+    if (!t.rows[0]) return res.status(400).json(RESET_INVALID);
+    const userId = t.rows[0].user_id;
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    const u = await db.query(
+      'UPDATE users SET password_hash = $1, failed_attempts = 0, locked_until = NULL WHERE id = $2 AND active = true RETURNING email',
+      [hash, userId]
+    );
+    if (!u.rows[0]) return res.status(400).json({ error: 'Account non attivo. Contatta l\'amministratore.', code: 'MH-1005' });
+
+    // Chiude le sessioni aperte: se il reset nasce da un furto di password,
+    // chi e' gia' dentro deve uscire. Cancellare la riga di user_sessions non
+    // basta (il middleware verifica solo firma e blacklist): si mettono in
+    // blacklist i jti, che restano gli stessi anche dopo i refresh (max 8 ore).
+    const sess = await db.query(
+      "SELECT jti FROM user_sessions WHERE user_id = $1 AND created_at > NOW() - INTERVAL '8 hours'",
+      [userId]
+    );
+    const until = Math.floor((Date.now() + SESSION_MAX_MS) / 1000);
+    for (const s of sess.rows) await blacklistToken(db, s.jti, userId, until);
+    await db.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
+
+    await log(db, userId, 'PASSWORD_RESET_DONE', { email: u.rows[0].email, sessioni_chiuse: sess.rows.length }, ip);
+    res.json({ message: 'Password aggiornata. Ora puoi accedere con la nuova password.' });
+  } catch (err) {
+    console.error('[Reset] reset-password:', err.message);
+    res.status(500).json({ error: 'Errore server' });
+  }
 });
 
 // Setup 2FA - generate QR code

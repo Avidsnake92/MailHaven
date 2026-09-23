@@ -248,6 +248,19 @@ const migrate = async (db) => {
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_email VARCHAR(320)`);
   await run(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50)`);
 
+  // Reset password via email: link monouso a scadenza. Si salva solo lo SHA-256
+  // del token, mai il token: chi leggesse il DB non potrebbe usare i link.
+  await run(`CREATE TABLE IF NOT EXISTS password_resets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP,
+    ip_address VARCHAR(64),
+    created_at TIMESTAMP DEFAULT NOW()
+  )`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id, created_at)`);
+
     console.log('[Migration] Completata');
 
 };
