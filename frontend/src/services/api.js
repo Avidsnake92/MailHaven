@@ -17,7 +17,11 @@ api.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401) {
-      if (!err.config?.url?.includes('/auth/refresh')) {
+      // Un 401 del login e' "credenziali errate", non "sessione scaduta": va
+      // mostrato nel form. Prima anche questo cancellava il token e ricaricava
+      // /login, e una password sbagliata sembrava un refresh senza messaggi.
+      const url = err.config?.url || ''
+      if (!url.includes('/auth/refresh') && !url.includes('/auth/login')) {
         localStorage.removeItem('mv_token')
         localStorage.removeItem('mv_user')
         window.location.href = '/login'

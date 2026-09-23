@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.6] - 2026-09-23
+### Fixed
+- **Con una password sbagliata la pagina di login si ricaricava senza dire
+  niente.** L'intercettore delle chiamate API, a ogni risposta 401, cancellava
+  il token e rimandava a `/login`, compreso il 401 del login stesso
+  ("credenziali non valide"). Il form non riusciva a mostrare il messaggio, ne'
+  il numero di tentativi rimasti prima del blocco: sembrava un semplice
+  refresh, e ogni nuovo tentativo avvicinava il blocco dell'account. Ora i 401
+  del login restano al form, che mostra l'errore; gli altri 401 (sessione
+  scaduta) continuano a riportare al login.
+
 ## [0.2.5] - 2026-09-23
 ### Fixed
 - **Cambiando il dominio pubblico il login dal browser si bloccava.** Il CORS
