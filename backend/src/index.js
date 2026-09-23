@@ -58,26 +58,47 @@ const getAllowedOrigins = () => {
   return origins;
 };
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    const allowed = getAllowedOrigins();
-    if (allowed.includes(origin)) return callback(null, true);
-    // Reti locali — sempre permesse (installazioni self-hosted)
-    if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) {
-      return callback(null, true);
-    }
-    // Plugin Office
-    if (origin.endsWith('.office.com') || origin.endsWith('.officeapps.live.com')) {
-      return callback(null, true);
-    }
-    console.warn(`[CORS] Origine bloccata: ${origin}`);
-    return callback(new Error(`CORS: origine non permessa: ${origin}`));
-  },
+// Richiesta dallo stesso sito: l'origine coincide con l'host a cui e' stata
+// indirizzata. Il frontend e l'API stanno sempre sullo stesso dominio, quindi
+// va accettata qualunque sia il nome: prima un cambio di dominio (es.
+// mailhaven.k2tech.it -> app.mailhaven.it) bloccava il login finche' non si
+// aggiornava APP_URL. Sicuro: un sito terzo non puo' far coincidere la propria
+// Origin con l'Host di destinazione (Origin e Host li imposta il browser, e
+// X-Forwarded-Host lo riscrive nginx).
+const isSameOrigin = (origin, req) => {
+  let oHost;
+  try { oHost = new URL(origin).host.toLowerCase(); } catch { return false; }
+  const norm = (h) => String(h || '').split(',')[0].trim().toLowerCase().replace(/:(80|443)$/, '');
+  oHost = norm(oHost);
+  return [req.headers['x-forwarded-host'], req.headers.host].map(norm).filter(Boolean).includes(oHost);
+};
+
+const isAllowedOrigin = (origin, req) => {
+  if (!origin) return true;
+  if (isSameOrigin(origin, req)) return true;
+  if (getAllowedOrigins().includes(origin)) return true;
+  // Reti locali — sempre permesse (installazioni self-hosted)
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) return true;
+  // Plugin Office
+  if (origin.endsWith('.office.com') || origin.endsWith('.officeapps.live.com')) return true;
+  return false;
+};
+
+const CORS_OPTIONS = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
   maxAge: 86400,
+};
+
+app.use(cors((req, callback) => {
+  const origin = req.headers.origin;
+  if (isAllowedOrigin(origin, req)) return callback(null, { ...CORS_OPTIONS, origin: true });
+  console.warn(`[CORS] Origine bloccata: ${origin} (host richiesto: ${req.headers['x-forwarded-host'] || req.headers.host})`);
+  // 403 esplicito: prima finiva nel gestore generico come 500 "Errore interno
+  // del server", indistinguibile da un guasto vero.
+  const { AppError, ERRORS } = require('./errors');
+  return callback(new AppError(ERRORS.MH_1012, `origine: ${origin}`));
 }));
 
 // ── Rate limiting ──────────────────────────────────────────────────────────

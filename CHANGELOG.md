@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.5] - 2026-09-23
+### Fixed
+- **Cambiando il dominio pubblico il login dal browser si bloccava.** Il CORS
+  accettava solo le origini elencate in `APP_URL` / `ADDITIONAL_ORIGINS` (piu'
+  localhost e IP privati): dopo il passaggio da `mailhaven.k2tech.it` ad
+  `app.mailhaven.it`, ogni chiamata del browser veniva rifiutata e il login
+  mostrava "Errore interno del server". Ora una richiesta la cui origine
+  coincide con l'host a cui e' indirizzata (lo stesso sito) e' sempre accettata,
+  qualunque sia il dominio; l'elenco resta per i domini terzi e i plugin Office.
+  Un sito esterno non puo' simulare l'origine giusta (Origin e Host li imposta
+  il browser, X-Forwarded-Host lo riscrive nginx). Verificati: stesso sito,
+  stesso sito dietro proxy, sito terzo, dominio-imitazione
+  (`app.mailhaven.it.evil.example`), IP locale, richieste senza Origin,
+  preflight OPTIONS.
+- **Un'origine rifiutata dal CORS diventava un 500 generico.** Finiva nel ramo
+  "errore generico" del gestore errori, con il dettaglio nascosto in
+  produzione: indistinguibile da un guasto del server. Ora risponde 403
+  `MH-1012` con un messaggio che indica cosa fare.
+
 ## [0.2.4] - 2026-09-08
 ### Fixed
 - **Upload oltre 1 MB respinti con 413 (posta inviata con allegati, POP3 Sync,

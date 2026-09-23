@@ -21,6 +21,7 @@ const ERRORS = {
   MH_1003: { code: 'MH-1003', message: 'Accesso non autorizzato',              httpStatus: 403 },
   MH_1004: { code: 'MH-1004', message: 'Ruolo insufficiente',                  httpStatus: 403 },
   MH_1005: { code: 'MH-1005', message: 'Account disabilitato',                 httpStatus: 403 },
+  MH_1012: { code: 'MH-1012', message: 'Dominio di provenienza non consentito (CORS): aggiungerlo ad APP_URL o ADDITIONAL_ORIGINS', httpStatus: 403 },
 
   // ── Utenti ──────────────────────────────────────────────────
   MH_1101: { code: 'MH-1101', message: 'Utente non trovato',                   httpStatus: 404 },
