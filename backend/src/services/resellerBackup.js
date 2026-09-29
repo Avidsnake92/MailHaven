@@ -1,7 +1,7 @@
-// Backup scoped per reseller — genera un .mhbak (formato proprietario MailHaven)
-// con le sole email dei clienti del reseller e lo carica sulla destinazione del
-// reseller (S3 o SFTP). Stesso formato di sftpbackup.js (apribile solo da
-// MailHaven o dal tool MailHavenRestore).
+// Backup .mhbak (formato proprietario MailHaven) caricato su S3 o SFTP.
+// Con resellerId: solo le email dei clienti del reseller, sulla sua destinazione.
+// Con resellerId null: tutte le caselle (backup globale del superadmin).
+// Stesso formato di sftpbackup.js (apribile da MailHaven o dal tool MailHavenRestore).
 const { Client } = require('ssh2');
 const archiver = require('archiver');
 const path = require('path');
@@ -11,7 +11,8 @@ const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const AdmZip = require('adm-zip');
 
-// Costruisce il buffer .mhbak (header + zip cifrato) con le email dei clienti del reseller.
+// Costruisce il buffer .mhbak (header + zip cifrato) con le email dei clienti del
+// reseller, o di tutte le caselle se resellerId e' null.
 const buildResellerMhbak = async (db, resellerId, onProgress) => {
   const encKey = process.env.ENCRYPTION_KEY;
   const zipChunks = [];
@@ -22,10 +23,9 @@ const buildResellerMhbak = async (db, resellerId, onProgress) => {
     archive.on('end', resolve);
     archive.on('error', reject);
     (async () => {
-      const mailboxes = await db.query(
-        'SELECT m.id, m.email FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1',
-        [resellerId]
-      );
+      const mailboxes = resellerId
+        ? await db.query('SELECT m.id, m.email FROM mailboxes m JOIN clients c ON c.id=m.client_id WHERE c.reseller_id=$1', [resellerId])
+        : await db.query('SELECT m.id, m.email FROM mailboxes m');
       for (const mb of mailboxes.rows) {
         let offset = 0;
         while (true) {
@@ -49,14 +49,14 @@ const buildResellerMhbak = async (db, resellerId, onProgress) => {
         }
       }
       archive.append(
-        JSON.stringify({ exported_at: new Date().toISOString(), scope: 'reseller', reseller_id: resellerId, email_count: count }, null, 2),
+        JSON.stringify({ exported_at: new Date().toISOString(), scope: resellerId ? 'reseller' : 'global', reseller_id: resellerId, email_count: count }, null, 2),
         { name: 'backup-info.json' }
       );
       archive.finalize();
     })().catch(reject);
   });
   const zipBuffer = Buffer.concat(zipChunks);
-  const metadata = { version: '1.0', created_at: new Date().toISOString(), email_count: count, scope: 'reseller', reseller_id: resellerId };
+  const metadata = { version: '1.0', created_at: new Date().toISOString(), email_count: count, scope: resellerId ? 'reseller' : 'global', reseller_id: resellerId };
   const { header, key, iv } = createHeader(encKey, metadata);
   const encryptedZip = encryptBuffer(zipBuffer, key, iv);
   return { buffer: Buffer.concat([header, encryptedZip]), count };

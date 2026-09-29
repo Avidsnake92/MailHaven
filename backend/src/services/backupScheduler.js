@@ -22,8 +22,9 @@ const runOne = async (db, row) => {
       const r = await runSftpBackup(config);
       await db.query('INSERT INTO backup_log (type, status, details) VALUES ($1,$2,$3)', ['sftp', 'success', JSON.stringify(r)]);
     } else {
-      const { runBackup } = require('./s3backup');
-      await runBackup(db, config);
+      // Backup globale S3: stesso .mhbak dei reseller, su tutte le caselle
+      const { runResellerBackup } = require('./resellerBackup');
+      await runResellerBackup(db, { ...config, provider_type: 's3' }, null);
     }
     await db.query('UPDATE backup_config SET last_backup_at=NOW() WHERE id=$1', [row.id]);
     console.log(`[backup-scheduler] backup pianificato eseguito (config ${row.id}, reseller ${row.reseller_id || 'globale'})`);

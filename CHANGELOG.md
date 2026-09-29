@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.9] - 2026-09-29
+### Fixed
+- **Il backup S3 globale (superadmin) salvava uno zip vuoto.** `s3backup.js`
+  cercava file `.eml` in `/var/data/open-archiver`, una cartella che non esiste
+  piu' da quando le email stanno nel database, e registrava comunque il backup
+  come riuscito, sia da "Esegui backup" sia da quello pianificato. Ora il
+  backup S3 globale produce lo stesso `.mhbak` cifrato del backup SFTP e di
+  quello dei reseller, con tutte le caselle. Verificato sul dev con un S3 di
+  prova: 5.702 email su 5.702, zip integro. **Chi usa il backup S3 globale deve
+  lanciarne uno nuovo dopo l'aggiornamento: quelli precedenti (`.zip`) sono
+  vuoti.** I backup SFTP e dei reseller non avevano il problema.
+- **`MailHavenRestore.ps1` non estraeva nessuna email.** Su Windows PowerShell
+  5.1 mancava il caricamento di `System.IO.Compression`: la decifratura
+  riusciva, l'estrazione no, e il tool diceva comunque "Restore completato!" con
+  0 email. Riscritto: legge il backup a blocchi (prima caricava tutto in
+  memoria come array di oggetti, inutilizzabile oltre poche centinaia di MB),
+  chiede la chiave senza mostrarla se non la si passa, da' errori chiari (chiave
+  sbagliata, file troncato, file non .mhbak) con codice di uscita 1, rende
+  validi su Windows i nomi di file e cartelle, non scrive fuori dalla cartella
+  di destinazione. Istruzioni nel README.
+### Removed
+- `s3backup.runBackup` e `s3backup.restoreBackup` (lavoravano sulla vecchia
+  cartella). Il ripristino S3 passa gia' da `restoreFromMhbak`.
+
 ## [0.2.8] - 2026-09-29
 ### Fixed
 - **Il logo si leggeva "MailHa ven".** Le scritte del logo erano testo in font

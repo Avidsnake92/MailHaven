@@ -23,7 +23,7 @@ router.get('/status/:jobId', (req, res) => {
 });
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { encrypt, decrypt } = require('../services/crypto');
-const { runBackup, listBackups, restoreBackup, testConnection } = require('../services/s3backup');
+const { listBackups, testConnection } = require('../services/s3backup');
 const { runSftpBackup, runSftpBackupWithProgress, listSftpBackups, restoreSftpBackup, testSftpConnection } = require('../services/sftpbackup');
 const { log } = require('../services/logger');
 const getIp = (req) => { const fwd = req.headers['x-forwarded-for']; return fwd ? fwd.split(',')[0].trim() : req.socket.remoteAddress; };
@@ -201,11 +201,15 @@ router.post('/run', async (req, res) => {
           });
         } else {
           if (!config.secret_key) throw new Error('Secret key non configurata');
-          result = await runBackup(db, config);
+          // Stesso .mhbak dei reseller, su tutte le caselle (registra lui il backup_log)
+          const { runResellerBackup } = require('../services/resellerBackup');
+          updateJob(jobId, { progress: 10, message: 'Lettura email dal database...' });
+          result = await runResellerBackup(db, { ...config, provider_type: 's3' }, null,
+            (p) => updateJob(jobId, { progress: p, message: 'Backup in corso...' }));
         }
 
         await db.query('UPDATE backup_config SET last_backup_at = NOW() WHERE id = $1', [config.id]);
-        await db.query('INSERT INTO backup_log (type, status, details) VALUES ($1,$2,$3)', [provider_type || 's3', 'success', JSON.stringify(result)]);
+        if (provider_type === 'sftp') await db.query('INSERT INTO backup_log (type, status, details) VALUES ($1,$2,$3)', ['sftp', 'success', JSON.stringify(result)]);
         await log(db, req.user.id, 'BACKUP_COMPLETED', result, getIp(req));
         updateJob(jobId, { status: 'completed', progress: 100, message: 'Backup completato!', result });
       } catch (err) {
