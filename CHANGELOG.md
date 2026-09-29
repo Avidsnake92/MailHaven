@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.8] - 2026-09-29
+### Fixed
+- **Il logo si leggeva "MailHa ven".** Le scritte del logo erano testo in font
+  Interstate, che quasi nessun computer ha installato: il browser usava un font
+  di ripiego e la scritta si scomponeva (barra laterale, login, reset
+  password). Ora le scritte sono in DM Sans, lo stesso font dell'app,
+  convertite in tracciati: il logo si vede uguale ovunque. L'originale e' in
+  `frontend/public/logo-interstate-originale.svg`.
+- **Grafico "Archivio nel tempo" illeggibile.** I giorni senza email mancavano
+  dai dati, quindi le linee si spezzavano e l'asse delle date non era uniforme;
+  con molte caselle le linee sovrapposte diventavano un groviglio. Ora la serie
+  copre sempre gli ultimi 60 giorni, zeri compresi, e di default mostra il
+  totale; dal menu si sceglie una singola casella o una linea per casella.
+  Date in formato italiano. Corretto anche l'errore che si aveva quando la
+  risposta non conteneva dati (`timeline.points` su un array vuoto).
+- Refuso nel log antivirus: "Minacce più frequenti".
+
 ## [0.2.7] - 2026-09-23
 ### Added
 - **Password dimenticata: reset via email.** Sotto il form di accesso c'e' il

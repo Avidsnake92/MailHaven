@@ -346,7 +346,7 @@ function AvLog() {
       )}
       {avStats?.topViruses?.length > 0 && (
         <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
-          <p className="text-xs font-semibold text-red-700 mb-2">Minacce piu frequenti</p>
+          <p className="text-xs font-semibold text-red-700 mb-2">Minacce più frequenti</p>
           <div className="flex flex-wrap gap-2">
             {avStats.topViruses.map(v => (
               <span key={v.virus} className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">

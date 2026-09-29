@@ -51,17 +51,30 @@ export default function Statistics() {
 
   useEffect(() => { load() }, [load])
 
-  // Processa timeline per recharts
+  // Serie giornaliera degli ultimi 60 giorni, giorni a zero compresi. Prima i
+  // giorni senza email mancavano del tutto: le linee si spezzavano e l'asse delle
+  // date non era uniforme. Senza dati restituiva [] e .points faceva errore.
+  const TIMELINE_DAYS = 60
   const getTimelineData = () => {
-    if (!data?.timeline) return []
-    const byDate = {}
-    const mailboxes = new Set()
-    data.timeline.forEach(row => {
-      if (!byDate[row.date]) byDate[row.date] = { date: row.date }
-      byDate[row.date][row.mailbox] = parseInt(row.count)
-      mailboxes.add(row.mailbox)
+    const rows = data?.timeline || []
+    const mailboxes = [...new Set(rows.map(r => r.mailbox))].sort()
+    const counts = {}
+    rows.forEach(r => {
+      if (!counts[r.date]) counts[r.date] = {}
+      counts[r.date][r.mailbox] = parseInt(r.count) || 0
     })
-    return { points: Object.values(byDate).slice(-60), mailboxes: [...mailboxes] }
+    const points = []
+    const today = new Date()
+    for (let i = TIMELINE_DAYS - 1; i >= 0; i--) {
+      const d = new Date(today)
+      d.setDate(d.getDate() - i)
+      const key = d.toLocaleDateString('sv-SE') // AAAA-MM-GG in ora locale
+      const day = counts[key] || {}
+      const p = { date: key, totale: 0 }
+      mailboxes.forEach(m => { p[m] = day[m] || 0; p.totale += p[m] })
+      points.push(p)
+    }
+    return { points, mailboxes, hasData: rows.length > 0 }
   }
 
   const timeline = getTimelineData()
@@ -108,31 +121,51 @@ export default function Statistics() {
 
       {/* Timeline Chart */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">Archivio nel tempo</h2>
-          <p className="text-xs text-gray-400">Ultimi 60 giorni</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">Archivio nel tempo</h2>
+            <p className="text-xs text-gray-400">Email archiviate al giorno, ultimi {TIMELINE_DAYS} giorni</p>
+          </div>
+          {timeline.mailboxes.length > 1 && (
+            <select value={timelineView} onChange={e => setTimelineView(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Cosa mostrare nel grafico">
+              <option value="all">Totale di tutte le caselle</option>
+              <option value="each">Una linea per casella</option>
+              {timeline.mailboxes.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          )}
         </div>
-        {timeline.points.length === 0 ? (
+        {!timeline.hasData ? (
           <div className="text-center py-12 text-gray-400 text-sm">Nessun dato disponibile</div>
-        ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={timeline.points} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }}
-                tickFormatter={d => d ? d.slice(5) : ''} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
-              <Tooltip
-                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
-                labelFormatter={d => `Data: ${d}`} />
-              <Legend wrapperStyle={{ fontSize: '12px' }} />
-              {timeline.mailboxes.map((mailbox, i) => (
-                <Line key={mailbox} type="monotone" dataKey={mailbox}
-                  stroke={COLORS[i % COLORS.length]} strokeWidth={1.5} strokeOpacity={0.8}
-                  dot={false} name={mailbox} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        )}
+        ) : (() => {
+          // Con molte caselle, una linea per ciascuna diventa un groviglio: di
+          // default si mostra il totale, la singola casella si sceglie dal menu.
+          const view = timelineView === 'each' || timelineView === 'all' || timeline.mailboxes.includes(timelineView)
+            ? timelineView : 'all'
+          const series = view === 'all' ? [{ key: 'totale', name: 'Totale', color: '#2563eb' }]
+            : view === 'each' ? timeline.mailboxes.map((m, i) => ({ key: m, name: m, color: COLORS[i % COLORS.length] }))
+            : [{ key: view, name: view, color: '#2563eb' }]
+          return (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={timeline.points} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tickFormatter={d => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : ''} minTickGap={24} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+                  labelFormatter={d => new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })} />
+                {series.length > 1 && <Legend wrapperStyle={{ fontSize: '12px' }} />}
+                {series.map(s => (
+                  <Line key={s.key} type="monotone" dataKey={s.key} name={s.name}
+                    stroke={s.color} strokeWidth={series.length > 1 ? 1.5 : 2}
+                    strokeOpacity={series.length > 1 ? 0.8 : 1} dot={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          )
+        })()}
       </div>
 
       {/* Email per casella */}
