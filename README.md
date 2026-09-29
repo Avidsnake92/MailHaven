@@ -88,6 +88,16 @@ I servizi sono quattro container: interfaccia web (Nginx, porta 8080), backend, 
 
 Node.js, Express, React, Vite, Tailwind CSS, PostgreSQL, ClamAV, Rspamd, Docker Compose.
 
+## Licenza
+
+MailHaven è pubblicato con la **Business Source License 1.1** (testo completo nel file [LICENSE](LICENSE)). Il codice è visibile e modificabile, ma non è "open source" nel senso della definizione OSI: l'uso in produzione ha dei limiti.
+
+- **Liberi**: leggere, copiare e modificare il codice; usarlo per prove e sviluppo; usarlo in produzione gratuitamente entro i limiti dell'edizione Community (una azienda, fino a 25 caselle, senza le funzioni riservate alle edizioni a pagamento).
+- **Con una licenza commerciale**: più aziende o più caselle, le funzioni Pro (antivirus, antispam, Legal Hold, backup, import, ricerca su tutte le caselle), l'uso da rivenditore e l'offerta di MailHaven a terzi come servizio.
+- **Dopo quattro anni** dalla pubblicazione, ogni versione passa alla licenza Apache 2.0.
+
+Per licenze commerciali e per i rivenditori usa il [modulo contatti](https://mailhaven.it/contatti/). Questa sintesi non sostituisce il testo di LICENSE, che è quello che vale.
+
 ## Sicurezza
 
 Per segnalare una vulnerabilità vedi [SECURITY.md](SECURITY.md).
