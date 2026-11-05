@@ -538,7 +538,10 @@ export default function Dashboard() {
       await api.post('/emails/sync/' + selectedMailbox.id)
       await fetchEmails()
       showMsg('Sincronizzazione completata')
-    } catch { showMsg('Errore sync', 'error') }
+    } catch (e) {
+      const detail = e?.response?.data?.error
+      showMsg(detail ? `Errore sync: ${detail}` : 'Errore sync', 'error')
+    }
     finally { setSyncing(false) }
   }
 

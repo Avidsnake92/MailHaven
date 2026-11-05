@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.10] - 2026-11-05
+### Fixed
+- **Le sincronizzazioni manuali non lasciavano traccia nel Log Sync.** Il
+  pulsante "Aggiorna" nelle email archiviate e "Sincronizza ora" in
+  Amministrazione lanciavano il crawler senza scrivere in `sync_log`: se una
+  casella nuova falliva (host, porta, password...) l'utente vedeva solo "Errore
+  sync" e il log restava vuoto. Ora ogni sync manuale scrive una riga nel log,
+  con stato, durata ed errore reale.
+- Il messaggio di errore in email archiviate ora mostra il motivo ("Errore sync:
+  ..."), e in Amministrazione l'errore non viene piu' scartato.
+
 ## [0.2.9] - 2026-09-29
 ### Fixed
 - **Il backup S3 globale (superadmin) salvava uno zip vuoto.** `s3backup.js`

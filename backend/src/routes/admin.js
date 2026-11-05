@@ -675,17 +675,8 @@ router.post('/mailboxes/:id/sync', async (req, res) => {
     const mailbox = r.rows[0];
     setImmediate(async () => {
       try {
-        let n;
-        if (mailbox.oauth_provider === 'microsoft') {
-          const { syncMailbox: graphSync } = require('../services/graphCrawler');
-          n = await graphSync(mailbox, db);
-        } else if (mailbox.oauth_provider === 'google') {
-          const { syncMailbox: gmailSync } = require('../services/gmailCrawler');
-          n = await gmailSync(mailbox, db);
-        } else {
-          const { syncMailbox } = require('../services/imapCrawler');
-          n = await syncMailbox(mailbox, db);
-        }
+        // Scrive sempre la riga in sync_log (errore incluso)
+        await require('../services/scheduler').runManualSync(mailbox, db);
       } catch (e) { console.error('Sync error:', e.message); }
     });
   } catch (err) { res.status(500).json({ error: 'Errore server' }); }

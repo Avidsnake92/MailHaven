@@ -351,4 +351,48 @@ const start = async (database) => {
 const stop = () => { if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; } };
 const runNow = () => syncAllMailboxes();
 
-module.exports = { start, stop, runNow, applyArchivePolicy };
+// Sincronizzazione MANUALE di una casella (pulsante "Aggiorna" / "Sincronizza ora").
+// Prima passava direttamente dal crawler e non lasciava traccia: se falliva
+// (credenziali, host, porta...) l'utente vedeva solo "Errore sync" e il Log Sync
+// restava vuoto. Ora scrive sempre una riga in sync_log, con l'errore reale.
+const runManualSync = async (mailbox, dbRef) => {
+  const d = dbRef || db;
+  const logRes = await d.query(
+    `INSERT INTO sync_log (mailbox_id, status, started_at, details)
+     VALUES ($1, 'running', NOW(), $2) RETURNING id`,
+    [mailbox.id, JSON.stringify({ trigger: 'manual' })]
+  );
+  const logId = logRes.rows[0].id;
+  const startTime = Date.now();
+  try {
+    let result;
+    if (mailbox.oauth_provider === 'microsoft') {
+      result = await require('./graphCrawler').syncMailbox(mailbox, d);
+    } else if (mailbox.oauth_provider === 'google') {
+      result = await require('./gmailCrawler').syncMailbox(mailbox, d);
+    } else {
+      result = await syncMailbox(mailbox, d);
+    }
+    const synced = typeof result === 'object' && result !== null ? (result.total || 0) : (result || 0);
+    const folders = typeof result === 'object' && result !== null && Array.isArray(result.folders) ? result.folders : [];
+    await d.query(
+      `UPDATE sync_log SET status='completed', emails_synced=$1,
+       folders_scanned=$2, folders_skipped=$3, details=$4, finished_at=NOW() WHERE id=$5`,
+      [synced, folders.filter(f => !f.skipped).length, folders.filter(f => f.skipped).length,
+       JSON.stringify({ trigger: 'manual', duration_sec: Math.round((Date.now() - startTime) / 1000), emails_new: synced, folders }),
+       logId]
+    );
+    await d.query('UPDATE mailboxes SET sync_fail_count=0, sync_retry_after=NULL WHERE id=$1', [mailbox.id]).catch(() => {});
+    return synced;
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    console.error(`[ManualSync] ${mailbox.email}:`, msg);
+    await d.query(
+      `UPDATE sync_log SET status='error', error=$1, finished_at=NOW() WHERE id=$2`,
+      [msg, logId]
+    ).catch(() => {});
+    throw err;
+  }
+};
+
+module.exports = { start, stop, runNow, applyArchivePolicy, runManualSync };

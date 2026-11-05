@@ -644,23 +644,12 @@ router.post('/sync/:mailbox_id', async (req, res) => {
     const r = await db.query('SELECT * FROM mailboxes WHERE id=$1', [mailboxId]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
     const mailbox = r.rows[0];
-    const { applyArchivePolicy } = require('../services/scheduler');
-    let n;
-    if (mailbox.oauth_provider === 'microsoft') {
-      const { syncMailbox: graphSync } = require('../services/graphCrawler');
-      n = await graphSync(mailbox, db);
-    } else if (mailbox.oauth_provider === 'google') {
-      const { syncMailbox: gmailSync } = require('../services/gmailCrawler');
-      n = await gmailSync(mailbox, db);
-    } else {
-      const { syncMailbox } = require('../services/imapCrawler');
-      n = await syncMailbox(mailbox, db);
-    }
+    const { applyArchivePolicy, runManualSync } = require('../services/scheduler');
+    // runManualSync scrive la riga in sync_log (anche in caso di errore) e azzera il backoff
+    const n = await runManualSync(mailbox, db);
     if (applyArchivePolicy) {
       await applyArchivePolicy(mailbox, db).catch(e => console.error('[Policy]', e.message));
     }
-    // Sync manuale riuscita: azzera l'eventuale backoff così lo scheduler riprende
-    await db.query('UPDATE mailboxes SET sync_fail_count=0, sync_retry_after=NULL WHERE id=$1', [mailbox.id]).catch(() => {});
     console.log(`Manual sync ${mailbox.email}: +${n} emails`);
     res.json({ message: 'Sincronizzazione completata', synced: n });
   } catch (err) {
