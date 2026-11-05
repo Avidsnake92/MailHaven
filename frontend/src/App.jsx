@@ -23,6 +23,7 @@ import Import from './pages/Import'
 import Layout from './components/Layout'
 import UpdateNotification from './components/UpdateNotification'
 import api from './services/api'
+import { ToastHost, ConfirmHost } from './components/Feedback'
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user } = useAuth()
@@ -125,6 +126,8 @@ export default function App() {
       <BrandingProvider>
         <AuthProvider>
           <AppContent />
+          <ToastHost />
+          <ConfirmHost />
         </AuthProvider>
       </BrandingProvider>
     </BrowserRouter>

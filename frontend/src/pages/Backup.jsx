@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import api from '../services/api'
 import { useBranding } from '../context/BrandingContext'
 import { useAuth } from '../context/AuthContext'
@@ -237,11 +238,14 @@ export default function Backup() {
       const sftp = configs.find(c => c.provider_type === 'sftp')
       if (s3) setS3Config(c => ({ ...c, ...s3, secret_key: '' }))
       if (sftp) setSftpConfig(c => ({ ...c, ...sftp, sftp_password: '' }))
-    } catch {}
+    } catch (e) {
+      // Se la configurazione non si carica il modulo resta vuoto: salvarlo cosi' sovrascriverebbe quella vera
+      reportError(e, 'Configurazione backup non caricata (non salvare il modulo finché non si carica)')
+    }
   }
 
   const loadLogs = async () => {
-    try { const res = await api.get('/backup/logs'); setLogs(res.data || []) } catch {}
+    try { const res = await api.get('/backup/logs'); setLogs(res.data || []) } catch (e) { reportError(e, 'Caricamento log backup') }
   }
 
   const currentConfig = activeTab === 's3' ? s3Config : sftpConfig
@@ -316,7 +320,11 @@ export default function Backup() {
   }
 
   const handleRestore = async (backup) => {
-    if (!window.confirm(`⚠️ Ripristinare il backup "${backup.filename}"?\n\nLe email già presenti non verranno duplicate.`)) return
+    if (!(await confirmDialog({
+      title: 'Ripristinare questo backup?',
+      message: `File: ${backup.filename}\n\nLe email del backup vengono reinserite nelle caselle. Quelle già presenti non vengono duplicate.`,
+      confirmLabel: 'Ripristina',
+    }))) return
     setRestoring(backup.key); setRestoreResult(null)
     try {
       const res = await api.post('/backup/restore', { remote_file: backup.key, provider_type: activeTab })

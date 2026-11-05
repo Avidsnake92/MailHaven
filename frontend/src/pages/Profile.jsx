@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -143,7 +144,12 @@ export default function Profile() {
   const handleKeyRotation = async () => {
     setKeyRotError(''); setKeyRotMsg('')
     if (!keyRotPwd) return setKeyRotError('Inserisci la password')
-    if (!confirm('⚠️ La rotazione della chiave re-cifra tutte le password IMAP. Operazione irreversibile. Continuare?')) return
+    if (!(await confirmDialog({
+      title: 'Ruotare la chiave di cifratura?',
+      message: 'Tutte le password IMAP salvate vengono ri-cifrate con una nuova chiave. L\'operazione non si può annullare: assicurati di avere un backup recente.',
+      confirmLabel: 'Ruota la chiave',
+      danger: true,
+    }))) return
     setKeyRotLoading(true)
     try {
       const r = await api.post('/admin/key-rotation', { password: keyRotPwd })

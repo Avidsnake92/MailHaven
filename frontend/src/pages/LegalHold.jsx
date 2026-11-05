@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { Shield, ShieldCheck, ShieldOff, Search, RefreshCw, AlertTriangle, Calendar, User, Inbox } from 'lucide-react'
 import api from '../services/api'
 
@@ -20,7 +21,7 @@ export default function LegalHold() {
       const res = await api.get(`/emails/legal-hold/list?page=${page}&limit=${LIMIT}`)
       setItems(res.data.items)
       setTotal(res.data.total)
-    } catch {}
+    } catch (e) { reportError(e, 'Caricamento Legal Hold') }
     setLoading(false)
   }, [page])
 
@@ -42,14 +43,19 @@ export default function LegalHold() {
 
   const releaseHold = async () => {
     if (!selected.size) return
-    if (!confirm(`Rimuovere il Legal Hold da ${selected.size} email? Le email torneranno modificabili.`)) return
+    if (!(await confirmDialog({
+      title: `Rimuovere il Legal Hold da ${selected.size} email?`,
+      message: 'Le email torneranno modificabili ed eliminabili, anche in modo definitivo.',
+      confirmLabel: 'Rimuovi Legal Hold',
+      danger: true,
+    }))) return
     setReleasing(true)
     try {
       await api.post('/emails/legal-hold', { email_ids: [...selected], enable: false })
       setSelected(new Set())
       load()
     } catch (e) {
-      alert('Errore: ' + (e.response?.data?.error || e.message))
+      reportError(e, 'Legal Hold')
     }
     setReleasing(false)
   }

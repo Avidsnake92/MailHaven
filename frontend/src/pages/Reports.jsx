@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { Bug, Lightbulb, MessageCircle, Send, ChevronRight, Plus, ArrowLeft, RefreshCw, Clock, CheckCircle, AlertCircle, Loader2, AlertTriangle } from 'lucide-react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -147,7 +148,7 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
       await api.post(`/reports/${reportId}/messages`, { message })
       setMessage('')
       await load()
-    } catch {}
+    } catch (e) { reportError(e, 'Invio messaggio') }
     setSending(false)
   }
 
@@ -155,14 +156,14 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
     try {
       await api.patch(`/reports/${reportId}`, { status: newStatus })
       setStatus(newStatus)
-    } catch {}
+    } catch (e) { reportError(e, 'Cambio stato') }
   }
 
   const updatePriority = async (newPriority) => {
     try {
       await api.patch(`/reports/${reportId}`, { priority: newPriority })
       setPriority(newPriority)
-    } catch {}
+    } catch (e) { reportError(e, 'Cambio priorità') }
   }
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-blue-500" /></div>
@@ -287,7 +288,7 @@ export default function Reports() {
       if (filterStatus) params.status = filterStatus
       const res = await api.get('/reports', { params })
       setReports(res.data.reports)
-    } catch {}
+    } catch (e) { reportError(e, 'Caricamento segnalazioni') }
     setLoading(false)
   }, [filterStatus])
 

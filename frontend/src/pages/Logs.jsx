@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -290,7 +291,7 @@ function AvLog() {
       setAvDelTarget(null)
       await loadAvStats() // aggiorna elenco, totali e minacce
     } catch (e) {
-      window.alert(e.response?.data?.error || 'Errore eliminazione')
+      reportError(e, 'Eliminazione')
     } finally { setAvDeleting(false) }
   }
   const [avNotify, setAvNotify] = useState(false)
@@ -323,8 +324,8 @@ function AvLog() {
 
   const saveSettings = async () => {
     setSavingSettings(true)
-    try { await api.post('/admin/settings', { av_notify_on_infection: avNotify }) }
-    catch {} finally { setSavingSettings(false) }
+    try { await api.post('/admin/settings', { av_notify_on_infection: avNotify }); notify('Impostazione salvata', 'success') }
+    catch (e) { reportError(e, 'Salvataggio impostazione') } finally { setSavingSettings(false) }
   }
 
   return (

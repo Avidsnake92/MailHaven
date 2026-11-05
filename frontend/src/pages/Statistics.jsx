@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Mail, HardDrive, TrendingUp, ShieldAlert, RefreshCw, Inbox, Clock } from 'lucide-react'
 import api from '../services/api'
@@ -36,16 +37,19 @@ export default function Statistics() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [timelineView, setTimelineView] = useState('all') // 'all' | mailbox email
+  const [loadError, setLoadError] = useState('')
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(true); setLoadError('')
     try {
       // /admin/* e' negato a chi non e' admin/superadmin/reseller: da qui la
       // dashboard di un utente normale rispondeva 403. Ora l'endpoint sta sotto
       // /emails e vale per tutti i ruoli, con lo scoping per casella assegnata.
       const res = await api.get('/emails/stats/overview')
       setData(res.data)
-    } catch {}
+    } catch (e) {
+      setLoadError(`Impossibile caricare le statistiche: ${e.displayMessage || e.message}`)
+    }
     setLoading(false)
   }, [])
 
@@ -86,7 +90,9 @@ export default function Statistics() {
   )
 
   if (!data) return (
-    <div className="text-center py-24 text-gray-500">Errore caricamento statistiche</div>
+    <div className="p-6 max-w-xl mx-auto">
+      <LoadError message={loadError || 'Nessun dato disponibile.'} onRetry={load} />
+    </div>
   )
 
   const { totals, byMailbox, spamStats } = data

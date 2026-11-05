@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { useSearchParams } from "react-router-dom"
 import api from '../services/api'
 import { copyText } from '../services/clipboard'
@@ -923,7 +924,12 @@ function LicenseTab() {
     finally { setSaving(false) }
   }
   const remove = async () => {
-    if (!window.confirm("Rimuovere la licenza e tornare all'edizione Community?")) return
+    if (!(await confirmDialog({
+      title: 'Rimuovere la licenza?',
+      message: "Si torna all'edizione Community (1 cliente, 25 caselle, niente MSP). Potrai riattivare la licenza reinserendo la chiave.",
+      confirmLabel: 'Rimuovi licenza',
+      danger: true,
+    }))) return
     setSaving(true); setMsg(null)
     try { const r = await api.delete('/license'); setLic(r.data); await refreshUser(); setMsg({ type: 'ok', text: 'Licenza rimossa.' }) }
     catch { setMsg({ type: 'error', text: 'Errore rimozione' }) }
@@ -1078,7 +1084,7 @@ export default function Settings() {
   const loadPluginTokens = async () => {
     setLoadingTokens(true)
     try { const res = await api.get('/plugin/tokens'); setPluginTokens(res.data || []) }
-    catch {} finally { setLoadingTokens(false) }
+    catch (e) { reportError(e, 'Caricamento token plugin') } finally { setLoadingTokens(false) }
   }
 
   const revokeToken = async (id) => {
@@ -1127,7 +1133,11 @@ export default function Settings() {
   // Mostra il wizard di configurazione in ANTEPRIMA (dev/diagnostica). Sicuro:
   // il completamento è disattivato (isSetupDone resta true), non scrive nulla.
   const showWizardPreview = async () => {
-    if (!window.confirm("Mostrare il wizard di configurazione in ANTEPRIMA?\n\nÈ sicuro: il completamento è disattivato e non viene salvato nulla. Per tornare userai 'Esci anteprima' nel banner in alto.")) return
+    if (!(await confirmDialog({
+      title: 'Mostrare il wizard in anteprima?',
+      message: "È sicuro: il completamento è disattivato e non viene salvato nulla. Per tornare indietro usa «Esci anteprima» nel banner in alto.",
+      confirmLabel: 'Mostra anteprima',
+    }))) return
     try { await api.post('/setup/preview', { on: true }); window.location.href = '/' }
     catch { showMsg('Errore avvio anteprima', 'error') }
   }
@@ -1392,12 +1402,17 @@ export default function Settings() {
                             <div className="border-t border-gray-100 pt-3 mt-1">
                               <button
                                 onClick={async () => {
-                                  if (!confirm(`Applicare la policy alle email già archiviate di ${m.email}? Le email che rientrano nei criteri verranno eliminate dall'IMAP.`)) return;
+                                  if (!(await confirmDialog({
+                                    title: 'Applicare la policy alle email già archiviate?',
+                                    message: `Casella: ${m.email}\n\nLe email che rientrano nei criteri verranno ELIMINATE dal server IMAP (restano nell'archivio MailHaven).`,
+                                    confirmLabel: 'Applica policy',
+                                    danger: true,
+                                  }))) return;
                                   try {
                                     const res = await api.post(`/emails/apply-policy/${m.id}`);
-                                    alert(res.data.message);
+                                    notify(res.data.message, 'success');
                                   } catch (e) {
-                                    alert(e.response?.data?.error || 'Errore');
+                                    reportError(e);
                                   }
                                 }}
                                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors font-medium">

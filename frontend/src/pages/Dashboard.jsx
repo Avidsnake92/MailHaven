@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -348,6 +349,7 @@ export default function Dashboard() {
   const [toDate, setToDate] = useState(savedState.toDate || '')
   const [showFilters, setShowFilters] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [listError, setListError] = useState('')
   const [sortBy, setSortBy] = useState('sent_at')
   const [sortDir, setSortDir] = useState('desc')
   const [actionMsg, setActionMsg] = useState('')
@@ -379,7 +381,7 @@ export default function Dashboard() {
   // Load clients
   useEffect(() => {
     if (user?.role === 'superadmin' || user?.role === 'admin') {
-      api.get('/admin/clients').then(r => setClients(r.data)).catch(() => {})
+      api.get('/admin/clients').then(r => setClients(r.data)).catch(e => reportError(e, 'Elenco clienti non caricato'))
     }
   }, [user])
 
@@ -393,7 +395,7 @@ export default function Dashboard() {
           const restored = filtered.find(m => m.id == restoredMailboxId)
           if (restored) setSelectedMailbox(restored)
         }
-      }).catch(() => {})
+      }).catch(e => reportError(e, 'Elenco caselle non caricato'))
     } else if (user?.role !== 'superadmin') {
       api.get('/emails/mailboxes/list').then(r => {
         setMailboxes(r.data)
@@ -401,7 +403,7 @@ export default function Dashboard() {
           const restored = r.data.find(m => m.id == restoredMailboxId)
           if (restored) setSelectedMailbox(restored)
         } else if (r.data.length === 1) setSelectedMailbox(r.data[0])
-      }).catch(() => {})
+      }).catch(e => reportError(e, 'Elenco caselle non caricato'))
     }
   }, [selectedClient, user])
 
@@ -422,7 +424,7 @@ export default function Dashboard() {
   // Fetch emails
   const fetchEmails = useCallback(async () => {
     if (!selectedMailbox) return
-    setLoading(true)
+    setLoading(true); setListError('')
     try {
       const params = {
         page, limit: 50, mailbox_id: selectedMailbox.id,
@@ -437,7 +439,10 @@ export default function Dashboard() {
       setEmails(res.data.items || [])
       setTotal(res.data.total || 0)
       setTotalPages(res.data.totalPages || 1)
-    } catch (e) { console.error('fetchEmails error:', e) }
+    } catch (e) {
+      console.error('fetchEmails error:', e)
+      setListError(`Impossibile caricare le email: ${e.displayMessage || e.message}`)
+    }
     finally { setLoading(false) }
   }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, sortBy, sortDir])
 
@@ -445,7 +450,7 @@ export default function Dashboard() {
 
   const showMsg = (msg, type = 'info') => {
     setActionMsg(msg); setActionType(type)
-    setTimeout(() => setActionMsg(''), 3500)
+    setTimeout(() => setActionMsg(''), type === 'error' ? 9000 : 3500)
   }
 
   const handleSort = (col) => {
@@ -466,7 +471,7 @@ export default function Dashboard() {
       showMsg(`${selected.length} email eliminate`)
       setSelected([])
       fetchEmails()
-    } catch { showMsg('Errore durante eliminazione', 'error') }
+    } catch (e) { showMsg(`Errore durante eliminazione: ${e.displayMessage || e.message}`, 'error') }
     finally { setBulkLoading(false); setConfirmBulk(null) }
   }
 
@@ -487,7 +492,7 @@ export default function Dashboard() {
       showMsg(`${r.data.deleted} email eliminate definitivamente${r.data.held ? ` · ${r.data.held} in Legal Hold saltate` : ''}`)
       setSelected([])
       fetchEmails()
-    } catch { showMsg('Errore eliminazione definitiva', 'error') }
+    } catch (e) { showMsg(`Errore eliminazione definitiva: ${e.displayMessage || e.message}`, 'error') }
     finally { setBulkLoading(false); setConfirmBulk(null); setPermPhrase(''); setPermInput('') }
   }
 
@@ -513,7 +518,7 @@ export default function Dashboard() {
       setSelected([])
       setConfirmBulk(null)
       fetchEmails()
-    } catch { showMsg('Errore durante restore', 'error') }
+    } catch (e) { showMsg(`Errore durante restore: ${e.displayMessage || e.message}`, 'error') }
     finally { setBulkLoading(false) }
   }
 
@@ -527,7 +532,7 @@ export default function Dashboard() {
       a.download = `export_${format(new Date(), 'yyyyMMdd_HHmm')}.zip`
       a.click(); URL.revokeObjectURL(url)
       showMsg(`${selected.length} email esportate`)
-    } catch { showMsg('Errore export', 'error') }
+    } catch (e) { showMsg(`Errore export: ${e.displayMessage || e.message}`, 'error') }
     finally { setExportLoading(false) }
   }
 
@@ -561,7 +566,7 @@ export default function Dashboard() {
   const hasActiveFilter = fromDate || toDate || selectedFolder
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
+    <div className="flex h-full overflow-hidden bg-white">
 
       {/* ── PANNELLO 1: Sidebar ── */}
       <div className={`
@@ -731,7 +736,7 @@ export default function Dashboard() {
 
           {/* Bulk actions */}
           {selected.length > 0 && (
-            <div className="flex items-center gap-2.5 pt-1 border-t border-gray-100">
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100">
               <button onClick={() => setConfirmBulk('restore')}
                 className="flex items-center gap-2.5 text-sm px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-colors">
                 <RotateCcw size={17} /> Ripristina
@@ -803,6 +808,8 @@ export default function Dashboard() {
             <div className="flex items-center justify-center h-24">
               <Loader2 size={20} className="animate-spin text-blue-400" />
             </div>
+          ) : listError ? (
+            <div className="p-3"><LoadError message={listError} onRetry={fetchEmails} /></div>
           ) : emails.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2.5 select-none">
               <Mail size={40} strokeWidth={1} />
@@ -940,11 +947,14 @@ export default function Dashboard() {
 
             {/* Opzione 1 — eliminazione normale (resta in archivio con badge) */}
             <div className="border border-gray-200 rounded-lg p-4 mb-3">
-              <p className="text-sm font-semibold text-gray-900">Elimina</p>
-              <p className="text-xs text-gray-500 mt-1 mb-3">Le email vengono rimosse dall'IMAP e marcate come eliminate: restano nell'archivio con l'etichetta <span className="font-semibold">ELIMINATA</span> e sono recuperabili.</p>
+              <p className="text-sm font-semibold text-gray-900">Elimina dalla casella (resta in archivio)</p>
+              <p className="text-xs text-gray-500 mt-1 mb-3">
+                <span className="font-semibold text-gray-700">Le email spariscono dal server di posta del cliente (IMAP).</span>{' '}
+                In MailHaven restano visibili con l'etichetta <span className="font-semibold">ELIMINATA</span> e puoi ripristinarle quando vuoi.
+              </p>
               <button onClick={handleDeleteSelected} disabled={bulkLoading}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-40">
-                {bulkLoading && !permPhrase ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} Elimina
+                {bulkLoading && !permPhrase ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />} Elimina dalla casella
               </button>
             </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import { Shield, Search, RefreshCw, AlertTriangle, LogIn, LogOut, Lock, Eye, Trash2, Settings, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import api from '../services/api'
 
@@ -52,7 +53,7 @@ export default function AuditLog() {
       setTotal(res.data.total)
       setPages(res.data.pages)
       setPage(p)
-    } catch {}
+    } catch (e) { reportError(e, 'Caricamento audit log') }
     setLoading(false)
   }, [filterAction, filterIp, filterFrom, filterTo])
 

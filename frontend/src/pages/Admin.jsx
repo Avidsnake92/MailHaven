@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
 import api from '../services/api'
 import { clientLabel } from '../utils/clientLabel'
 import { getPasswordStrength, validatePassword } from '../utils/password'
@@ -656,9 +657,12 @@ function ClientsTab({ branding, user }) {
   const [showItflow, setShowItflow] = useState(false)
   const GB = 1024 * 1024 * 1024
 
+  const [loadError, setLoadError] = useState('')
   const load = () => {
-    setLoading(true)
-    api.get('/admin/clients').then(r => setClients(r.data)).finally(() => setLoading(false))
+    setLoading(true); setLoadError('')
+    api.get('/admin/clients').then(r => setClients(r.data))
+      .catch(e => setLoadError(`Impossibile caricare i clienti: ${e.displayMessage || e.message}`))
+      .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
 
@@ -689,11 +693,11 @@ function ClientsTab({ branding, user }) {
       if (editItem) await api.put(`/admin/clients/${editItem.id}`, payload)
       else await api.post('/admin/clients', payload)
       setShowForm(false); load()
-    } catch { } finally { setSaving(false) }
+    } catch (e) { reportError(e, 'Salvataggio cliente') } finally { setSaving(false) }
   }
 
   const handleDelete = async () => {
-    try { await api.delete(`/admin/clients/${deleteItem.id}`) } catch { }
+    try { await api.delete(`/admin/clients/${deleteItem.id}`) } catch (e) { reportError(e, 'Eliminazione cliente') }
     setDeleteItem(null); load()
   }
 
@@ -702,7 +706,7 @@ function ClientsTab({ branding, user }) {
       {showItflow && <ItflowImportModal onClose={() => setShowItflow(false)} onImported={load} branding={branding} />}
       <div className="bg-white border border-gray-200 rounded-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-xl">
-          <h2 className="font-semibold text-gray-900">{user.role === 'reseller' ? 'Aziende' : 'Clienti'} ({clients.length})</h2>
+          <h2 className="font-semibold text-gray-900">{user.role === 'reseller' ? 'Aziende' : 'Clienti'} {loadError ? '' : `(${clients.length})`}</h2>
           {(user.role === 'superadmin' || user.role === 'reseller') && (
             <div className="flex items-center gap-2">
               {user.role === 'superadmin' && (
@@ -720,6 +724,8 @@ function ClientsTab({ branding, user }) {
 
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+        ) : loadError ? (
+          <div className="p-4"><LoadError message={loadError} onRetry={load} /></div>
         ) : clients.length === 0 ? (
           <div className="text-center py-16">
             <Building2 size={32} className="text-gray-300 mx-auto mb-3" />
@@ -859,10 +865,15 @@ function UsersTab({ branding, user }) {
   const [assignedMailboxes, setAssignedMailboxes] = useState([])
   const [mbLoaded, setMbLoaded] = useState(false)
 
+  const [loadError, setLoadError] = useState('')
   const load = async () => {
-    setLoading(true)
-    const [u, c] = await Promise.all([api.get('/admin/users'), api.get('/admin/clients')])
-    setUsers(u.data); setClients(c.data); setLoading(false)
+    setLoading(true); setLoadError('')
+    try {
+      const [u, c] = await Promise.all([api.get('/admin/users'), api.get('/admin/clients')])
+      setUsers(u.data); setClients(c.data)
+    } catch (e) {
+      setLoadError(`Impossibile caricare utenti e clienti: ${e.displayMessage || e.message}`)
+    } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
 
@@ -902,7 +913,7 @@ function UsersTab({ branding, user }) {
         await api.post(`/admin/users/${userId}/mailboxes`, { mailbox_ids: assignedMailboxes })
       }
       setShowForm(false); load()
-    } catch (err) { alert(err.response?.data?.error || 'Errore') } finally { setSaving(false) }
+    } catch (err) { reportError(err) } finally { setSaving(false) }
   }
 
   const handleDelete = async () => {
@@ -922,7 +933,7 @@ function UsersTab({ branding, user }) {
     <>
       <div className="bg-white border border-gray-200 rounded-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-xl">
-          <h2 className="font-semibold text-gray-900">Utenti ({users.length})</h2>
+          <h2 className="font-semibold text-gray-900">Utenti {loadError ? '' : `(${users.length})`}</h2>
           <button onClick={openNew} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white"
             style={{ background: branding.primary_color || '#2563eb' }}>
             <Plus size={14} /> Nuovo utente
@@ -931,6 +942,8 @@ function UsersTab({ branding, user }) {
 
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+        ) : loadError ? (
+          <div className="p-4"><LoadError message={loadError} onRetry={load} /></div>
         ) : (
           <table className="w-full">
             <thead><tr className="border-b border-gray-100">
@@ -1212,10 +1225,15 @@ function MailboxesTab({ branding, user }) {
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkResult, setBulkResult] = useState(null)
 
+  const [loadError, setLoadError] = useState('')
   const load = async () => {
-    setLoading(true)
-    const [m, c] = await Promise.all([api.get('/admin/mailboxes'), api.get('/admin/clients')])
-    setMailboxes(m.data); setClients(c.data); setLoading(false)
+    setLoading(true); setLoadError('')
+    try {
+      const [m, c] = await Promise.all([api.get('/admin/mailboxes'), api.get('/admin/clients')])
+      setMailboxes(m.data); setClients(c.data)
+    } catch (e) {
+      setLoadError(`Impossibile caricare le caselle: ${e.displayMessage || e.message}`)
+    } finally { setLoading(false) }
   }
 
   // Righe: email;password;host;porta  (separatore ; , o TAB — solo email è obbligatoria)
@@ -1392,7 +1410,7 @@ function MailboxesTab({ branding, user }) {
     try {
       const res = await api.patch(`/admin/mailboxes/${m.id}/toggle`)
       setMailboxes(prev => prev.map(mb => mb.id === m.id ? { ...mb, active: res.data.active } : mb))
-    } catch { }
+    } catch (e) { reportError(e, 'Cambio stato casella') }
   }
 
   const handleSync = async () => {
@@ -1441,7 +1459,7 @@ function MailboxesTab({ branding, user }) {
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 className="font-semibold text-gray-900">Caselle Email</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{mailboxes.length} casell{mailboxes.length === 1 ? 'a' : 'e'} configurate</p>
+            <p className="text-xs text-gray-400 mt-0.5">{loadError ? 'Elenco non disponibile' : `${mailboxes.length} casell${mailboxes.length === 1 ? 'a' : 'e'} configurate`}</p>
           </div>
           <div className="flex items-center gap-2">
             {syncMsg && <span className="text-xs text-green-600 font-medium">{syncMsg}</span>}
@@ -1463,6 +1481,8 @@ function MailboxesTab({ branding, user }) {
 
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+        ) : loadError ? (
+          <div className="p-4"><LoadError message={loadError} onRetry={load} /></div>
         ) : mailboxes.length === 0 ? (
           <div className="text-center py-16 px-6">
             <Inbox size={40} className="text-gray-300 mx-auto mb-4" />
@@ -1573,7 +1593,7 @@ function MailboxesTab({ branding, user }) {
                     try {
                       await api.post(`/admin/mailboxes/${m.id}/pause`, { paused: !m.sync_paused })
                       load()
-                    } catch {}
+                    } catch (e) { reportError(e, 'Pausa sincronizzazione') }
                   }}
                     title={m.sync_paused ? 'Riprendi sync' : 'Pausa sync'}
                     className={`p-2 rounded-lg transition-colors ${m.sync_paused ? 'text-orange-500 bg-orange-50 hover:bg-orange-100' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}>
@@ -1586,7 +1606,7 @@ function MailboxesTab({ branding, user }) {
                       await api.post(`/admin/mailboxes/${m.id}/sync`)
                       setSyncMsg(`Sync avviato per ${m.email}`)
                       setTimeout(() => loadSyncStatus(), 3000)
-                    } catch { setSyncMsg('Errore sync') }
+                    } catch (e) { setSyncMsg('Errore sync: ' + (e.displayMessage || e.message)) }
                     setTimeout(() => setSyncMsg(''), 3000)
                   }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Sincronizza ora">
                     <RefreshCw size={14} />
@@ -1825,7 +1845,13 @@ function ResellersTab({ branding, user }) {
   const GB = 1024 * 1024 * 1024
 
   const fmt = (b) => { if (!b) return '0 B'; const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB']; const i = Math.floor(Math.log(b) / Math.log(k)); return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + s[i] }
-  const load = () => { setLoading(true); api.get('/admin/resellers').then(r => setItems(r.data)).finally(() => setLoading(false)) }
+  const [loadError, setLoadError] = useState('')
+  const load = () => {
+    setLoading(true); setLoadError('')
+    api.get('/admin/resellers').then(r => setItems(r.data))
+      .catch(e => setLoadError(`Impossibile caricare i rivenditori: ${e.displayMessage || e.message}`))
+      .finally(() => setLoading(false))
+  }
   useEffect(() => { load() }, [])
 
   const openNew = () => { setForm(emptyForm); setEditItem(null); setShowForm(true) }
@@ -1844,15 +1870,15 @@ function ResellersTab({ branding, user }) {
       max_users: form.max_users === '' ? null : Number(form.max_users),
       feat_legal_hold: form.feat_legal_hold, feat_import: form.feat_import, feat_logs: form.feat_logs, feat_backup: form.feat_backup, feat_antivirus: form.feat_antivirus, feat_antispam: form.feat_antispam }
     try { if (editItem) await api.put(`/admin/resellers/${editItem.id}`, payload); else await api.post('/admin/resellers', payload); setShowForm(false); load() }
-    catch (e) { alert(e.response?.data?.error || 'Errore') } finally { setSaving(false) }
+    catch (e) { reportError(e) } finally { setSaving(false) }
   }
-  const handleDelete = async () => { try { await api.delete(`/admin/resellers/${deleteItem.id}`) } catch {} setDeleteItem(null); load() }
+  const handleDelete = async () => { try { await api.delete(`/admin/resellers/${deleteItem.id}`) } catch (e) { reportError(e, 'Eliminazione rivenditore') } setDeleteItem(null); load() }
 
   const openUser = (r) => { setUserFor(r); setUForm({ email: '', password: generatePassword(), full_name: r.name + ' (accesso)' }) }
   const saveUser = async () => {
     setUSaving(true)
     try { await api.post('/admin/users', { email: uForm.email, password: uForm.password, full_name: uForm.full_name, role: 'reseller', reseller_id: userFor.id }); setUserFor(null) }
-    catch (e) { alert(e.response?.data?.error || 'Errore') } finally { setUSaving(false) }
+    catch (e) { reportError(e) } finally { setUSaving(false) }
   }
 
   const bar = (pct, over) => (<div className="w-full bg-gray-100 rounded-full h-1.5 mt-1"><div className={`h-1.5 rounded-full ${over || pct > 85 ? 'bg-red-500' : pct > 65 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(pct || 0, 100)}%` }} /></div>)
@@ -1860,10 +1886,11 @@ function ResellersTab({ branding, user }) {
   return (<>
     <div className="bg-white border border-gray-200 rounded-xl">
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-900">Rivenditori ({items.length})</h2>
+        <h2 className="font-semibold text-gray-900">Rivenditori {loadError ? '' : `(${items.length})`}</h2>
         <button onClick={openNew} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white" style={{ background: branding.primary_color || '#2563eb' }}><Plus size={14} /> Nuovo rivenditore</button>
       </div>
       {loading ? (<div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>)
+        : loadError ? (<div className="p-4"><LoadError message={loadError} onRetry={load} /></div>)
         : items.length === 0 ? (<div className="text-center py-16"><Store size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun rivenditore</p></div>)
         : (<table className="w-full"><thead><tr className="border-b border-gray-100">
           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rivenditore</th>

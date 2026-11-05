@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.11] - 2026-11-05
+### Changed
+- **Conferme e avvisi unificati.** Le 7 finestre `confirm()` e gli 8 `alert()` del
+  browser sono sostituiti da un modale e da avvisi dell'app (nuovo
+  `components/Feedback.jsx`). I testi dicono cosa succede (ripristino backup,
+  rotazione chiave, rimozione licenza, rimozione Legal Hold, applicazione
+  policy). Nelle azioni distruttive il focus parte su "Annulla"; Esc annulla.
+- **Eliminazione email piu' chiara.** L'opzione normale si chiama "Elimina dalla
+  casella (resta in archivio)" e dice che le email spariscono dal server IMAP.
+
+### Fixed
+- **Spinner infinito e liste vuote ingannevoli.** In Clienti, Utenti, Caselle e
+  Rivenditori un errore di caricamento lasciava lo spinner acceso per sempre
+  (Utenti/Caselle) o mostrava "nessun elemento" (Clienti/Rivenditori). Ora
+  compare il motivo con "Riprova". Stesso trattamento per elenco email e
+  Statistiche.
+- **Errori inghiottiti.** Backup, Legal Hold, Audit log, Segnalazioni, Log,
+  Settings, attiva/disattiva casella e pausa sync mostrano il motivo reale al
+  posto di non fare nulla. Se la configurazione backup non si carica, l'avviso lo
+  dice, per non salvare un modulo vuoto sopra quella vera.
+- **Layout del Dashboard.** `h-screen` dentro il Layout tagliava il fondo con
+  header mobile o banner licenza: ora segue lo spazio disponibile. La barra delle
+  azioni sulle email selezionate va a capo su schermi stretti.
+
 ## [0.2.10] - 2026-11-05
 ### Fixed
 - **Le sincronizzazioni manuali non lasciavano traccia nel Log Sync.** Il
