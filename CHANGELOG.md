@@ -1,5 +1,24 @@
 # Changelog
 
+## [Non rilasciato]
+### Documentazione (sito mailhaven.it, non nel repository)
+- Pagina **Documentazione**, sezione Installazione, riscritta sul comportamento reale
+  di `install.sh`: si parte da `apt update && apt install -y curl` e si esegue lo
+  script da root (su un container pulito mancano `sudo` e `curl`); descritto cosa
+  chiede (solo l'URL pubblico) e cosa fa (Docker, git, openssl, cron, `/root/mailhaven`,
+  segreti generati nel `.env`, agente di aggiornamento).
+- Installazione manuale: `.env.example` contiene solo segnaposto, quindi vanno
+  impostati `JWT_SECRET` e `ENCRYPTION_KEY` (`openssl rand -hex 32`), `DB_PASSWORD`,
+  `APP_URL` e `OAUTH_REDIRECT_BASE_URL`. Indicata la porta 8080 come unica da esporre
+  (la 3001 ascolta solo in locale) e la nota su HTTPS / reverse proxy.
+- Wizard: i passi sono cinque (aggiunto "Benvenuto").
+- Aggiornamenti: il comando manuale e' `bash do-update.sh` (non `git pull`); descritti
+  dump del database in parallelo (ultimi 3), attesa che il backend sia sano (circa
+  2 minuti) e ripristino automatico della versione precedente.
+- Pagina **Download**: l'avviso "procedere a mano" ora coincide con README e documentazione.
+- Nessun cambio di codice e nessuna nuova versione: i file del sito sono modificati
+  solo in locale e non ancora pubblicati.
+
 ## [0.2.13] - 2026-11-06
 ### Fixed
 - **I filtri per data della lista email non funzionavano.** Il Dashboard mandava
