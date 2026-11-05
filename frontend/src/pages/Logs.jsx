@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
+import { confirmDialog, notify, reportError, LoadError, Dialog } from '../components/Feedback'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -95,7 +95,7 @@ function BackupLog() {
         <h2 className="font-semibold text-gray-900 text-sm">Log backup ({logs.length})</h2>
       </div>
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
       ) : logs.length === 0 ? (
         <div className="text-center py-16"><HardDrive size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun backup eseguito</p></div>
       ) : (
@@ -107,7 +107,7 @@ function BackupLog() {
               <div key={log.id} className="flex items-center gap-3 px-4 py-3">
                 {ok ? <CheckCircle2 size={15} className="text-green-500 shrink-0" /> : <AlertCircle size={15} className="text-red-500 shrink-0" />}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800">{ok ? 'Backup completato' : 'Backup fallito'} <span className="text-xs text-gray-400">· {String(log.type || '').toUpperCase()}</span></p>
+                  <p className="text-sm text-gray-800">{ok ? 'Backup completato' : 'Backup fallito'} <span className="text-xs text-gray-500">· {String(log.type || '').toUpperCase()}</span></p>
                   <p className="text-xs text-gray-500 truncate">
                     {formatDate(log.created_at)}
                     {d.key && <span className="font-mono"> · {String(d.key).split('/').pop()}</span>}
@@ -164,13 +164,13 @@ function ActivityLog() {
           <div className="flex flex-wrap gap-x-6 gap-y-1">
             {fields.map(([k, v]) => (
               <div key={k} className="flex gap-1.5 text-xs">
-                <span className="text-gray-400">{FIELD_LABELS[k]}:</span>
+                <span className="text-gray-500">{FIELD_LABELS[k]}:</span>
                 <span className="text-gray-700 font-medium">{typeof v === 'boolean' ? (v ? 'sì' : 'no') : (typeof v === 'object' ? JSON.stringify(v) : String(v))}</span>
               </div>
             ))}
           </div>
         )}
-        {d.path && <p className="text-[11px] text-gray-300 font-mono pt-0.5">{d.path}</p>}
+        {d.path && <p className="text-xs text-gray-300 font-mono pt-0.5">{d.path}</p>}
       </div>
     )
   }
@@ -179,12 +179,12 @@ function ActivityLog() {
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input type="text" placeholder="Cerca azione..."
             value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none" />
         </div>
-        <select value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+        <select aria-label="Filtra per azione" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
           className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none bg-white text-gray-700">
           <option value="">Tutte le azioni</option>
           <option value="CREAT">Creazioni</option>
@@ -199,7 +199,7 @@ function ActivityLog() {
         </select>
         <span className="text-sm text-gray-500 ml-auto">{total} eventi</span>
       </div>
-      <table className="w-full">
+      <div className="overflow-x-auto"><table className="w-full">
         <thead>
           <tr className="border-b border-gray-100">
             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data/Ora</th>
@@ -211,7 +211,7 @@ function ActivityLog() {
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={5} className="text-center py-16"><Loader2 size={24} className="animate-spin text-gray-400 mx-auto" /></td></tr>
+            <tr><td colSpan={5} className="text-center py-16"><Loader2 size={24} className="animate-spin text-gray-500 mx-auto" /></td></tr>
           ) : logs.length === 0 ? (
             <tr><td colSpan={5} className="text-center py-16"><Activity size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun evento</p></td></tr>
           ) : logs.map(log => {
@@ -225,8 +225,8 @@ function ActivityLog() {
                   <td className="px-4 py-3 text-xs text-gray-500 mono whitespace-nowrap">{formatDate(log.created_at)}</td>
                   <td className="px-4 py-3">
                     {log.user_email ? (
-                      <div><p className="text-sm font-medium text-gray-900">{log.user_name || log.user_email}</p><p className="text-xs text-gray-400">{log.user_email}</p></div>
-                    ) : <span className="text-xs text-gray-400 italic">Sistema</span>}
+                      <div><p className="text-sm font-medium text-gray-900">{log.user_name || log.user_email}</p><p className="text-xs text-gray-500">{log.user_email}</p></div>
+                    ) : <span className="text-xs text-gray-500 italic">Sistema</span>}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.color}`}>
@@ -236,10 +236,10 @@ function ActivityLog() {
                   <td className="px-4 py-3 text-sm text-gray-800 max-w-md">
                     <span className="block truncate">{summaryOf(log.details, log.action) || '—'}</span>
                   </td>
-                  <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-400 mono">
+                  <td className="hidden md:table-cell px-4 py-3 text-xs text-gray-500 mono">
                     <div className="flex items-center justify-between gap-2">
                       <span>{log.ip_address || '—'}</span>
-                      <ChevronDown size={13} className={`text-gray-400 transition-transform shrink-0 ${isSelected ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={13} className={`text-gray-500 transition-transform shrink-0 ${isSelected ? 'rotate-180' : ''}`} />
                     </div>
                   </td>
                 </tr>
@@ -254,7 +254,7 @@ function ActivityLog() {
             )
           })}
         </tbody>
-      </table>
+      </table></div>
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
           <p className="text-sm text-gray-500">Pagina {page} di {totalPages}</p>
@@ -369,7 +369,7 @@ function AvLog() {
             {avStats.recentInfected.map((r, i) => (
               <div key={r.email_id + '-' + i}
                 className="px-4 py-3 hover:bg-red-50/40 flex items-start justify-between gap-3">
-                <div className="min-w-0 cursor-pointer flex-1" onClick={() => r.email_id && navigate(`/email/${r.email_id}`)}>
+                <div className="min-w-0 cursor-pointer flex-1" role="link" tabIndex={0} onClick={() => r.email_id && navigate(`/email/${r.email_id}`)} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && r.email_id) { e.preventDefault(); navigate(`/email/${r.email_id}`) } }}>
                   <p className="text-sm font-medium text-gray-900 truncate">{r.subject || '(Nessun oggetto)'}</p>
                   <p className="text-xs text-gray-500 truncate">
                     da <span className="text-gray-700">{r.sender_email || '—'}</span>
@@ -381,11 +381,11 @@ function AvLog() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
                     {r.created_at ? format(new Date(r.created_at), 'dd MMM yy, HH:mm', { locale: it }) : ''}
                   </span>
                   <button onClick={() => setAvDelTarget(r)} title="Elimina definitivamente"
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -397,7 +397,7 @@ function AvLog() {
 
       {/* Conferma eliminazione email infetta (definitiva) */}
       {avDelTarget && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setAvDelTarget(null)}>
+        <Dialog label="Conferma eliminazione email infetta" onClose={() => setAvDelTarget(null)} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setAvDelTarget(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0"><ShieldAlert size={20} className="text-red-600" /></div>
@@ -416,7 +416,7 @@ function AvLog() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
       {canAvSettings && (
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
@@ -429,7 +429,7 @@ function AvLog() {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => setAvNotify(!avNotify)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${avNotify ? 'bg-green-500' : 'bg-gray-300'}`}>
+            role="switch" aria-checked={!!avNotify} aria-label="Notifica email se allegato infetto" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${avNotify ? 'bg-green-500' : 'bg-gray-300'}`}>
             <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${avNotify ? 'translate-x-4' : 'translate-x-1'}`} />
           </button>
           <button onClick={saveSettings} disabled={savingSettings}
@@ -452,7 +452,7 @@ function AvLog() {
           </div>
           <span className="text-sm text-gray-500 ml-auto">{total} scansioni</span>
         </div>
-        <table className="w-full">
+        <div className="overflow-x-auto"><table className="w-full">
           <thead>
             <tr className="border-b border-gray-100">
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data/Ora</th>
@@ -464,7 +464,7 @@ function AvLog() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="text-center py-16"><Loader2 size={24} className="animate-spin text-gray-400 mx-auto" /></td></tr>
+              <tr><td colSpan={5} className="text-center py-16"><Loader2 size={24} className="animate-spin text-gray-500 mx-auto" /></td></tr>
             ) : logs.length === 0 ? (
               <tr><td colSpan={5} className="text-center py-16">
                 <ShieldCheck size={32} className="text-gray-300 mx-auto mb-3" />
@@ -488,7 +488,7 @@ function AvLog() {
               )
             })}
           </tbody>
-        </table>
+        </table></div>
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">Pagina {page} di {totalPages}</p>
@@ -579,7 +579,7 @@ function SyncLog() {
       {/* Lista caselle */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={24} className="animate-spin text-gray-400" />
+          <Loader2 size={24} className="animate-spin text-gray-500" />
         </div>
       ) : mailboxes.length === 0 ? (
         <div className="text-center py-16">
@@ -625,13 +625,13 @@ function SyncLog() {
                           <AlertCircle size={12} /> Errore
                         </span>
                       )}
-                      <span className="text-xs text-gray-400">{formatDateShort(last.finished_at || last.started_at)}</span>
+                      <span className="text-xs text-gray-500">{formatDateShort(last.finished_at || last.started_at)}</span>
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-400 shrink-0">Nessuna sync</span>
+                    <span className="text-xs text-gray-500 shrink-0">Nessuna sync</span>
                   )}
 
-                  <ChevronDown size={16} className={`text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+                  <ChevronDown size={16} className={`text-gray-500 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Log espanso */}
@@ -647,10 +647,10 @@ function SyncLog() {
                     <div className="px-5 pb-4 space-y-2 max-h-72 overflow-y-auto">
                       {isLoading ? (
                         <div className="flex items-center justify-center py-6">
-                          <Loader2 size={18} className="animate-spin text-gray-400" />
+                          <Loader2 size={18} className="animate-spin text-gray-500" />
                         </div>
                       ) : mailboxLogs.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-4">Nessun log disponibile</p>
+                        <p className="text-sm text-gray-500 text-center py-4">Nessun log disponibile</p>
                       ) : mailboxLogs.map((log, i) => (
                         <div key={i} className={`rounded-lg border p-3 ${
                           log.status === 'completed' ? 'bg-green-50 border-green-100' :
@@ -678,25 +678,25 @@ function SyncLog() {
                                 <span className="text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">🗑 {log.emails_deleted_external} el. esternamente</span>
                               )}
                               {log.emails_synced === 0 && log.status === 'completed' && !log.emails_archived && (
-                                <span className="text-xs text-gray-400">Nessuna novità</span>
+                                <span className="text-xs text-gray-500">Nessuna novità</span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
+                            <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
                               <Clock size={10} />
                               {formatDate(log.started_at)}
                             </div>
                           </div>
                           <div className="flex items-center gap-3 mt-1 flex-wrap">
                             {log.finished_at && (
-                              <p className="text-xs text-gray-400">
+                              <p className="text-xs text-gray-500">
                                 Durata: {Math.round((new Date(log.finished_at) - new Date(log.started_at)) / 1000)}s
                               </p>
                             )}
                             {log.folders_scanned > 0 && (
-                              <p className="text-xs text-gray-400">📁 {log.folders_scanned} cartelle</p>
+                              <p className="text-xs text-gray-500">📁 {log.folders_scanned} cartelle</p>
                             )}
                             {log.folders_skipped > 0 && (
-                              <p className="text-xs text-gray-400">⏭ {log.folders_skipped} saltate</p>
+                              <p className="text-xs text-gray-500">⏭ {log.folders_skipped} saltate</p>
                             )}
                             {log.error && (
                               <p className="text-xs text-red-600 font-mono bg-red-50 px-2 py-1 rounded mt-1 w-full">
@@ -716,7 +716,7 @@ function SyncLog() {
                                       {d.folders.map((f, fi) => (
                                         <div key={fi} className="flex items-center justify-between text-xs px-2 py-0.5 rounded bg-white/60">
                                           <span className="text-gray-600 font-mono truncate max-w-xs">{f.folder}</span>
-                                          <span className={`ml-2 shrink-0 font-medium ${f.synced > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                          <span className={`ml-2 shrink-0 font-medium ${f.synced > 0 ? 'text-green-600' : 'text-gray-500'}`}>
                                             {f.synced > 0 ? `+${f.synced}` : f.error ? '⚠ errore' : '✓ ok'}
                                           </span>
                                         </div>

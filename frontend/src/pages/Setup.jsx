@@ -339,7 +339,7 @@ export default function Setup({ preview = false }) {
           <div className="flex items-center gap-2 mb-2">
             <Archive size={18} className="text-blue-600" />
             <span className="font-bold text-gray-800">{APP_NAME}</span>
-            <span className="ml-auto text-xs text-gray-400">Passo {step + 1} di {STEPS.length}</span>
+            <span className="ml-auto text-xs text-gray-500">Passo {step + 1} di {STEPS.length}</span>
           </div>
           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-blue-600 rounded-full transition-all duration-300"
@@ -457,7 +457,7 @@ export default function Setup({ preview = false }) {
                         placeholder="Minimo 8 caratteri" required
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
                       <button type="button" onClick={() => setShowPwd(!showPwd)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
                         {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
@@ -516,7 +516,7 @@ export default function Setup({ preview = false }) {
 
                 <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl mb-5 space-y-3">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">URL pubblico applicazione <span className="text-gray-400 font-normal">(opzionale)</span></label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">URL pubblico applicazione <span className="text-gray-500 font-normal">(opzionale)</span></label>
                     <input type="url" value={appUrl} onChange={e => setAppUrl(e.target.value)}
                       placeholder="https://mailhaven.tuodominio.it"
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -559,7 +559,7 @@ export default function Setup({ preview = false }) {
                         onChange={e => setSmtpPass(e.target.value)} placeholder="••••••••"
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10" />
                       <button type="button" onClick={() => setShowSmtpPwd(!showSmtpPwd)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
                         {showSmtpPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
@@ -609,7 +609,7 @@ export default function Setup({ preview = false }) {
 
           {/* Footer */}
           <div className="text-center mt-6 space-y-0.5">
-            <p className="text-xs text-gray-400">{APP_NAME} — Email Archiving</p>
+            <p className="text-xs text-gray-500">{APP_NAME} — Email Archiving</p>
             <p className="text-xs text-gray-300">by k2tech.it</p>
           </div>
         </div>

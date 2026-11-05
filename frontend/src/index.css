@@ -21,6 +21,22 @@ body {
   font-family: var(--font-mono);
 }
 
+/* Accessibilità ------------------------------------------------------------ */
+/* Focus da tastiera sempre visibile (i campi con ring proprio non vengono toccati) */
+:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+/* Segnaposto leggibili: il grigio di default (2.5:1) non passa il contrasto minimo */
+input::placeholder, textarea::placeholder { color: #6b7280; opacity: 1; }
+/* Chi ha chiesto meno movimento al sistema non vede animazioni (gli spinner restano) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin { animation-duration: 1s !important; animation-iteration-count: infinite !important; }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { @apply bg-gray-100; }

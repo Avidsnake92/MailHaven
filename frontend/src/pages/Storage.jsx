@@ -43,7 +43,7 @@ const StatCard = ({ icon: Icon, label, value, sub, color = 'blue' }) => {
       <div>
         <p className="text-xs text-gray-500">{label}</p>
         <p className="text-lg font-semibold text-gray-900">{value}</p>
-        {sub && <p className="text-xs text-gray-400">{sub}</p>}
+        {sub && <p className="text-xs text-gray-500">{sub}</p>}
       </div>
     </div>
   )
@@ -129,7 +129,7 @@ export default function Storage() {
         {isSuperadmin && vm && (
           <div className="bg-white rounded-xl border border-gray-100 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Server size={16} className="text-gray-400" />
+              <Server size={16} className="text-gray-500" />
               <h2 className="font-semibold text-gray-900">Spazio VM</h2>
               <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-medium ml-1">Superadmin</span>
             </div>
@@ -140,7 +140,7 @@ export default function Storage() {
                   <span className="font-medium">{formatBytes(vm.vm.usedBytes)} / {formatBytes(vm.vm.totalBytes)}</span>
                 </div>
                 <BarUsage percent={vm.vm.usedPercent} />
-                <p className="text-xs text-gray-400 mt-1">{formatBytes(vm.vm.availBytes)} disponibili</p>
+                <p className="text-xs text-gray-500 mt-1">{formatBytes(vm.vm.availBytes)} disponibili</p>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
@@ -170,7 +170,7 @@ export default function Storage() {
         {/* Tabella clienti */}
         {(isAdmin && activeTab === 'overview') && (
           <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto"><table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
@@ -189,7 +189,7 @@ export default function Storage() {
                         <Building2 size={14} className="text-gray-300" />
                         <div>
                           <p className="text-sm font-medium text-gray-900">{c.name}</p>
-                          {c.company && <p className="text-xs text-gray-400">{c.company}</p>}
+                          {c.company && <p className="text-xs text-gray-500">{c.company}</p>}
                         </div>
                       </div>
                     </td>
@@ -218,14 +218,14 @@ export default function Storage() {
                   </td>
                 </tr>
               </tfoot>
-            </table>
+            </table></div>
           </div>
         )}
 
         {/* Tabella caselle */}
         {(activeTab === 'mailboxes' || !isAdmin) && (
           <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto"><table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Casella</th>
@@ -245,7 +245,7 @@ export default function Storage() {
                         <div>
                           <p className="text-sm font-medium text-gray-900">{m.email}</p>
                           {m.displayName && m.displayName !== m.email && (
-                            <p className="text-xs text-gray-400">{m.displayName}</p>
+                            <p className="text-xs text-gray-500">{m.displayName}</p>
                           )}
                         </div>
                       </div>
@@ -263,7 +263,7 @@ export default function Storage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </div>
         )}
 

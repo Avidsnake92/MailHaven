@@ -27,7 +27,7 @@ function BadgeMini({ badgeType, isDeleted, isRestored }) {
   }
   const labels = { archived: 'ARCHIVIATA', deleted: 'ELIMINATA', restored: 'RECUPERATA' }
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold border shrink-0 ${map[type] || ''}`}>
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-bold border shrink-0 ${map[type] || ''}`}>
       {labels[type] || type.toUpperCase()}
     </span>
   )
@@ -90,7 +90,7 @@ export default function GlobalSearch() {
       {/* Barra di ricerca */}
       <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4 space-y-3">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             ref={inputRef}
             value={query}
@@ -101,7 +101,7 @@ export default function GlobalSearch() {
             autoFocus
           />
           {query && (
-            <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
               <X size={14} />
             </button>
           )}
@@ -137,7 +137,7 @@ export default function GlobalSearch() {
           <p className="text-sm text-gray-500">
             {total > 0 ? <><span className="font-semibold text-gray-800">{total.toLocaleString('it-IT')}</span> risultati per "<span className="font-medium">{query}</span>"</> : 'Nessun risultato trovato'}
           </p>
-          {totalPages > 1 && <p className="text-xs text-gray-400">Pag. {page}/{totalPages}</p>}
+          {totalPages > 1 && <p className="text-xs text-gray-500">Pag. {page}/{totalPages}</p>}
         </div>
       )}
 
@@ -157,7 +157,7 @@ export default function GlobalSearch() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-0.5">
                   <span className="text-xs font-semibold text-gray-500 truncate">{email.mailboxEmail}</span>
-                  <span className="text-[10px] text-gray-400 shrink-0">{formatDateShort(email.sentAt)}</span>
+                  <span className="text-xs text-gray-500 shrink-0">{formatDateShort(email.sentAt)}</span>
                 </div>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <p className="text-sm font-medium text-gray-800 truncate">{email.subject || '(nessun oggetto)'}</p>
@@ -165,12 +165,12 @@ export default function GlobalSearch() {
                 </div>
                 <p className="text-xs text-gray-500 truncate">{email.senderName || email.senderEmail}</p>
                 {email.snippet && (
-                  <p className="text-xs text-gray-400 mt-1 line-clamp-2"
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2"
                     dangerouslySetInnerHTML={{ __html: email.snippet.replace(/<b>/g, '<mark class="bg-yellow-100 text-yellow-900 rounded px-0.5">').replace(/<\/b>/g, '</mark>') }} />
                 )}
                 <div className="flex items-center gap-1.5 mt-1">
                   <Folder size={10} className="text-gray-300" />
-                  <span className="text-[10px] text-gray-400">{email.path || 'INBOX'}</span>
+                  <span className="text-xs text-gray-500">{email.path || 'INBOX'}</span>
                   {email.hasAttachments && <Paperclip size={10} className="text-gray-300" />}
                 </div>
               </div>
@@ -182,14 +182,14 @@ export default function GlobalSearch() {
       {!loading && searched && results.length === 0 && !error && (
         <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
           <Search size={40} strokeWidth={1} />
-          <p className="text-sm text-gray-400">Nessuna email trovata per "{query}"</p>
+          <p className="text-sm text-gray-500">Nessuna email trovata per "{query}"</p>
         </div>
       )}
 
       {!searched && !loading && (
         <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
           <Search size={40} strokeWidth={1} />
-          <p className="text-sm text-gray-400">Inserisci un termine per cercare in tutte le caselle</p>
+          <p className="text-sm text-gray-500">Inserisci un termine per cercare in tutte le caselle</p>
         </div>
       )}
 

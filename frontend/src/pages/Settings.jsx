@@ -308,8 +308,8 @@ function UpdateProgress({ startVersion, onComplete }) {
           {done ? <CheckCircle2 size={22} className="text-green-600" /> : <RefreshCw size={22} className="text-blue-600 animate-spin" />}
         </div>
         <h2 className="text-base font-bold text-gray-900">{done ? 'Aggiornamento completato con successo!' : 'Aggiornamento in corso...'}</h2>
-        {!done && <p className="text-xs text-gray-400 mt-1">{message}</p>}
-        {done && <p className="text-xs text-gray-400 mt-1">Ricarico la pagina...</p>}
+        {!done && <p className="text-xs text-gray-500 mt-1">{message}</p>}
+        {done && <p className="text-xs text-gray-500 mt-1">Ricarico la pagina...</p>}
       </div>
       <div>
         <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -330,12 +330,12 @@ function UpdateProgress({ startVersion, onComplete }) {
           return (
             <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${isDone ? 'bg-green-50 border-green-100' : isActive ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-100 opacity-40'}`}>
               {isDone ? <CheckCircle2 size={14} className="text-green-500 shrink-0" /> : isActive ? <Loader2 size={14} className="text-blue-500 animate-spin shrink-0" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 shrink-0" />}
-              <span className={`text-xs font-medium ${isDone ? 'text-green-700' : isActive ? 'text-blue-700' : 'text-gray-400'}`}>{step.label}</span>
+              <span className={`text-xs font-medium ${isDone ? 'text-green-700' : isActive ? 'text-blue-700' : 'text-gray-500'}`}>{step.label}</span>
             </div>
           )
         })}
       </div>
-      {!done && <p className="text-center text-xs text-gray-400">Ricarica automatica al completamento</p>}
+      {!done && <p className="text-center text-xs text-gray-500">Ricarica automatica al completamento</p>}
     </div>
   )
 }
@@ -475,7 +475,7 @@ function UpdateTab({ setUpdating }) {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Novità</p>
                 {status.latestCommits.slice(0, 5).map((c, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="font-mono text-gray-400 shrink-0">{c.hash}</span>
+                    <span className="font-mono text-gray-500 shrink-0">{c.hash}</span>
                     <span className="text-gray-600">{c.message}</span>
                   </div>
                 ))}
@@ -491,7 +491,7 @@ function UpdateTab({ setUpdating }) {
             {checking ? 'Controllo in corso…' : 'Verifica aggiornamenti'}
           </button>
           {status?.agent && (
-            <span className="text-xs flex items-center gap-1.5 text-gray-400">
+            <span className="text-xs flex items-center gap-1.5 text-gray-500">
               <span className={`w-2 h-2 rounded-full ${status.agent.alive ? 'bg-green-500' : 'bg-red-500'}`} />
               Motore {status.agent.alive ? 'attivo' : 'non attivo'} · ultimo controllo {fmtAgo(lastCheckAgo)}
             </span>
@@ -642,7 +642,7 @@ function UpdateTab({ setUpdating }) {
   const inputCls = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2"
 
   if (loadingConfig) {
-    return <div className="flex items-center justify-center py-16 text-gray-400"><Loader2 className="animate-spin mr-2" size={18}/> Caricamento configurazione...</div>
+    return <div className="flex items-center justify-center py-16 text-gray-500"><Loader2 className="animate-spin mr-2" size={18}/> Caricamento configurazione...</div>
   }
 
   return (
@@ -684,7 +684,7 @@ function UpdateTab({ setUpdating }) {
               <div className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded-lg font-mono text-xs break-all">
                 {config?.redirect_uri_microsoft ? config.redirect_uri_microsoft.replace('/oauth/microsoft/callback', '/auth/oauth/microsoft/callback') : ''}
               </div>
-              <p className="text-xs text-gray-400 mt-1">Il primo URI serve per la sincronizzazione caselle, il secondo per il login SSO.</p>
+              <p className="text-xs text-gray-500 mt-1">Il primo URI serve per la sincronizzazione caselle, il secondo per il login SSO.</p>
             </div>
           </div>
 
@@ -985,7 +985,7 @@ function LicenseTab() {
           <p className="text-xs text-gray-500 mb-2">Funzioni incluse</p>
           <div className="flex flex-wrap gap-2">
             {Object.keys(FEAT_LABELS).map(f => (
-              <span key={f} className={`text-xs px-2.5 py-1 rounded-full border ${lic?.feat?.[f] ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200 line-through'}`}>
+              <span key={f} className={`text-xs px-2.5 py-1 rounded-full border ${lic?.feat?.[f] ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200 line-through'}`}>
                 {FEAT_LABELS[f]}
               </span>
             ))}
@@ -1022,7 +1022,7 @@ function LicenseTab() {
 
       {/* Verifica online (opzionale) */}
       <div className="border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-1">Verifica online <span className="text-xs font-normal text-gray-400">(opzionale)</span></h2>
+        <h2 className="font-semibold text-gray-900 mb-1">Verifica online <span className="text-xs font-normal text-gray-500">(opzionale)</span></h2>
         <p className="text-sm text-gray-500 mb-3">Collega un server licenze per consentire la revoca a distanza. Se vuoto, la licenza resta solo offline. La verifica è fail-open: se il server è giù, l'app continua a funzionare.</p>
         <div className="flex gap-2">
           <input value={serverUrl} onChange={e => setServerUrl(e.target.value)} placeholder="https://licenze.tuodominio.it"
@@ -1036,7 +1036,7 @@ function LicenseTab() {
             {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Sincronizza ora
           </button>
           {lic?.sync?.lastSync && (
-            <span className="text-xs text-gray-400 flex items-center gap-1.5">
+            <span className="text-xs text-gray-500 flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${lic.sync.ok ? 'bg-green-500' : 'bg-amber-500'}`} />
               Ultima sync: {new Date(lic.sync.lastSync * 1000).toLocaleString('it-IT')}{lic.sync.ok ? '' : ' (server non raggiungibile)'}
             </span>
@@ -1234,7 +1234,7 @@ export default function Settings() {
               label="Sincronizzazione automatica"
               description="Abilita il crawler IMAP periodico su tutte le caselle attive" />
             <Field label="Intervallo di sincronizzazione">
-              <select value={syncInterval} onChange={e => setSyncInterval(e.target.value)} className={selectClass}>
+              <select aria-label="Intervallo di sincronizzazione" value={syncInterval} onChange={e => setSyncInterval(e.target.value)} className={selectClass}>
                 <option value="5">Ogni 5 minuti</option>
                 <option value="10">Ogni 10 minuti</option>
                 <option value="15">Ogni 15 minuti</option>
@@ -1270,7 +1270,7 @@ export default function Settings() {
                         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
                           <div>
                             <p className="text-sm font-semibold text-gray-900">{m.display_name || m.email}</p>
-                            <p className="text-xs text-gray-400">{m.email}</p>
+                            <p className="text-xs text-gray-500">{m.email}</p>
                           </div>
                         </div>
 
@@ -1299,7 +1299,7 @@ export default function Settings() {
                                 </label>
                                 {filter.date_from_enabled && (
                                   <div className="ml-6 flex items-center gap-2 flex-wrap">
-                                    <select value={filter.date_from_type || 'days'}
+                                    <select aria-label="Unità della data iniziale" value={filter.date_from_type || 'days'}
                                       onChange={e => saveFilter('date_from_type', e.target.value)}
                                       className={selectClass + ' w-28'}>
                                       <option value="days">Intervallo</option>
@@ -1332,7 +1332,7 @@ export default function Settings() {
                                 </label>
                                 {filter.date_to_enabled && (
                                   <div className="ml-6 flex items-center gap-2 flex-wrap">
-                                    <select value={filter.date_to_type || 'days'}
+                                    <select aria-label="Unità della data finale" value={filter.date_to_type || 'days'}
                                       onChange={e => saveFilter('date_to_type', e.target.value)}
                                       className={selectClass + ' w-28'}>
                                       <option value="days">Intervallo</option>
@@ -1360,7 +1360,7 @@ export default function Settings() {
                           <div className="border-t border-gray-100 pt-4">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Elimina — Quando rimuovere dall'IMAP</p>
                             <div className="space-y-3">
-                              <select value={del.mode || 'never'}
+                              <select aria-label="Quando eliminare le email dall'IMAP" value={del.mode || 'never'}
                                 onChange={e => saveDel('mode', e.target.value)}
                                 className={selectClass}>
                                 <option value="never">Mai — mantieni sull'IMAP</option>
@@ -1418,7 +1418,7 @@ export default function Settings() {
                                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors font-medium">
                                 ⚡ Applica policy alle email già archiviate
                               </button>
-                              <p className="text-[10px] text-gray-400 mt-1">Elimina dall'IMAP le email già in archivio che rientrano nei criteri configurati.</p>
+                              <p className="text-xs text-gray-500 mt-1">Elimina dall'IMAP le email già in archivio che rientrano nei criteri configurati.</p>
                             </div>
                           )}
                         </div>
@@ -1442,7 +1442,7 @@ export default function Settings() {
             <div className="border-t border-gray-100 pt-6">
               <Field label="Aggiornamento automatico database virus">
                 <div className="flex items-center gap-3 flex-wrap mt-1.5">
-                  <select value={avUpdateSchedule} onChange={e => setAvUpdateSchedule(e.target.value)} className={selectClass}>
+                  <select aria-label="Frequenza aggiornamento antivirus" value={avUpdateSchedule} onChange={e => setAvUpdateSchedule(e.target.value)} className={selectClass}>
                     <option value="6">Ogni 6 ore</option>
                     <option value="12">Ogni 12 ore</option>
                     <option value="24">Ogni 24 ore</option>
@@ -1507,9 +1507,9 @@ export default function Settings() {
                   <p className="text-xs text-gray-500 mt-0.5">I plugin si collegano da soli al primo accesso (server + credenziali). Qui puoi vedere i client attivi e revocarne l'accesso.</p>
                 </div>
                 {loadingTokens ? (
-                  <div className="text-center py-4 text-gray-400 text-sm">Caricamento...</div>
+                  <div className="text-center py-4 text-gray-500 text-sm">Caricamento...</div>
                 ) : pluginTokens.length === 0 ? (
-                  <div className="text-center py-6 text-gray-400 text-sm">Nessun client collegato.</div>
+                  <div className="text-center py-6 text-gray-500 text-sm">Nessun client collegato.</div>
                 ) : (
                   <div className="space-y-2">
                     {pluginTokens.map(t => (
@@ -1523,13 +1523,13 @@ export default function Settings() {
                               'bg-gray-100 text-gray-600'
                             }`}>{t.client_type}</span>
                           </div>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-xs text-gray-500">
                             Scade: {new Date(t.expires_at).toLocaleDateString('it-IT')}
                             {t.last_used_at && ` · Usato: ${new Date(t.last_used_at).toLocaleDateString('it-IT')}`}
                           </div>
                         </div>
                         <button onClick={() => revokeToken(t.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                          className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                           <Trash2 size={14} />
                         </button>
                       </div>

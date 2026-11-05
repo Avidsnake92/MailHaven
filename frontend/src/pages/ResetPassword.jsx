@@ -90,7 +90,7 @@ export default function ResetPassword() {
                     required autoFocus autoComplete="new-password"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 pr-10" />
                   <button type="button" onClick={() => setShow(!show)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
                     {show ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -106,7 +106,7 @@ export default function ResetPassword() {
                   {RULES.map(r => {
                     const ok = r.test(pwd)
                     return (
-                      <li key={r.label} className={`text-xs flex items-center gap-1.5 ${ok ? 'text-green-600' : 'text-gray-400'}`}>
+                      <li key={r.label} className={`text-xs flex items-center gap-1.5 ${ok ? 'text-green-600' : 'text-gray-500'}`}>
                         <Check size={12} className={ok ? 'opacity-100' : 'opacity-30'} /> {r.label}
                       </li>
                     )
@@ -132,7 +132,7 @@ export default function ResetPassword() {
           )}
         </div>
         <div className="text-center mt-6 space-y-0.5">
-          {branding.footer_text && <p className="text-xs text-gray-400">{branding.footer_text}</p>}
+          {branding.footer_text && <p className="text-xs text-gray-500">{branding.footer_text}</p>}
           <p className="text-xs text-gray-300">by k2tech.it</p>
         </div>
       </div>

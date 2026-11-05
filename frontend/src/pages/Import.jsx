@@ -106,14 +106,14 @@ export default function Import() {
                   <option key={m.id} value={m.id}>{m.email}{m.display_name ? ` (${m.display_name})` : ''}</option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Cartella di destinazione</label>
             <input value={folder} onChange={e => setFolder(e.target.value)} placeholder="Importata"
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
-            <p className="text-xs text-gray-400 mt-1">Per ZIP: verrà usata la struttura interna del file</p>
+            <p className="text-xs text-gray-500 mt-1">Per ZIP: verrà usata la struttura interna del file</p>
           </div>
         </div>
       </div>
@@ -173,7 +173,7 @@ export default function Import() {
                 <p className="text-xs text-gray-500">Importate</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-gray-400">{(results.skipped || 0).toLocaleString('it-IT')}</p>
+                <p className="text-2xl font-bold text-gray-500">{(results.skipped || 0).toLocaleString('it-IT')}</p>
                 <p className="text-xs text-gray-500">Già presenti</p>
               </div>
               <div className="text-center">

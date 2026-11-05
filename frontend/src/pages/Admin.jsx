@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
+import { confirmDialog, notify, reportError, LoadError, Dialog } from '../components/Feedback'
 import api from '../services/api'
 import { clientLabel } from '../utils/clientLabel'
 import { getPasswordStrength, validatePassword } from '../utils/password'
@@ -110,7 +110,7 @@ function StorageTab({ user }) {
                 <span className="font-medium">{formatBytes(vm.vm.usedBytes)} / {formatBytes(vm.vm.totalBytes)}</span>
               </div>
               <BarUsage percent={vm.vm.usedPercent} />
-              <p className="text-xs text-gray-400 mt-1">{formatBytes(vm.vm.availBytes)} disponibili</p>
+              <p className="text-xs text-gray-500 mt-1">{formatBytes(vm.vm.availBytes)} disponibili</p>
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
@@ -140,7 +140,7 @@ function StorageTab({ user }) {
       {/* Tabella clienti */}
       {isAdmin && activeTab === 'clients' && (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Cliente</th>
@@ -165,12 +165,12 @@ function StorageTab({ user }) {
                       <div>
                         <div className="flex items-center justify-between text-xs mb-0.5">
                           <span className={c.overQuota ? 'font-semibold text-red-600' : 'text-gray-500'}>{c.usagePercent ?? 0}%{c.overQuota ? ' • superata' : ''}</span>
-                          <span className="text-gray-400">{formatBytes(c.compressedBytes)} / {formatBytes(c.quotaBytes)}</span>
+                          <span className="text-gray-500">{formatBytes(c.compressedBytes)} / {formatBytes(c.quotaBytes)}</span>
                         </div>
                         <BarUsage percent={c.usagePercent ?? 100} />
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-300">∞ illimitato</span>
+                      <span className="text-xs text-gray-500">∞ illimitato</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -193,14 +193,14 @@ function StorageTab({ user }) {
                 <td className="px-4 py-3 text-sm font-bold text-green-600">{totalRatio}%</td>
               </tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
       )}
 
       {/* Tabella caselle */}
       {activeTab === 'mailboxes' && (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Casella</th>
@@ -216,7 +216,7 @@ function StorageTab({ user }) {
                 <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-gray-900">{m.email}</p>
-                    {m.displayName && m.displayName !== m.email && <p className="text-xs text-gray-400">{m.displayName}</p>}
+                    {m.displayName && m.displayName !== m.email && <p className="text-xs text-gray-500">{m.displayName}</p>}
                   </td>
                   {isAdmin && <td className="px-4 py-3 text-sm text-gray-500">{m.clientName}</td>}
                   <td className="px-4 py-3 text-right text-sm text-gray-600">{m.emailCount.toLocaleString()}</td>
@@ -231,7 +231,7 @@ function StorageTab({ user }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -318,7 +318,7 @@ function UserPicker({ users, selected, onChange }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
-        <Search size={13} className="text-gray-400 shrink-0" />
+        <Search size={13} className="text-gray-500 shrink-0" />
         <input
           type="text"
           value={search}
@@ -334,7 +334,7 @@ function UserPicker({ users, selected, onChange }) {
       </div>
       <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
         {filtered.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-4">Nessun utente trovato</p>
+          <p className="text-xs text-gray-500 text-center py-4">Nessun utente trovato</p>
         )}
         {filtered.map(u => (
           <label key={u.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
@@ -351,7 +351,7 @@ function UserPicker({ users, selected, onChange }) {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate">{u.full_name || u.email}</p>
-                <p className="text-xs text-gray-400 truncate">{u.email} · <span className="capitalize">{u.role}</span></p>
+                <p className="text-xs text-gray-500 truncate">{u.email} · <span className="capitalize">{u.role}</span></p>
               </div>
             </div>
             {selected.includes(u.id) && <Check size={14} className="text-blue-500 shrink-0" />}
@@ -375,7 +375,7 @@ function MailboxPicker({ mailboxes, selected, onChange }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
-        <Search size={13} className="text-gray-400 shrink-0" />
+        <Search size={13} className="text-gray-500 shrink-0" />
         <input
           type="text"
           value={search}
@@ -402,7 +402,7 @@ function MailboxPicker({ mailboxes, selected, onChange }) {
       )}
       <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
         {filtered.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-4">Nessuna casella trovata</p>
+          <p className="text-xs text-gray-500 text-center py-4">Nessuna casella trovata</p>
         )}
         {filtered.map(m => (
           <label key={m.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
@@ -414,10 +414,10 @@ function MailboxPicker({ mailboxes, selected, onChange }) {
               className="rounded text-blue-600 shrink-0"
             />
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <Inbox size={14} className="text-gray-400 shrink-0" />
+              <Inbox size={14} className="text-gray-500 shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate">{m.email}</p>
-                {m.display_name && <p className="text-xs text-gray-400 truncate">{m.display_name}</p>}
+                {m.display_name && <p className="text-xs text-gray-500 truncate">{m.display_name}</p>}
               </div>
             </div>
             {selected.includes(m.id) && <Check size={14} className="text-blue-500 shrink-0" />}
@@ -482,17 +482,17 @@ function ActionMenu({ onEdit, onDelete }) {
 
 function Modal({ title, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm fade-in p-4">
+    <Dialog label={title} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm fade-in p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col" style={{ maxHeight: 'min(92vh, 800px)' }}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h3 className="font-semibold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+          <button onClick={onClose} aria-label="Chiudi" className="text-gray-500 hover:text-gray-700 transition-colors p-1">
             <X size={18} />
           </button>
         </div>
         <div className="overflow-y-auto flex-1 p-6">{children}</div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -576,11 +576,11 @@ function ItflowImportModal({ onClose, onImported, branding }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <Dialog label="Importa clienti da ITFlow" onClose={onClose} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="font-semibold text-gray-900">Importa clienti da ITFlow</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+          <button onClick={onClose} aria-label="Chiudi" className="text-gray-500 hover:text-gray-700"><X size={18} /></button>
         </div>
 
         <div className="p-5 overflow-y-auto flex-1 space-y-3">
@@ -607,7 +607,7 @@ function ItflowImportModal({ onClose, onImported, branding }) {
             </p>
           )}
 
-          {busy && !items && <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-400" /></div>}
+          {busy && !items && <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-500" /></div>}
 
           {items && (
             <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
@@ -641,7 +641,7 @@ function ItflowImportModal({ onClose, onImported, branding }) {
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -723,7 +723,7 @@ function ClientsTab({ branding, user }) {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
         ) : loadError ? (
           <div className="p-4"><LoadError message={loadError} onRetry={load} /></div>
         ) : clients.length === 0 ? (
@@ -732,7 +732,7 @@ function ClientsTab({ branding, user }) {
             <p className="text-gray-500 text-sm">Nessun cliente</p>
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full">
             <thead><tr className="border-b border-gray-100">
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Nome</th>
               <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Referente</th>
@@ -750,7 +750,7 @@ function ClientsTab({ branding, user }) {
   {c.contact_name || c.contact_email
     ? <>
         <span className="block">{c.contact_name || '—'}</span>
-        {c.contact_email && <span className="block text-xs text-gray-400">{c.contact_email}</span>}
+        {c.contact_email && <span className="block text-xs text-gray-500">{c.contact_email}</span>}
       </>
     : '—'}
 </td>
@@ -763,7 +763,7 @@ function ClientsTab({ branding, user }) {
                 <td className="px-4 py-3.5"><ActionMenu onEdit={() => openEdit(c)} onDelete={() => setDeleteItem(c)} /></td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
@@ -774,7 +774,7 @@ function ClientsTab({ branding, user }) {
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Nome cliente / Ragione sociale *</label>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Acme Srl" />
-              <p className="mt-1 text-xs text-gray-400">È il nome con cui il cliente compare in elenchi, caselle e report.</p>
+              <p className="mt-1 text-xs text-gray-500">È il nome con cui il cliente compare in elenchi, caselle e report.</p>
             </div>
 
             <div className="pt-1 border-t border-gray-100">
@@ -803,7 +803,7 @@ function ClientsTab({ branding, user }) {
               <div className="flex items-center gap-3">
                 <label className="text-xs font-medium text-gray-600">Stato</label>
                 <button onClick={() => setForm({ ...form, active: !form.active })}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.active ? 'bg-green-500' : 'bg-gray-300'}`}>
+                  role="switch" aria-checked={!!form.active} aria-label="Cliente attivo" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.active ? 'bg-green-500' : 'bg-gray-300'}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} />
                 </button>
                 <span className="text-xs text-gray-500">{form.active ? 'Attivo' : 'Disabilitato'}</span>
@@ -812,7 +812,7 @@ function ClientsTab({ branding, user }) {
             {(user.role === 'superadmin' || user.role === 'reseller') && (
               <div className="pt-3 border-t border-gray-100">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Quote</p>
-                <p className="text-xs text-gray-400 mb-3">Lascia vuoto per illimitato. Al superamento si blocca la creazione di nuove risorse, mai l'archiviazione.</p>
+                <p className="text-xs text-gray-500 mb-3">Lascia vuoto per illimitato. Al superamento si blocca la creazione di nuove risorse, mai l'archiviazione.</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1.5">Spazio (GB)</label>
@@ -941,11 +941,11 @@ function UsersTab({ branding, user }) {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
         ) : loadError ? (
           <div className="p-4"><LoadError message={loadError} onRetry={load} /></div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full">
             <thead><tr className="border-b border-gray-100">
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Utente</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Ruolo</th>
@@ -960,7 +960,7 @@ function UsersTab({ branding, user }) {
                 <td className="px-6 py-3.5">
                   <p className="text-sm font-medium text-gray-900">{u.full_name || '—'}</p>
                   <p className="text-xs text-gray-500">{u.email}</p>
-                  <p className="text-xs text-gray-400 sm:hidden mt-0.5">{u.active ? 'Attivo' : 'Disabilitato'}</p>
+                  <p className="text-xs text-gray-500 sm:hidden mt-0.5">{u.active ? 'Attivo' : 'Disabilitato'}</p>
                 </td>
                 <td className="px-6 py-3.5">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${roleColor[u.role]}`}>{roleLabel[u.role]}</span>
@@ -976,7 +976,7 @@ function UsersTab({ branding, user }) {
                 <td className="px-4 py-3.5"><ActionMenu onEdit={() => openEdit(u)} onDelete={() => setDeleteItem(u)} /></td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
@@ -1008,7 +1008,7 @@ function UsersTab({ branding, user }) {
                     placeholder={editItem ? '••••••••' : 'Min 8 caratteri'}
                   />
                   <button type="button" onClick={() => setShowPassword(s => !s)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
@@ -1075,7 +1075,7 @@ function UsersTab({ branding, user }) {
                     <span>Assegnazioni non caricate: verranno lasciate invariate al salvataggio. Riapri l'utente per modificarle.</span>
                   </div>
                 ) : mailboxes.length === 0 ? (
-                  <p className="text-xs text-gray-400 border border-gray-200 rounded-lg px-3 py-3">
+                  <p className="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-3">
                     Nessuna casella per questo cliente.
                   </p>
                 ) : (
@@ -1085,7 +1085,7 @@ function UsersTab({ branding, user }) {
                       selected={assignedMailboxes}
                       onChange={setAssignedMailboxes}
                     />
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       Un utente vede solo le caselle selezionate. Gli admin vedono tutte quelle del cliente.
                     </p>
                   </>
@@ -1096,7 +1096,7 @@ function UsersTab({ branding, user }) {
               <div className="flex items-center gap-3">
                 <label className="text-xs font-medium text-gray-600">Stato</label>
                 <button onClick={() => setForm({ ...form, active: !form.active })}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.active ? 'bg-green-500' : 'bg-gray-300'}`}>
+                  role="switch" aria-checked={!!form.active} aria-label="Utente attivo" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.active ? 'bg-green-500' : 'bg-gray-300'}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} />
                 </button>
                 <span className="text-xs text-gray-500">{form.active ? 'Attivo' : 'Disabilitato'}</span>
@@ -1137,7 +1137,7 @@ function ImapAccordion({ form, setForm, editItem }) {
           {form.imap_password && <span className="w-2 h-2 rounded-full bg-green-500" />}
           {!form.imap_password && editItem?.has_password && <span className="w-2 h-2 rounded-full bg-green-500" />}
         </div>
-        <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={16} className={`text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
@@ -1163,25 +1163,25 @@ function ImapAccordion({ form, setForm, editItem }) {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">
-              Password {editItem && <span className="text-gray-400">(lascia vuoto per non cambiare)</span>}
+              Password {editItem && <span className="text-gray-500">(lascia vuoto per non cambiare)</span>}
             </label>
             <input type="password" value={form.imap_password}
               onChange={e => setForm({ ...form, imap_password: e.target.value })}
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none"
               placeholder="••••••••" />
-            <p className="text-xs text-gray-400 mt-0.5">🔒 Salvata cifrata con AES-256</p>
+            <p className="text-xs text-gray-500 mt-0.5">🔒 Salvata cifrata con AES-256</p>
           </div>
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <button onClick={() => { const tls = !form.imap_tls; setForm({ ...form, imap_tls: tls, imap_port: tls ? 993 : 143 }) }}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.imap_tls ? 'bg-green-500' : 'bg-gray-300'}`}>
+                role="switch" aria-checked={!!form.imap_tls} aria-label="Usa TLS/SSL" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.imap_tls ? 'bg-green-500' : 'bg-gray-300'}`}>
                 <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.imap_tls ? 'translate-x-4' : 'translate-x-1'}`} />
               </button>
               <span className="text-xs text-gray-600">SSL/TLS {form.imap_tls ? '(porta 993)' : '(porta 143)'}</span>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => setForm({ ...form, allow_insecure_tls: !form.allow_insecure_tls })}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.allow_insecure_tls ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                role="switch" aria-checked={!!form.allow_insecure_tls} aria-label="Accetta certificati non validi" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.allow_insecure_tls ? 'bg-amber-500' : 'bg-gray-300'}`}>
                 <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.allow_insecure_tls ? 'translate-x-4' : 'translate-x-1'}`} />
               </button>
               <span className="text-xs text-gray-600">Certificato non sicuro</span>
@@ -1459,7 +1459,7 @@ function MailboxesTab({ branding, user }) {
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 className="font-semibold text-gray-900">Caselle Email</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{loadError ? 'Elenco non disponibile' : `${mailboxes.length} casell${mailboxes.length === 1 ? 'a' : 'e'} configurate`}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{loadError ? 'Elenco non disponibile' : `${mailboxes.length} casell${mailboxes.length === 1 ? 'a' : 'e'} configurate`}</p>
           </div>
           <div className="flex items-center gap-2">
             {syncMsg && <span className="text-xs text-green-600 font-medium">{syncMsg}</span>}
@@ -1480,14 +1480,14 @@ function MailboxesTab({ branding, user }) {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>
+          <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
         ) : loadError ? (
           <div className="p-4"><LoadError message={loadError} onRetry={load} /></div>
         ) : mailboxes.length === 0 ? (
           <div className="text-center py-16 px-6">
             <Inbox size={40} className="text-gray-300 mx-auto mb-4" />
             <p className="text-gray-700 font-medium mb-1">Nessuna casella configurata</p>
-            <p className="text-gray-400 text-sm mb-4">Aggiungi una casella inserendo le credenziali IMAP — verrà creata automaticamente su OpenArchiver</p>
+            <p className="text-gray-500 text-sm mb-4">Aggiungi una casella inserendo le credenziali IMAP — verrà creata automaticamente su OpenArchiver</p>
             <button onClick={openNew}
               className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg text-white"
               style={{ background: branding.primary_color || '#2563eb' }}>
@@ -1552,7 +1552,7 @@ function MailboxesTab({ branding, user }) {
                     {!deletingIds.has(m.id) && m.active === false && (
                         <>
                           <span className="text-gray-300">·</span>
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-400">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500">
                             <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Disabilitata
                           </span>
                         </>
@@ -1579,7 +1579,7 @@ function MailboxesTab({ branding, user }) {
                             <AlertCircle size={10} /> Errore sync
                           </span>
                         )}
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-500">
                           {new Date(syncStatus[m.id].finished_at || syncStatus[m.id].started_at).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
                         </span>
                       </div>
@@ -1596,7 +1596,7 @@ function MailboxesTab({ branding, user }) {
                     } catch (e) { reportError(e, 'Pausa sincronizzazione') }
                   }}
                     title={m.sync_paused ? 'Riprendi sync' : 'Pausa sync'}
-                    className={`p-2 rounded-lg transition-colors ${m.sync_paused ? 'text-orange-500 bg-orange-50 hover:bg-orange-100' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}>
+                    className={`p-2 rounded-lg transition-colors ${m.sync_paused ? 'text-orange-500 bg-orange-50 hover:bg-orange-100' : 'text-gray-500 hover:text-orange-500 hover:bg-orange-50'}`}>
                     {m.sync_paused ? <Play size={16} /> : <Pause size={16} />}
                   </button>
                                     <button onClick={async (e) => {
@@ -1608,12 +1608,12 @@ function MailboxesTab({ branding, user }) {
                       setTimeout(() => loadSyncStatus(), 3000)
                     } catch (e) { setSyncMsg('Errore sync: ' + (e.displayMessage || e.message)) }
                     setTimeout(() => setSyncMsg(''), 3000)
-                  }} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Sincronizza ora">
+                  }} className="p-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Sincronizza ora">
                     <RefreshCw size={14} />
                   </button>
                   <button onClick={e => { e.stopPropagation(); handleToggleActive(m) }}
                     title={m.active ? 'Disabilita casella' : 'Abilita casella'}
-                    className={`p-1.5 rounded-lg transition-colors ${m.active !== false ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}`}>
+                    className={`p-1.5 rounded-lg transition-colors ${m.active !== false ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-500 bg-gray-100 hover:bg-gray-200'}`}>
                     {m.active !== false ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
                   </button>
                   <ActionMenu onEdit={() => openEdit(m)} onDelete={() => setDeleteItem(m)} />
@@ -1727,7 +1727,7 @@ function MailboxesTab({ branding, user }) {
                 </a>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-px bg-gray-200"/>
-                  <span className="text-xs text-gray-400">oppure configura manualmente</span>
+                  <span className="text-xs text-gray-500">oppure configura manualmente</span>
                   <div className="flex-1 h-px bg-gray-200"/>
                 </div>
               </div>
@@ -1771,7 +1771,7 @@ function MailboxesTab({ branding, user }) {
                       selected={assignedUsers}
                       onChange={setAssignedUsers}
                     />
-                    <p className="text-xs text-gray-400 mt-1">Gli admin vedono automaticamente tutte le caselle del cliente</p>
+                    <p className="text-xs text-gray-500 mt-1">Gli admin vedono automaticamente tutte le caselle del cliente</p>
                   </>
                 )}
               </div>
@@ -1889,10 +1889,10 @@ function ResellersTab({ branding, user }) {
         <h2 className="font-semibold text-gray-900">Rivenditori {loadError ? '' : `(${items.length})`}</h2>
         <button onClick={openNew} className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white" style={{ background: branding.primary_color || '#2563eb' }}><Plus size={14} /> Nuovo rivenditore</button>
       </div>
-      {loading ? (<div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-400" /></div>)
+      {loading ? (<div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-500" /></div>)
         : loadError ? (<div className="p-4"><LoadError message={loadError} onRetry={load} /></div>)
         : items.length === 0 ? (<div className="text-center py-16"><Store size={32} className="text-gray-300 mx-auto mb-3" /><p className="text-gray-500 text-sm">Nessun rivenditore</p></div>)
-        : (<table className="w-full"><thead><tr className="border-b border-gray-100">
+        : (<div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b border-gray-100">
           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Rivenditore</th>
           <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Aziende</th>
           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-56">Spazio (uso / pacchetto)</th>
@@ -1903,25 +1903,25 @@ function ResellersTab({ branding, user }) {
             const used = parseInt(r.used_bytes || 0), q = r.quota_bytes != null ? parseInt(r.quota_bytes) : null
             const pct = q && q > 0 ? Math.round(used / q * 100) : null, over = q != null && used >= q
             return (<tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
-              <td className="px-6 py-3.5"><p className="text-sm font-medium text-gray-900">{r.name}</p>{r.company && <p className="text-xs text-gray-500">{r.company}</p>}{!r.active && <span className="text-xs text-gray-400">disabilitato</span>}</td>
+              <td className="px-6 py-3.5"><p className="text-sm font-medium text-gray-900">{r.name}</p>{r.company && <p className="text-xs text-gray-500">{r.company}</p>}{!r.active && <span className="text-xs text-gray-500">disabilitato</span>}</td>
               <td className="px-6 py-3.5 text-right text-sm text-gray-600">{r.client_count}</td>
-              <td className="px-6 py-3.5">{q != null ? (<div><div className="flex justify-between text-xs"><span className={over ? 'text-red-600 font-semibold' : 'text-gray-500'}>{pct}%{over ? ' • superata' : ''}</span><span className="text-gray-400">{fmt(used)} / {fmt(q)}</span></div>{bar(pct, over)}</div>) : (<span className="text-xs text-gray-300">∞ illimitato</span>)}</td>
+              <td className="px-6 py-3.5">{q != null ? (<div><div className="flex justify-between text-xs"><span className={over ? 'text-red-600 font-semibold' : 'text-gray-500'}>{pct}%{over ? ' • superata' : ''}</span><span className="text-gray-500">{fmt(used)} / {fmt(q)}</span></div>{bar(pct, over)}</div>) : (<span className="text-xs text-gray-500">∞ illimitato</span>)}</td>
               <td className="px-6 py-3.5 text-right text-sm text-gray-600">{r.mailbox_count}{r.max_mailboxes != null ? ` / ${r.max_mailboxes}` : ''}</td>
               <td className="px-6 py-3.5 text-right text-sm text-gray-600">{r.user_count}{r.max_users != null ? ` / ${r.max_users}` : ''}</td>
               <td className="px-4 py-3.5"><div className="flex items-center gap-1">
-                <button onClick={() => openUser(r)} title="Crea utente di accesso" className="p-1.5 text-gray-400 hover:text-blue-600"><KeyRound size={15} /></button>
+                <button onClick={() => openUser(r)} title="Crea utente di accesso" className="p-1.5 text-gray-500 hover:text-blue-600"><KeyRound size={15} /></button>
                 <ActionMenu onEdit={() => openEdit(r)} onDelete={() => setDeleteItem(r)} />
               </div></td>
             </tr>)
-          })}</tbody></table>)}
+          })}</tbody></table></div>)}
     </div>
 
     {showForm && (<Modal title={editItem ? 'Modifica rivenditore' : 'Nuovo rivenditore'} onClose={() => setShowForm(false)}>
       <div className="space-y-4">
         <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Nome *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Rossi IT" /></div>
         <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Azienda</label><input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="Rossi IT Srl" /></div>
-        {editItem && (<div className="flex items-center gap-3"><label className="text-xs font-medium text-gray-600">Stato</label><button onClick={() => setForm({ ...form, active: !form.active })} className={`relative inline-flex h-5 w-9 items-center rounded-full ${form.active ? 'bg-green-500' : 'bg-gray-300'}`}><span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} /></button><span className="text-xs text-gray-500">{form.active ? 'Attivo' : 'Disabilitato'}</span></div>)}
-        <div className="pt-3 border-t border-gray-100"><p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Pacchetto venduto</p><p className="text-xs text-gray-400 mb-3">Vuoto = illimitato. Il rivenditore distribuisce queste quote tra i suoi clienti.</p>
+        {editItem && (<div className="flex items-center gap-3"><label className="text-xs font-medium text-gray-600">Stato</label><button onClick={() => setForm({ ...form, active: !form.active })} role="switch" aria-checked={!!form.active} aria-label="Rivenditore attivo" className={`relative inline-flex h-5 w-9 items-center rounded-full ${form.active ? 'bg-green-500' : 'bg-gray-300'}`}><span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.active ? 'translate-x-4' : 'translate-x-1'}`} /></button><span className="text-xs text-gray-500">{form.active ? 'Attivo' : 'Disabilitato'}</span></div>)}
+        <div className="pt-3 border-t border-gray-100"><p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Pacchetto venduto</p><p className="text-xs text-gray-500 mb-3">Vuoto = illimitato. Il rivenditore distribuisce queste quote tra i suoi clienti.</p>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Spazio (GB)</label><input type="number" min="0" step="1" value={form.quota_gb} onChange={e => setForm({ ...form, quota_gb: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>
             <div><label className="block text-xs font-medium text-gray-600 mb-1.5">Caselle max</label><input type="number" min="0" step="1" value={form.max_mailboxes} onChange={e => setForm({ ...form, max_mailboxes: e.target.value })} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2" placeholder="∞" /></div>

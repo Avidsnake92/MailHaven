@@ -101,7 +101,7 @@ export default function LegalHold() {
       {items.length > 0 && (
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-sm">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Cerca per oggetto, mittente..."
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
@@ -125,13 +125,13 @@ export default function LegalHold() {
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <ShieldCheck size={40} className="text-green-400 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">Nessuna email in Legal Hold</p>
-          <p className="text-xs text-gray-400 mt-1">Puoi impostare un Legal Hold dal viewer email selezionando le email e cliccando "Legal Hold"</p>
+          <p className="text-xs text-gray-500 mt-1">Puoi impostare un Legal Hold dal viewer email selezionando le email e cliccando "Legal Hold"</p>
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           {/* Table header */}
           <div className="flex items-center px-4 py-3 border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide gap-3">
-            <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0}
+            <input type="checkbox" aria-label="Seleziona tutte le email in Legal Hold" checked={selected.size === filtered.length && filtered.length > 0}
               onChange={selectAll} className="rounded" />
             <span className="flex-1">Email</span>
             <span className="w-36 hidden md:block">Casella</span>
@@ -142,7 +142,7 @@ export default function LegalHold() {
             {filtered.map(item => (
               <div key={item.id}
                 className={`flex items-center px-4 py-3 gap-3 hover:bg-gray-50 transition-colors ${selected.has(item.id) ? 'bg-amber-50' : ''}`}>
-                <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} className="rounded shrink-0" />
+                <input type="checkbox" aria-label="Seleziona email in Legal Hold" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} className="rounded shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
@@ -150,7 +150,7 @@ export default function LegalHold() {
                     </span>
                     <p className="text-sm font-medium text-gray-900 truncate">{item.subject || '(senza oggetto)'}</p>
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5 truncate">
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">
                     {item.sender_email} · <span className="text-gray-500">{item.legal_hold_reason || 'Nessun motivo specificato'}</span>
                   </p>
                 </div>

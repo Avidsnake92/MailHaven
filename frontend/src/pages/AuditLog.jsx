@@ -141,10 +141,10 @@ export default function AuditLog() {
                     {/* Utente */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {log.user_name || log.user_email || <span className="text-gray-400 italic">Sistema</span>}
+                        {log.user_name || log.user_email || <span className="text-gray-500 italic">Sistema</span>}
                       </p>
                       {log.user_email && log.user_name && (
-                        <p className="text-xs text-gray-400 truncate">{log.user_email}</p>
+                        <p className="text-xs text-gray-500 truncate">{log.user_email}</p>
                       )}
                     </div>
                     {/* IP */}
@@ -152,7 +152,7 @@ export default function AuditLog() {
                       {log.ip_address || '—'}
                     </div>
                     {/* Data */}
-                    <div className="text-xs text-gray-400 shrink-0 hidden md:block">
+                    <div className="text-xs text-gray-500 shrink-0 hidden md:block">
                       {formatDate(log.created_at)}
                     </div>
                   </div>
@@ -162,7 +162,7 @@ export default function AuditLog() {
                       <pre className="text-xs text-gray-600 bg-white border border-gray-200 rounded-lg p-3 overflow-x-auto mt-2">
                         {JSON.stringify(log.details, null, 2)}
                       </pre>
-                      <p className="text-xs text-gray-400 mt-1">{formatDate(log.created_at)}</p>
+                      <p className="text-xs text-gray-500 mt-1">{formatDate(log.created_at)}</p>
                     </div>
                   )}
                 </div>

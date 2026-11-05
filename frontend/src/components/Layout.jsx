@@ -43,7 +43,7 @@ export default function Layout() {
   const subNavClass = ({ isActive }) =>
     `flex items-center gap-3 pl-8 pr-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${isActive ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`
   const sectionLabel = (label) => (
-    <p className="px-4 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+    <p className="px-4 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
   )
 
   const avatarUrl = user?.avatar_url || null
@@ -79,7 +79,7 @@ export default function Layout() {
 
   // Header di un gruppo a comparsa
   const groupBtn = (label, Icon, open, toggle) => (
-    <button onClick={toggle}
+    <button onClick={toggle} aria-expanded={open}
       className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold w-full text-left text-gray-700 hover:bg-gray-100 transition-all">
       <Icon size={17} /><span className="flex-1">{label}</span>
       {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -144,55 +144,61 @@ export default function Layout() {
         <button onClick={() => navigate('/profile')}
           className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-white text-xs font-bold shrink-0 hover:opacity-80 transition-opacity"
           style={{ background: avatarUrl ? 'transparent' : (branding.primary_color || '#2563eb') }}
-          title="Profilo">
+          title="Profilo" aria-label={`Profilo di ${user?.full_name || user?.email || 'utente'}`}>
           {avatarUrl
-            ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
             : (user?.full_name || user?.email || '?')[0].toUpperCase()}
         </button>
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate('/profile')}>
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate('/profile')}
+          role="link" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/profile') } }}>
           <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name || user?.email}</p>
           <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
         </div>
-        <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors" title="Logout">
+        <button onClick={handleLogout} className="text-gray-500 hover:text-red-600 transition-colors" title="Esci" aria-label="Esci">
           <LogOut size={16} />
         </button>
       </div>
-      {branding.footer_text && <p className="text-xs text-gray-400 text-center mt-3">{branding.footer_text}</p>}
+      {branding.footer_text && <p className="text-xs text-gray-500 text-center mt-3">{branding.footer_text}</p>}
     </div>
   )
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <a href="#contenuto" onClick={(e) => { e.preventDefault(); const m = document.getElementById('contenuto'); if (m) { m.focus(); m.scrollIntoView() } }}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:bg-white focus:text-blue-700 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:ring-2 focus:ring-blue-500">
+        Vai al contenuto
+      </a>
       <aside className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col shrink-0">
         <div className="px-6 py-5 border-b border-gray-100">
           <img src="/logo.svg" alt="MailHaven" style={{ width: '100%', height: 'auto', display: 'block', padding: '0 8px' }} />
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
+        <nav aria-label="Menu principale" className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
           <NavItems />
         </nav>
         <UserBar />
       </aside>
       {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
-      <aside id="sidebar"
+      {/* Chiuso: fuori schermo ma ancora raggiungibile con Tab → "inert" lo esclude da focus e lettori di schermo */}
+      <aside id="sidebar" aria-label="Menu" {...(sidebarOpen ? {} : { inert: '', 'aria-hidden': 'true' })}
         className={`fixed top-0 left-0 h-full w-72 bg-white border-r border-gray-200 flex flex-col z-50 transform transition-transform duration-300 md:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
           <img src="/logo.svg" alt="MailHaven" style={{ width: '100%', height: 'auto', display: 'block', padding: '0 8px' }} />
-          <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+          <button onClick={() => setSidebarOpen(false)} aria-label="Chiudi menu" className="text-gray-500 hover:text-gray-700 p-1"><X size={20} /></button>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto"><NavItems /></nav>
+        <nav aria-label="Menu principale" className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto"><NavItems /></nav>
         <UserBar />
       </aside>
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
-          <button id="hamburger" onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg text-gray-500 hover:bg-gray-100">
+          <button id="hamburger" onClick={() => setSidebarOpen(true)} aria-label="Apri menu" aria-expanded={sidebarOpen} aria-controls="sidebar" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100">
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2 flex-1">
             <img src="/logo.svg" alt="MailHaven" style={{ width: '100%', height: 'auto', display: 'block', padding: '0 8px' }} />
           </div>
-          <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500"><LogOut size={18} /></button>
+          <button onClick={handleLogout} aria-label="Esci" className="p-2 text-gray-500 hover:text-red-600"><LogOut size={18} /></button>
         </header>
-        <main className="flex-1 overflow-hidden flex flex-col">
+        <main id="contenuto" tabIndex={-1} className="flex-1 overflow-hidden flex flex-col focus:outline-none">
           {licBanner}
           <div className="flex-1 min-h-0 overflow-y-auto"><Outlet /></div>
         </main>

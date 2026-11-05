@@ -263,7 +263,7 @@ export default function Login() {
                   )}
                   <div className="flex items-center gap-3 my-2">
                     <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400">oppure</span>
+                    <span className="text-xs text-gray-500">oppure</span>
                     <div className="flex-1 h-px bg-gray-200" />
                   </div>
                 </div>
@@ -284,7 +284,7 @@ export default function Login() {
                       onChange={e => setPassword(e.target.value)} required placeholder="Password"
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 pr-10" />
                     <button type="button" onClick={() => setShowPwd(!showPwd)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
                       {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
@@ -316,7 +316,7 @@ export default function Login() {
         </div>
 
         <div className="text-center mt-6 space-y-0.5">
-          {branding.footer_text && <p className="text-xs text-gray-400">{branding.footer_text}</p>}
+          {branding.footer_text && <p className="text-xs text-gray-500">{branding.footer_text}</p>}
           <p className="text-xs text-gray-300">by k2tech.it</p>
         </div>
       </div>

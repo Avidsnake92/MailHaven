@@ -133,7 +133,7 @@ export default function Security() {
               onChange={e => setPwdCurrent(e.target.value)}
               placeholder="Password attuale"
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <button onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <button onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
               {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
@@ -142,7 +142,7 @@ export default function Security() {
               onChange={e => setPwdNew(e.target.value)}
               placeholder="Nuova password (min. 8 caratteri)"
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <button onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <button onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
               {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
@@ -155,7 +155,7 @@ export default function Security() {
               {['8+ car.', 'Maiuscola', 'Numero'].map((label, i) => {
                 const checks = [pwdNew.length >= 8, /[A-Z]/.test(pwdNew), /[0-9]/.test(pwdNew)]
                 return (
-                  <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${checks[i] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                  <span key={i} className={`text-xs px-2 py-0.5 rounded-full font-medium ${checks[i] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {checks[i] ? '✓' : '○'} {label}
                   </span>
                 )

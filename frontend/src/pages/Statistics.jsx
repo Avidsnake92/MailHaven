@@ -28,7 +28,7 @@ const StatCard = ({ icon: Icon, label, value, sub, color = '#1d4ed8', bg = '#eff
     <div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-sm font-medium text-gray-700">{label}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
     </div>
   </div>
 )
@@ -130,7 +130,7 @@ export default function Statistics() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="font-semibold text-gray-900">Archivio nel tempo</h2>
-            <p className="text-xs text-gray-400">Email archiviate al giorno, ultimi {TIMELINE_DAYS} giorni</p>
+            <p className="text-xs text-gray-500">Email archiviate al giorno, ultimi {TIMELINE_DAYS} giorni</p>
           </div>
           {timeline.mailboxes.length > 1 && (
             <select value={timelineView} onChange={e => setTimelineView(e.target.value)}
@@ -143,7 +143,7 @@ export default function Statistics() {
           )}
         </div>
         {!timeline.hasData ? (
-          <div className="text-center py-12 text-gray-400 text-sm">Nessun dato disponibile</div>
+          <div className="text-center py-12 text-gray-500 text-sm">Nessun dato disponibile</div>
         ) : (() => {
           // Con molte caselle, una linea per ciascuna diventa un groviglio: di
           // default si mostra il totale, la singola casella si sceglie dal menu.
@@ -156,9 +156,9 @@ export default function Statistics() {
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={timeline.points} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }}
+                <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#6b7280' }}
                   tickFormatter={d => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : ''} minTickGap={24} />
-                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
                   labelFormatter={d => new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })} />
@@ -179,14 +179,14 @@ export default function Statistics() {
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h2 className="font-semibold text-gray-900 mb-4">Email per casella</h2>
           {byMailbox.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm">Nessuna casella</div>
+            <div className="text-center py-8 text-gray-500 text-sm">Nessuna casella</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={byMailbox.map(m => ({ name: m.email.split('@')[0], email: m.email, count: parseInt(m.email_count) }))}
                 margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6b7280' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} />
                 <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
                   formatter={(v, n, p) => [v.toLocaleString('it-IT'), p.payload.email]} />
                 <Bar dataKey="count" name="Email" radius={[4, 4, 0, 0]}>
@@ -205,14 +205,14 @@ export default function Statistics() {
             <ShieldAlert size={16} className="text-orange-500" /> Spam intercettato
           </h2>
           {spamStats.every(s => parseInt(s.spam_count) === 0) ? (
-            <div className="text-center py-8 text-gray-400 text-sm">Nessuno spam registrato</div>
+            <div className="text-center py-8 text-gray-500 text-sm">Nessuno spam registrato</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={spamStats.map(s => ({ name: s.email.split('@')[0], email: s.email, count: parseInt(s.spam_count) }))}
                 margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6b7280' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} />
                 <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
                   formatter={(v, n, p) => [v.toLocaleString('it-IT'), p.payload.email]} />
                 <Bar dataKey="count" name="Spam" fill="rgba(16,185,129,0.65)" stroke="#10b981" strokeWidth={1} radius={[4, 4, 0, 0]} />
@@ -231,30 +231,30 @@ export default function Statistics() {
           {byMailbox.map((m, i) => (
             <div key={m.id} className="px-5 py-3 flex items-center gap-4">
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                style={{ background: COLORS[i % COLORS.length] }}>
+                style={{ backgroundColor: COLORS[i % COLORS.length], backgroundImage: 'linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35))' }} aria-hidden="true">
                 {m.email[0].toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">{m.display_name || m.email}</p>
-                <p className="text-xs text-gray-400 truncate">{m.email}</p>
+                <p className="text-xs text-gray-500 truncate">{m.email}</p>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-semibold text-gray-900">{parseInt(m.email_count).toLocaleString('it-IT')}</p>
-                <p className="text-xs text-gray-400">email</p>
+                <p className="text-xs text-gray-500">email</p>
               </div>
               <div className="text-right shrink-0 hidden sm:block">
                 <p className="text-sm font-medium text-gray-700">{formatBytes(parseInt(m.total_size))}</p>
-                <p className="text-xs text-gray-400">spazio</p>
+                <p className="text-xs text-gray-500">spazio</p>
               </div>
               <div className="text-right shrink-0 hidden md:block">
                 <p className="text-sm text-gray-500 flex items-center gap-1">
                   <Clock size={11} /> {formatDate(m.last_sync)}
                 </p>
-                <p className="text-xs text-gray-400">ultima sync</p>
+                <p className="text-xs text-gray-500">ultima sync</p>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-medium text-blue-600">+{parseInt(m.last_30_days).toLocaleString('it-IT')}</p>
-                <p className="text-xs text-gray-400">30 giorni</p>
+                <p className="text-xs text-gray-500">30 giorni</p>
               </div>
             </div>
           ))}

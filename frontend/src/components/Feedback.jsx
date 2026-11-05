@@ -134,6 +134,52 @@ export function ConfirmHost() {
   )
 }
 
+// ─── Dialog accessibile ──────────────────────────────────────────────────────
+// Guscio per i modali: role="dialog", Esc per chiudere, Tab che resta dentro,
+// focus iniziale sul primo controllo e ritorno del focus a chi l'ha aperto.
+// <Dialog label="Nuova casella" onClose={...} className="fixed inset-0 ...">…</Dialog>
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+export function Dialog({ label, onClose, className = '', children, ...rest }) {
+  const ref = useRef(null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
+  useEffect(() => {
+    const node = ref.current
+    const opener = document.activeElement
+    const items = () => [...node.querySelectorAll(FOCUSABLE)].filter(e => e.offsetParent !== null)
+    if (!node.contains(document.activeElement)) {
+      const first = node.querySelector('[data-autofocus]') || items()[0]
+      ;(first || node).focus()
+    }
+    const onKey = (e) => {
+      // Una conferma aperta sopra ha la precedenza
+      if (document.querySelector('[role=alertdialog]')) return
+      if (e.key === 'Escape') { e.stopPropagation(); closeRef.current && closeRef.current(); return }
+      if (e.key !== 'Tab') return
+      const f = items()
+      if (!f.length) { e.preventDefault(); return }
+      const first = f[0], last = f[f.length - 1]
+      if (!node.contains(document.activeElement)) { e.preventDefault(); first.focus() }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      try { opener && opener.focus && opener.focus() } catch {}
+    }
+  }, [])
+
+  return (
+    <div ref={ref} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
+      className={`${className} focus:outline-none`} {...rest}>
+      {children}
+    </div>
+  )
+}
+
 // ─── Errore di caricamento con "Riprova" ─────────────────────────────────────
 // {loadError && <LoadError message={loadError} onRetry={load} />}
 export function LoadError({ message, onRetry, className = '' }) {

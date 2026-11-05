@@ -91,7 +91,7 @@ function SchedulePicker({ config, setConfig }) {
       <div className="flex items-center gap-3">
         <label className="text-xs font-medium text-gray-600">Backup automatico</label>
         <button onClick={() => toggle(!enabled)}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? 'bg-green-500' : 'bg-gray-300'}`}>
+          role="switch" aria-checked={!!enabled} aria-label="Backup automatico" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? 'bg-green-500' : 'bg-gray-300'}`}>
           <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-4' : 'translate-x-1'}`} />
         </button>
         {enabled && <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded">{config.schedule}</span>}
@@ -190,7 +190,7 @@ function RetentionPicker({ config, setConfig }) {
           </div>
         </div>
       )}
-      <p className="text-xs text-gray-400">I backup più vecchi vengono eliminati automaticamente dopo il backup</p>
+      <p className="text-xs text-gray-500">I backup più vecchi vengono eliminati automaticamente dopo il backup</p>
     </div>
   )
 }
@@ -376,7 +376,7 @@ export default function Backup() {
             <div key={s.label} className="bg-white border border-gray-200 rounded-2xl p-3.5 flex items-center gap-3">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${s.color}`}><Ico size={16} /></div>
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wide text-gray-400">{s.label}</p>
+                <p className="text-xs uppercase tracking-wide text-gray-500">{s.label}</p>
                 <p className="text-sm font-semibold text-gray-900 truncate">{s.value}</p>
               </div>
             </div>
@@ -446,11 +446,11 @@ export default function Backup() {
                     <input type={showSecret ? 'text' : 'password'} value={s3Config.secret_key || ''}
                       onChange={e => setS3Config(c => ({ ...c, secret_key: e.target.value }))}
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 pr-9 focus:outline-none focus:ring-2 font-mono text-xs" placeholder="••••••••" />
-                    <button onClick={() => setShowSecret(!showSecret)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <button onClick={() => setShowSecret(!showSecret)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
                       {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">🔒 Cifrata AES-256</p>
+                  <p className="text-xs text-gray-500 mt-1">🔒 Cifrata AES-256</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Prefisso cartella</label>
@@ -461,10 +461,10 @@ export default function Backup() {
               <div className="flex items-center gap-2">
                 <label className="text-xs font-medium text-gray-600">Force Path Style</label>
                 <button onClick={() => setS3Config(c => ({ ...c, force_path_style: !c.force_path_style }))}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${s3Config.force_path_style ? 'bg-green-500' : 'bg-gray-300'}`}>
+                  role="switch" aria-checked={!!s3Config.force_path_style} aria-label="Indirizzamento path-style S3" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${s3Config.force_path_style ? 'bg-green-500' : 'bg-gray-300'}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${s3Config.force_path_style ? 'translate-x-4' : 'translate-x-1'}`} />
                 </button>
-                <span className="text-xs text-gray-400">Richiesto per MinIO, SeaweedFS e altri self-hosted</span>
+                <span className="text-xs text-gray-500">Richiesto per MinIO, SeaweedFS e altri self-hosted</span>
               </div>
             </>
           )}
@@ -493,17 +493,17 @@ export default function Backup() {
                   <input type={showSecret ? 'text' : 'password'} value={sftpConfig.sftp_password || ''}
                     onChange={e => setSftpConfig(c => ({ ...c, sftp_password: e.target.value }))}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 pr-9 focus:outline-none focus:ring-2" placeholder="••••••••" />
-                  <button onClick={() => setShowSecret(!showSecret)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <button onClick={() => setShowSecret(!showSecret)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
                     {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">🔒 Cifrata AES-256</p>
+                <p className="text-xs text-gray-500 mt-1">🔒 Cifrata AES-256</p>
               </div>
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">Cartella remota</label>
                 <input value={sftpConfig.sftp_remote_path || '/backups'} onChange={e => setSftpConfig(c => ({ ...c, sftp_remote_path: e.target.value }))}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 font-mono text-xs" placeholder="/volume1/backups/mailhaven" />
-                <p className="text-xs text-gray-400 mt-1">Synology: /volume1/cartella — QNAP: /share/cartella</p>
+                <p className="text-xs text-gray-500 mt-1">Synology: /volume1/cartella — QNAP: /share/cartella</p>
               </div>
             </div>
           )}
@@ -623,7 +623,7 @@ export default function Backup() {
       )}
 
       {/* Lo storico dei backup è stato spostato nella sezione Log */}
-      <p className="text-xs text-gray-400 text-center py-2">
+      <p className="text-xs text-gray-500 text-center py-2">
         Lo storico dei backup è ora in <span className="font-medium text-gray-500">Log → Backup</span>.
       </p>
     </div>

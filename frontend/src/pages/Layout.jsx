@@ -46,7 +46,7 @@ export default function Layout() {
     }`
 
   const sectionLabel = (label) => (
-    <p className="px-4 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+    <p className="px-4 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
   )
 
   const NavItems = () => (
@@ -124,12 +124,12 @@ export default function Layout() {
           <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name || user?.email}</p>
           <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
         </div>
-        <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors" title="Logout">
+        <button onClick={handleLogout} className="text-gray-500 hover:text-red-500 transition-colors" title="Logout">
           <LogOut size={16} />
         </button>
       </div>
       {branding.footer_text && (
-        <p className="text-xs text-gray-400 text-center mt-3">{branding.footer_text}</p>
+        <p className="text-xs text-gray-500 text-center mt-3">{branding.footer_text}</p>
       )}
     </div>
   )
@@ -157,7 +157,7 @@ export default function Layout() {
         className={`fixed top-0 left-0 h-full w-72 bg-white border-r border-gray-200 flex flex-col z-50 transform transition-transform duration-300 md:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
           <img src="/logo.svg" alt="MailHaven" style={{ width: '100%', height: 'auto', display: 'block', padding: '0 8px' }} />
-          <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+          <button onClick={() => setSidebarOpen(false)} className="text-gray-500 hover:text-gray-600 p-1">
             <X size={20} />
           </button>
         </div>
@@ -178,7 +178,7 @@ export default function Layout() {
           <div className="flex items-center gap-2 flex-1">
             <img src="/logo.svg" alt="MailHaven" style={{ width: '100%', height: 'auto', display: 'block', padding: '0 8px' }} />
           </div>
-          <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500">
+          <button onClick={handleLogout} className="p-2 text-gray-500 hover:text-red-500">
             <LogOut size={18} />
           </button>
         </header>

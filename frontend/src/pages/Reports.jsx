@@ -63,7 +63,7 @@ function NewReportForm({ onCreated, onCancel }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
-        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+        <button onClick={onCancel} className="text-gray-500 hover:text-gray-600">
           <ArrowLeft size={18} />
         </button>
         <h2 className="text-base font-semibold text-gray-900">Nuova segnalazione</h2>
@@ -175,7 +175,7 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-start gap-3 mb-4">
-        <button onClick={onBack} className="text-gray-400 hover:text-gray-600 mt-0.5">
+        <button onClick={onBack} className="text-gray-500 hover:text-gray-600 mt-0.5">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
@@ -186,13 +186,13 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
           <div className="flex items-center gap-2 flex-wrap">
             <Badge config={STATUS_CONFIG} value={status} />
             <Badge config={PRIORITY_CONFIG} value={priority} />
-            <span className="text-xs text-gray-400">{formatDate(data.created_at)}</span>
+            <span className="text-xs text-gray-500">{formatDate(data.created_at)}</span>
             {isSuperadmin && (
               <span className="text-xs text-gray-500">— {data.user_name || data.user_email}</span>
             )}
           </div>
         </div>
-        <button onClick={load} className="text-gray-400 hover:text-gray-600 shrink-0">
+        <button onClick={load} className="text-gray-500 hover:text-gray-600 shrink-0">
           <RefreshCw size={15} />
         </button>
       </div>
@@ -202,14 +202,14 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
         <div className="flex gap-2 mb-4 flex-wrap">
           <div>
             <label className="block text-xs text-gray-500 mb-1">Stato</label>
-            <select value={status} onChange={e => updateStatus(e.target.value)}
+            <select aria-label="Stato" value={status} onChange={e => updateStatus(e.target.value)}
               className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
               {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Priorità</label>
-            <select value={priority} onChange={e => updatePriority(e.target.value)}
+            <select aria-label="Priorità" value={priority} onChange={e => updatePriority(e.target.value)}
               className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
               {Object.entries(PRIORITY_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
@@ -221,13 +221,13 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
       <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
         <p className="text-xs font-semibold text-gray-500 mb-2">DESCRIZIONE</p>
         <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.description}</p>
-        {data.page_url && <p className="text-xs text-gray-400 mt-2">Pagina: {data.page_url}</p>}
+        {data.page_url && <p className="text-xs text-gray-500 mt-2">Pagina: {data.page_url}</p>}
       </div>
 
       {/* Messaggi */}
       <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-0" style={{ maxHeight: '320px' }}>
         {data.messages.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">Nessun messaggio ancora</p>
+          <p className="text-sm text-gray-500 text-center py-4">Nessun messaggio ancora</p>
         ) : data.messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.is_staff ? 'justify-end' : 'justify-start'}`}>
             <div style={{
@@ -240,7 +240,7 @@ function ReportThread({ reportId, onBack, isSuperadmin }) {
                 <span className="text-xs font-semibold" style={{ color: msg.is_staff ? '#2563eb' : '#374151' }}>
                   {msg.is_staff ? '⚡ Staff' : msg.sender_name || msg.sender_email}
                 </span>
-                <span className="text-xs text-gray-400">{formatDate(msg.created_at)}</span>
+                <span className="text-xs text-gray-500">{formatDate(msg.created_at)}</span>
               </div>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.message}</p>
             </div>
@@ -339,7 +339,7 @@ export default function Reports() {
         </div>
         <div className="flex items-center gap-2">
           {isSuperadmin && (
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            <select aria-label="Filtra per stato" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
               className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">Tutte</option>
               {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -388,9 +388,9 @@ export default function Reports() {
                     <p className="text-xs text-gray-500 line-clamp-1">{r.description}</p>
                     <div className="flex items-center gap-3 mt-1.5">
                       {isSuperadmin && r.user_name && (
-                        <span className="text-xs text-gray-400">{r.user_name}</span>
+                        <span className="text-xs text-gray-500">{r.user_name}</span>
                       )}
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
                         <Clock size={10} /> {formatDate(r.updated_at)}
                       </span>
                       {hasUnread && (
@@ -400,7 +400,7 @@ export default function Reports() {
                       )}
                     </div>
                   </div>
-                  <ChevronRight size={16} className="text-gray-400 shrink-0 mt-1" />
+                  <ChevronRight size={16} className="text-gray-500 shrink-0 mt-1" />
                 </div>
               </button>
             )

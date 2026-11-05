@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
+import { confirmDialog, notify, reportError, LoadError, Dialog } from '../components/Feedback'
 import { useParams, useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -115,7 +115,7 @@ export default function EmailView() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
-      <Loader2 size={28} className="animate-spin text-gray-400" />
+      <Loader2 size={28} className="animate-spin text-gray-500" />
     </div>
   )
   if (!email) return null
@@ -168,30 +168,30 @@ export default function EmailView() {
           </h1>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex items-start gap-2.5">
-              <User size={14} className="text-gray-400 mt-0.5 shrink-0" />
+              <User size={14} className="text-gray-500 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Da</p>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Da</p>
                 <p className="text-sm text-gray-700">{email.senderName ? `${email.senderName} <${email.senderEmail}>` : email.senderEmail}</p>
               </div>
             </div>
             <div className="flex items-start gap-2.5">
-              <Mail size={14} className="text-gray-400 mt-0.5 shrink-0" />
+              <Mail size={14} className="text-gray-500 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">A</p>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">A</p>
                 <p className="text-sm text-gray-700">{recipients}</p>
               </div>
             </div>
             <div className="flex items-start gap-2.5">
-              <Calendar size={14} className="text-gray-400 mt-0.5 shrink-0" />
+              <Calendar size={14} className="text-gray-500 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Data</p>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Data</p>
                 <p className="text-sm text-gray-700">{formatDate(email.sentAt)}</p>
               </div>
             </div>
             <div className="flex items-start gap-2.5">
-              <Inbox size={14} className="text-gray-400 mt-0.5 shrink-0" />
+              <Inbox size={14} className="text-gray-500 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Casella · Cartella</p>
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Casella · Cartella</p>
                 <p className="text-sm text-gray-700">{email.userEmail} · {email.path || 'INBOX'}</p>
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function EmailView() {
 
         {/* Legal Hold Dialog */}
         {showHoldDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <Dialog label="Attiva Legal Hold" onClose={() => { setShowHoldDialog(false); setLegalHoldReason('') }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
@@ -295,7 +295,7 @@ export default function EmailView() {
                 </button>
               </div>
             </div>
-          </div>
+          </Dialog>
         )}
 
         {/* Attachments */}
@@ -306,7 +306,7 @@ export default function EmailView() {
                 Allegati ({content.attachments.length})
               </p>
               {avScanning && (
-                <span className="flex items-center gap-1 text-xs text-gray-400">
+                <span className="flex items-center gap-1 text-xs text-gray-500">
                   <Loader2 size={11} className="animate-spin" /> Scansione AV...
                 </span>
               )}
@@ -363,7 +363,7 @@ export default function EmailView() {
         <div className="p-6">
           {contentLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 size={20} className="animate-spin text-gray-400" />
+              <Loader2 size={20} className="animate-spin text-gray-500" />
             </div>
           ) : content?.html ? (
             <iframe
@@ -384,7 +384,7 @@ export default function EmailView() {
               {content.text}
             </pre>
           ) : (
-            <p className="text-sm text-gray-400 italic">(Nessun contenuto)</p>
+            <p className="text-sm text-gray-500 italic">(Nessun contenuto)</p>
           )}
         </div>
       </div>

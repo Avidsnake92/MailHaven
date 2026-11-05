@@ -37,13 +37,13 @@ function Avatar({ avatarUrl, name, email, size = 'lg', onClick }) {
 
   if (avatarUrl) {
     return (
-      <div className={`${sz} rounded-full overflow-hidden shrink-0 cursor-pointer`} onClick={onClick}>
-        <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+      <div className={`${sz} rounded-full overflow-hidden shrink-0 cursor-pointer`} onClick={onClick} role="button" tabIndex={0} aria-label="Cambia avatar" onKeyDown={e => { if (onClick && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e) } }}>
+        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
       </div>
     )
   }
   return (
-    <div className={`${sz} ${color} rounded-full flex items-center justify-center text-white font-bold shrink-0 cursor-pointer`} onClick={onClick}>
+    <div className={`${sz} ${color} rounded-full flex items-center justify-center text-white font-bold shrink-0 cursor-pointer`} onClick={onClick} role="button" tabIndex={0} aria-label="Cambia avatar" onKeyDown={e => { if (onClick && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e) } }}>
       {initials}
     </div>
   )
@@ -215,7 +215,7 @@ export default function Profile() {
           <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-gray-700">Cambia foto profilo</p>
-              <button onClick={() => setShowAvatarPicker(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowAvatarPicker(false)} className="text-gray-500 hover:text-gray-600">
                 <X size={16} />
               </button>
             </div>
@@ -226,7 +226,7 @@ export default function Profile() {
                 className="flex items-center gap-1.5 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 <Upload size={13} /> Carica foto
               </button>
-              <span className="text-xs text-gray-400">JPG, PNG, WEBP · max 2MB</span>
+              <span className="text-xs text-gray-500">JPG, PNG, WEBP · max 2MB</span>
               {avatarUrl && avatarUrl.startsWith('/uploads/') && (
                 <button onClick={handleRemoveAvatar}
                   className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 ml-auto">
@@ -241,7 +241,7 @@ export default function Profile() {
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Nome completo</label>
             <div className="relative">
-              <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input value={fullName} onChange={e => setFullName(e.target.value)}
                 placeholder="Il tuo nome" className={iClass + ' pl-9'} />
             </div>
@@ -250,15 +250,15 @@ export default function Profile() {
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Email</label>
             <div className="relative">
-              <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={profile?.email || ''} disabled className={iClass + ' pl-9 bg-gray-50 text-gray-400 cursor-not-allowed'} />
+              <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input value={profile?.email || ''} disabled className={iClass + ' pl-9 bg-gray-50 text-gray-500 cursor-not-allowed'} />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Telefono</label>
             <div className="relative">
-              <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input value={phone} onChange={e => setPhone(e.target.value)}
                 placeholder="+39 000 0000000" className={iClass + ' pl-9'} />
             </div>
@@ -268,7 +268,7 @@ export default function Profile() {
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Timezone</label>
               <div className="relative">
-                <Clock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <Clock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 <select value={timezone} onChange={e => setTimezone(e.target.value)}
                   className={iClass + ' pl-9 bg-white'}>
                   {TIMEZONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -278,7 +278,7 @@ export default function Profile() {
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Lingua</label>
               <div className="relative">
-                <Globe size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <Globe size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 <select value={language} onChange={e => setLanguage(e.target.value)}
                   className={iClass + ' pl-9 bg-white'}>
                   {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
@@ -290,7 +290,7 @@ export default function Profile() {
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
           {profile?.last_login && (
-            <p className="text-xs text-gray-400">Ultimo accesso: {formatDate(profile.last_login)}</p>
+            <p className="text-xs text-gray-500">Ultimo accesso: {formatDate(profile.last_login)}</p>
           )}
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors ml-auto">
@@ -311,26 +311,26 @@ export default function Profile() {
             <Loader2 size={18} className="animate-spin text-blue-400" />
           </div>
         ) : sessions.length === 0 ? (
-          <p className="text-sm text-gray-400">Nessuna sessione attiva</p>
+          <p className="text-sm text-gray-500">Nessuna sessione attiva</p>
         ) : (
           <div className="space-y-2">
             {sessions.map(s => (
               <div key={s.id} className={`flex items-center justify-between p-3 rounded-xl border ${s.is_current ? 'bg-blue-50 border-blue-200' : 'border-gray-100'}`}>
                 <div className="flex items-center gap-3">
-                  <Monitor size={16} className={s.is_current ? 'text-blue-500' : 'text-gray-400'} />
+                  <Monitor size={16} className={s.is_current ? 'text-blue-500' : 'text-gray-500'} />
                   <div>
                     <p className="text-sm font-medium text-gray-800">
                       {s.ip_address}
                       {s.is_current && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Sessione corrente</span>}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-500">
                       {s.device_info?.ua?.slice(0, 60) || 'Browser sconosciuto'} · {formatDate(s.last_seen)}
                     </p>
                   </div>
                 </div>
                 {!s.is_current && (
                   <button onClick={() => handleTerminateSession(s.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                    className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                     <Trash2 size={14} />
                   </button>
                 )}
@@ -370,7 +370,7 @@ export default function Profile() {
               {keyRotMsg && <div className="bg-green-50 border border-green-200 text-green-700 text-xs px-3 py-2 rounded-lg">{keyRotMsg}</div>}
               {keyRotError && <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded-lg">{keyRotError}</div>}
               <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input type="password" value={keyRotPwd} onChange={e => setKeyRotPwd(e.target.value)}
                   placeholder="Conferma con la tua password" className={iClass + ' pl-9'} />
               </div>
@@ -400,7 +400,7 @@ export default function Profile() {
             📱 {profile?.totp_enabled ? 'Gestisci 2FA' : 'Attiva 2FA'}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-gray-500 mt-2">
           Account creato il {profile?.created_at ? formatDate(profile.created_at) : '—'}
         </p>
       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
+import { confirmDialog, notify, reportError, LoadError, Dialog } from '../components/Feedback'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -275,16 +275,16 @@ export default function Antispam() {
                   Salva soglia (globale)
                 </button>
               ) : (
-                <p className="text-xs text-gray-400">La soglia qui filtra solo la tua vista. Il valore globale lo imposta il superadmin.</p>
+                <p className="text-xs text-gray-500">La soglia qui filtra solo la tua vista. Il valore globale lo imposta il superadmin.</p>
               )}
               {user?.role === 'superadmin' && (
                 <div className="pt-2 mt-1 border-t border-gray-100 flex items-center justify-between gap-2">
                   <div>
                     <p className="text-xs font-medium text-gray-700">Scoring automatico</p>
-                    <p className="text-[11px] text-gray-400">Rspamd valuta le nuove email da solo</p>
+                    <p className="text-xs text-gray-500">Rspamd valuta le nuove email da solo</p>
                   </div>
                   <button onClick={toggleAutoscore}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${autoscore ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    role="switch" aria-checked={!!autoscore} aria-label="Punteggio spam automatico" className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${autoscore ? 'bg-green-500' : 'bg-gray-300'}`}>
                     <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${autoscore ? 'translate-x-4' : 'translate-x-1'}`} />
                   </button>
                 </div>
@@ -357,7 +357,7 @@ export default function Antispam() {
                 <p className="text-xs text-gray-500 mt-0.5">Le email da questi mittenti/domini non compaiono più tra lo spam. Selezionane alcune spam e usa "Whitelist mittente/dominio" per aggiungerle.</p>
               </div>
               {whitelist.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-6">Nessuna voce in whitelist</p>
+                <p className="text-center text-sm text-gray-500 py-6">Nessuna voce in whitelist</p>
               ) : (
                 <div className="flex flex-wrap gap-2 p-3">
                   {whitelist.map(w => (
@@ -382,7 +382,7 @@ export default function Antispam() {
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <ShieldAlert size={48} className="text-gray-300 mb-4" />
               <p className="text-gray-500 font-medium">Seleziona una casella email</p>
-              <p className="text-gray-400 text-sm mt-1">
+              <p className="text-gray-500 text-sm mt-1">
                 {(user?.role === 'superadmin' || user?.role === 'admin') ? 'Scegli prima il cliente e poi la casella' : 'Scegli la casella dalla sidebar'}
               </p>
             </div>
@@ -405,11 +405,11 @@ export default function Antispam() {
                   )}
                 </div>
               )}
-              <table className="w-full">
+              <div className="overflow-x-auto"><table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100">
                     <th className="px-4 py-3 w-10">
-                      <button onClick={toggleAll} className="text-gray-400 hover:text-gray-600">
+                      <button onClick={toggleAll} className="text-gray-500 hover:text-gray-600">
                         {allOnPageSelected
                           ? <CheckSquare size={16} className="text-blue-600" />
                           : <Square size={16} />}
@@ -426,13 +426,13 @@ export default function Antispam() {
                 <tbody>
                   {loading ? (
                     <tr><td colSpan={7} className="text-center py-16">
-                      <Loader2 size={24} className="animate-spin text-gray-400 mx-auto" />
+                      <Loader2 size={24} className="animate-spin text-gray-500 mx-auto" />
                     </td></tr>
                   ) : emails.length === 0 ? (
                     <tr><td colSpan={7} className="text-center py-16">
                       <ShieldAlert size={32} className="text-gray-300 mx-auto mb-3" />
                       <p className="text-gray-500 text-sm">Nessuna email spam trovata</p>
-                      <p className="text-gray-400 text-xs mt-1">
+                      <p className="text-gray-500 text-xs mt-1">
                         Clicca "Analizza casella" per scansionare le email archiviate
                       </p>
                     </td></tr>
@@ -455,7 +455,7 @@ export default function Antispam() {
                           <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md ${scoreColor(email.mh_spam_score)}`} title={email.mh_spam_action || ''}>
                             {email.mh_spam_score}{email.mh_spam_action === 'reject' ? ' ⛔' : ''}
                           </span>
-                        ) : <span className="text-xs text-gray-300">—</span>}
+                        ) : <span className="text-xs text-gray-500">—</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap mono"
                         onClick={() => navigate(`/email/${email.email_id}`)}>
@@ -463,7 +463,7 @@ export default function Antispam() {
                       </td>
                       <td className="px-4 py-3 max-w-xs" onClick={() => navigate(`/email/${email.email_id}`)}>
                         <p className="text-sm font-medium text-gray-900 truncate">{email.subject || '(Nessun oggetto)'}</p>
-                        <p className="text-xs text-gray-400 sm:hidden truncate">{email.sender_email}</p>
+                        <p className="text-xs text-gray-500 sm:hidden truncate">{email.sender_email}</p>
                       </td>
                       <td className="hidden sm:table-cell px-4 py-3 text-sm text-gray-600 truncate max-w-xs"
                         onClick={() => navigate(`/email/${email.email_id}`)}>
@@ -471,14 +471,14 @@ export default function Antispam() {
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={() => handleDelete(email.email_id)} disabled={deleting}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40">
+                          className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40">
                           <Trash2 size={14} />
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
@@ -502,7 +502,7 @@ export default function Antispam() {
 
       {/* Conferma eliminazione — l'eliminazione dallo spam è DEFINITIVA */}
       {confirmDel && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setConfirmDel(null)}>
+        <Dialog label="Conferma eliminazione dallo spam" onClose={() => setConfirmDel(null)} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setConfirmDel(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
@@ -527,7 +527,7 @@ export default function Antispam() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

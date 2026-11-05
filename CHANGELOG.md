@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.2.12] - 2026-11-06
+### Changed
+- **Accessibilità (tastiera, lettori di schermo, contrasto).**
+  - I modali usano un componente `Dialog` condiviso: ruolo dialogo, Esc per
+    chiudere, Tab che resta dentro, focus che torna a chi l'ha aperto. Nel
+    modale "Elimina email" il focus parte su "Annulla".
+  - Contrasto: testo secondario, verde, ambra e arancio portati sopra 4.5:1;
+    segnaposto dei campi piu' scuri; testi da 9-11 px portati a 12 px; assi dei
+    grafici piu' leggibili.
+  - Tabelle di Admin, Antispam, Log e Storage con scorrimento orizzontale su
+    schermi stretti.
+  - Layout: link "Vai al contenuto", menu con nome e `aria-expanded`, menu mobile
+    chiuso escluso dal focus, nomi ai bottoni Esci/Apri menu/Chiudi menu.
+  - Elementi cliccabili usabili da tastiera: checkbox delle email, righe email,
+    righe di Log, avatar. I 9 interruttori sono veri `role="switch"` con nome e
+    stato. Focus sempre visibile e rispetto di "riduci animazioni".
+  - `utils/a11y.js`: rete di sicurezza che collega le etichette ai campi e da' un
+    nome ai bottoni-icona che ne sono privi (non sostituisce le etichette scritte
+    nel codice).
+- Verificato sul dev con audit automatico su 20 pagine: 0 campi senza etichetta,
+  0 testi sotto 12 px, 0 tabelle che allargano la pagina.
+
 ## [0.2.11] - 2026-11-05
 ### Changed
 - **Conferme e avvisi unificati.** Le 7 finestre `confirm()` e gli 8 `alert()` del

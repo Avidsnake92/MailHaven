@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { confirmDialog, notify, reportError, LoadError } from '../components/Feedback'
+import { confirmDialog, notify, reportError, LoadError, Dialog } from '../components/Feedback'
 import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -85,8 +85,8 @@ function FolderTree({ folders, selectedFolder, onSelect }) {
             <button onClick={() => onSelect(isSelected ? null : data._path)}
               className="flex items-center gap-1.5 flex-1 py-1.5 text-xs text-left">
               {hasChildren
-                ? (isExpanded ? <FolderOpen size={13} className="shrink-0 text-blue-400" /> : <Folder size={13} className="shrink-0 text-gray-400" />)
-                : <Inbox size={13} className="shrink-0 text-gray-400" />}
+                ? (isExpanded ? <FolderOpen size={13} className="shrink-0 text-blue-400" /> : <Folder size={13} className="shrink-0 text-gray-500" />)
+                : <Inbox size={13} className="shrink-0 text-gray-500" />}
               <span className="truncate">{name}</span>
             </button>
             {hasChildren && (
@@ -128,7 +128,7 @@ const Highlight = ({ text, query }) => {
 
 // ─── Badge email ──────────────────────────────────────────────────────────────
 function EmailBadges({ email, compact = false }) {
-  const size = compact ? 'text-[9px]' : 'text-[10px]'
+  const size = compact ? 'text-xs' : 'text-xs'
   const px = compact ? 'px-1.5' : 'px-2'
   const ic = compact ? 8 : 9
 
@@ -212,7 +212,7 @@ function EmailPreview({ emailId, onClose, branding }) {
   if (!emailId) return (
     <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3 select-none">
       <Mail size={48} strokeWidth={1} />
-      <p className="text-sm text-gray-400">Seleziona un'email per visualizzarla</p>
+      <p className="text-sm text-gray-500">Seleziona un'email per visualizzarla</p>
     </div>
   )
 
@@ -239,11 +239,11 @@ function EmailPreview({ emailId, onClose, branding }) {
           </h2>
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => navigate(`/email/${emailId}`)} title="Apri a schermo intero"
-              className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+              className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
               <ExternalLink size={14} />
             </button>
             <button onClick={onClose}
-              className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+              className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
               <X size={14} />
             </button>
           </div>
@@ -251,19 +251,19 @@ function EmailPreview({ emailId, onClose, branding }) {
         <EmailBadges email={email} />
         <div className="mt-2.5 space-y-1.5 text-xs text-gray-500">
           <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-semibold text-gray-400 uppercase w-12 shrink-0">Da</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase w-12 shrink-0">Da</span>
             <span className="text-gray-700 font-medium">{email.senderName || email.senderEmail || '—'}</span>
             {email.senderName && email.senderEmail && (
-              <span className="text-gray-400 text-[11px]">&lt;{email.senderEmail}&gt;</span>
+              <span className="text-gray-500 text-xs">&lt;{email.senderEmail}&gt;</span>
             )}
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-semibold text-gray-400 uppercase w-12 shrink-0">Data</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase w-12 shrink-0">Data</span>
             <span>{formatDateFull(email.sentAt)}</span>
           </div>
           {email.path && (
             <div className="flex items-baseline gap-2">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase w-12 shrink-0">Folder</span>
+              <span className="text-xs font-semibold text-gray-500 uppercase w-12 shrink-0">Folder</span>
               <span>{email.path}</span>
             </div>
           )}
@@ -282,10 +282,10 @@ function EmailPreview({ emailId, onClose, branding }) {
       {content?.attachments?.length > 0 && (
         <div className="px-5 py-2 border-b border-gray-100 shrink-0 bg-gray-50/50">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Paperclip size={11} className="text-gray-400" />
+            <Paperclip size={11} className="text-gray-500" />
             {content.attachments.map((att, i) => (
               content?.isInfected ? (
-                <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 bg-red-50 border border-red-200 rounded-md text-red-600 shadow-sm" title="Allegato bloccato">
+                <span key={i} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-red-50 border border-red-200 rounded-md text-red-600 shadow-sm" title="Allegato bloccato">
                   <ShieldAlert size={10} />
                   {att.filename || `allegato_${i + 1}`}
                 </span>
@@ -295,9 +295,9 @@ function EmailPreview({ emailId, onClose, branding }) {
                   a.href = `/api/emails/${email.id}/attachment/${att.index ?? i}`
                   a.download = att.filename || 'attachment'
                   a.click()
-                }} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 bg-white border border-gray-200 rounded-md text-blue-600 hover:bg-blue-50 shadow-sm cursor-pointer">
+                }} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-white border border-gray-200 rounded-md text-blue-600 hover:bg-blue-50 shadow-sm cursor-pointer">
                   {att.filename || `allegato_${i + 1}`}
-                  {att.size && <span className="text-gray-400">· {formatBytes(att.size)}</span>}
+                  {att.size && <span className="text-gray-500">· {formatBytes(att.size)}</span>}
                 </button>
               )
             ))}
@@ -313,7 +313,7 @@ function EmailPreview({ emailId, onClose, branding }) {
         ) : content?.text ? (
           <pre className="p-5 text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{content.text}</pre>
         ) : (
-          <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+          <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
             Contenuto non disponibile
           </div>
         )}
@@ -576,13 +576,13 @@ export default function Dashboard() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <div className="p-3 border-b border-gray-100 space-y-2 shrink-0">
-          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest px-1">Archivio Email</h2>
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest px-1">Archivio Email</h2>
           {(user?.role === 'superadmin' || user?.role === 'admin') && clients.length > 0 && (
             <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-1 uppercase tracking-wider px-1">
+              <label htmlFor="dash-cliente" className="block text-sm font-semibold text-gray-500 mb-1 uppercase tracking-wider px-1">
                 Cliente
               </label>
-              <select value={selectedClient || ''} onChange={e => {
+              <select id="dash-cliente" value={selectedClient || ''} onChange={e => {
                 setSelectedClient(e.target.value || null)
                 setSelectedMailbox(null); setFolders([])
               }} className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white">
@@ -593,10 +593,10 @@ export default function Dashboard() {
           )}
           {mailboxes.length > 0 && (
             <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-1 uppercase tracking-wider px-1">
+              <label htmlFor="dash-casella" className="block text-sm font-semibold text-gray-500 mb-1 uppercase tracking-wider px-1">
                 Casella
               </label>
-              <select value={selectedMailbox?.id || ''} onChange={e => {
+              <select id="dash-casella" value={selectedMailbox?.id || ''} onChange={e => {
                 const m = mailboxes.find(x => x.id == e.target.value)
                 setSelectedMailbox(m || null); setSelected([]); setPage(1); setPreviewId(null)
               }} className="w-full text-sm border border-gray-200 rounded-md px-2.5 py-2 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white">
@@ -610,12 +610,12 @@ export default function Dashboard() {
         <div className="flex-1 overflow-y-auto p-2">
           {selectedMailbox && (
             <>
-              <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-2 pt-2 pb-1.5">Cartelle</p>
+              <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider px-2 pt-2 pb-1.5">Cartelle</p>
               <button onClick={() => { setSelectedFolder(null); setPage(1); setSelected([]) }}
                 className={`flex items-center gap-2.5 w-full px-2.5 py-2 text-sm rounded-md transition-colors mb-0.5 ${!selectedFolder ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}>
                 <Inbox size={17} /> Tutte le email
                 {total > 0 && !selectedFolder && (
-                  <span className="ml-auto text-sm text-gray-400">{total.toLocaleString('it-IT')}</span>
+                  <span className="ml-auto text-sm text-gray-500">{total.toLocaleString('it-IT')}</span>
                 )}
               </button>
               <FolderTree folders={folders} selectedFolder={selectedFolder}
@@ -628,20 +628,20 @@ export default function Dashboard() {
         {selectedMailbox && storage && (
           <div className="px-3 py-2.5 border-t border-gray-100 bg-gray-50/60 shrink-0 space-y-1.5">
             <div className="flex items-center gap-2.5 text-sm text-gray-500">
-              <Database size={17} className="text-gray-400 shrink-0" />
+              <Database size={17} className="text-gray-500 shrink-0" />
               <span>Archivio</span>
               <span className="font-semibold text-gray-700 ml-auto">{formatBytes(storage.compressed_bytes)}</span>
-              {storage.ratio > 0 && <span className="text-gray-400">-{storage.ratio}%</span>}
+              {storage.ratio > 0 && <span className="text-gray-500">-{storage.ratio}%</span>}
             </div>
             {storage.imap_quota && (
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5 text-sm text-gray-500">
-                  <Server size={17} className="text-gray-400 shrink-0" />
+                  <Server size={17} className="text-gray-500 shrink-0" />
                   <span>IMAP</span>
                   {storage.imap_quota.limit_bytes ? (
                     <>
                       <span className="font-semibold text-gray-700 ml-auto">{formatBytes(storage.imap_quota.used_bytes)}</span>
-                      <span className="text-gray-400">/ {formatBytes(storage.imap_quota.limit_bytes)}</span>
+                      <span className="text-gray-500">/ {formatBytes(storage.imap_quota.limit_bytes)}</span>
                       <span className={`font-semibold ${storage.imap_quota.percent > 80 ? 'text-red-500' : 'text-gray-500'}`}>
                         {storage.imap_quota.percent}%
                       </span>
@@ -682,10 +682,10 @@ export default function Dashboard() {
               <p className="text-sm font-semibold text-gray-900 truncate">
                 {selectedMailbox?.email || 'Seleziona una casella'}
               </p>
-              {total > 0 && <p className="text-sm text-gray-400">{total.toLocaleString('it-IT')} email archiviate</p>}
+              {total > 0 && <p className="text-sm text-gray-500">{total.toLocaleString('it-IT')} email archiviate</p>}
             </div>
             {selectedMailbox && (
-              <button onClick={handleSync} disabled={syncing} title="Sincronizza ora"
+              <button onClick={handleSync} disabled={syncing} title="Sincronizza ora" aria-label="Sincronizza ora"
                 className="p-2 rounded-md text-gray-500 hover:bg-gray-100 border border-gray-200 transition-colors shrink-0">
                 {syncing
                   ? <Loader2 size={17} className="animate-spin text-blue-500" />
@@ -696,14 +696,14 @@ export default function Dashboard() {
 
           {/* Ricerca */}
           <div className="relative">
-            <Search size={17} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={17} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
             <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-              placeholder="Cerca oggetto, mittente, testo..."
+              placeholder="Cerca oggetto, mittente, testo..." aria-label="Cerca nelle email"
               onKeyDown={e => e.key === 'Escape' && setSearch('')}
               className="w-full pl-8 pr-7 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
             {search && (
-              <button onClick={() => { setSearch(''); setPage(1) }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <button onClick={() => { setSearch(''); setPage(1) }} aria-label="Cancella ricerca"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700">
                 <X size={18} />
               </button>
             )}
@@ -724,7 +724,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2.5 flex-wrap">
               <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1) }}
                 className="text-sm border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
-              <span className="text-sm text-gray-400">→</span>
+              <span className="text-sm text-gray-500">→</span>
               <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1) }}
                 className="text-sm border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
               {(fromDate || toDate) && (
@@ -776,10 +776,10 @@ export default function Dashboard() {
         {/* Header colonne */}
         {selectedMailbox && emails.length > 0 && (
           <div className="flex items-center border-b border-gray-100 bg-gray-50/80 px-2.5 py-2 shrink-0 gap-2">
-            <button onClick={toggleAll} className="shrink-0">
+            <button onClick={toggleAll} className="shrink-0" role="checkbox" aria-checked={selected.length === emails.length} aria-label="Seleziona tutte le email di questa pagina">
               {selected.length === emails.length
                 ? <CheckSquare size={17} className="text-blue-600" />
-                : <Square size={17} className="text-gray-400" />}
+                : <Square size={17} className="text-gray-500" />}
             </button>
             {[
               { col: 'sent_at', label: 'Data' },
@@ -789,7 +789,7 @@ export default function Dashboard() {
               const Icon = active ? (sortDir === 'asc' ? ChevronUp : ChevronDown) : ArrowUpDown
               return (
                 <button key={col} onClick={() => handleSort(col)}
-                  className={`flex items-center gap-2.5 text-sm font-semibold uppercase tracking-wide select-none transition-colors mr-2 ${active ? 'text-blue-600' : 'text-gray-400 hover:text-gray-700'}`}>
+                  className={`flex items-center gap-2.5 text-sm font-semibold uppercase tracking-wide select-none transition-colors mr-2 ${active ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
                   {label} <Icon size={17} className={active ? '' : 'opacity-50'} />
                 </button>
               )
@@ -802,7 +802,7 @@ export default function Dashboard() {
           {!selectedMailbox ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2.5 select-none">
               <Mail size={40} strokeWidth={1} />
-              <p className="text-sm text-gray-400">Seleziona una casella email</p>
+              <p className="text-sm text-gray-500">Seleziona una casella email</p>
             </div>
           ) : loading ? (
             <div className="flex items-center justify-center h-24">
@@ -813,7 +813,7 @@ export default function Dashboard() {
           ) : emails.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2.5 select-none">
               <Mail size={40} strokeWidth={1} />
-              <p className="text-sm text-gray-400">Nessuna email trovata</p>
+              <p className="text-sm text-gray-500">Nessuna email trovata</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -828,6 +828,8 @@ export default function Dashboard() {
                 return (
                   <div key={email.id}
                     onClick={() => setPreviewId(isPreviewed ? null : email.id)}
+                    tabIndex={0} aria-current={isPreviewed ? 'true' : undefined}
+                    onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setPreviewId(isPreviewed ? null : email.id) } }}
                     className={`flex items-start gap-2.5 px-3 py-3 cursor-pointer transition-colors relative group
                       ${isPreviewed
                         ? 'bg-blue-50 border-l-2 border-l-blue-500'
@@ -840,25 +842,28 @@ export default function Dashboard() {
                             : 'hover:bg-gray-50'
                       }`}>
                     {/* Checkbox */}
-                    <div className="shrink-0 pt-0.5" onClick={e => { e.stopPropagation(); toggleSelect(email.id) }}>
+                    <button type="button" role="checkbox" aria-checked={isSelected}
+                      aria-label={`Seleziona email: ${email.subject || '(nessun oggetto)'}`}
+                      className="shrink-0 pt-0.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      onClick={e => { e.stopPropagation(); toggleSelect(email.id) }}>
                       {isSelected
                         ? <CheckSquare size={17} className="text-blue-600" />
-                        : <Square size={17} className="text-gray-300 group-hover:text-gray-400" />}
-                    </div>
+                        : <Square size={17} className="text-gray-500 group-hover:text-gray-500" />}
+                    </button>
 
                     {/* Contenuto riga */}
                     <div className="flex-1 min-w-0">
                       {/* Mittente + data */}
                       <div className="flex items-center justify-between gap-2.5 mb-0.5">
-                        <span className={`text-sm truncate font-medium ${isDeleted || isArchived ? 'text-gray-400' : 'text-gray-800'}`}>
+                        <span className={`text-sm truncate font-medium ${isDeleted || isArchived ? 'text-gray-500' : 'text-gray-800'}`}>
                           <Highlight text={email.senderName || email.senderEmail || '—'} query={search} />
                         </span>
-                        <span className="text-sm text-gray-400 shrink-0 tabular-nums">
+                        <span className="text-sm text-gray-500 shrink-0 tabular-nums">
                           {formatDateShort(email.sentAt)}
                         </span>
                       </div>
                       {/* Oggetto */}
-                      <p className={`text-sm truncate mb-1 ${isDeleted || isArchived ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <p className={`text-sm truncate mb-1 ${isDeleted || isArchived ? 'text-gray-500' : 'text-gray-600'}`}>
                         <Highlight text={email.subject || '(nessun oggetto)'} query={search} />
                       </p>
                       {/* Badge + allegati */}
@@ -884,7 +889,7 @@ export default function Dashboard() {
         {/* Paginazione */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-white shrink-0">
-            <span className="text-sm text-gray-400">Pag. {page} di {totalPages}</span>
+            <span className="text-sm text-gray-500">Pag. {page} di {totalPages}</span>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 className="p-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors">
@@ -921,7 +926,7 @@ export default function Dashboard() {
 
       {/* ── Modal conferma bulk ── */}
       {confirmBulk === 'restore' && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <Dialog label={`Ripristina ${selected.length} email`} onClose={() => !bulkLoading && setConfirmBulk(null)} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
             <h2 className="text-sm font-bold text-gray-900 mb-1">Ripristina {selected.length} email</h2>
             <p className="text-sm text-gray-500 mb-4">Ogni email verrà reinserita nell'IMAP con la sua data originale.</p>
@@ -937,11 +942,11 @@ export default function Dashboard() {
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Annulla</button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {confirmBulk === 'delete' && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <Dialog label={`Elimina ${selected.length} email`} onClose={() => { if (bulkLoading) return; setConfirmBulk(null); setPermPhrase(''); setPermInput('') }} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
             <h2 className="text-base font-bold text-gray-900 mb-4">Elimina {selected.length} email — scegli come</h2>
 
@@ -984,15 +989,15 @@ export default function Dashboard() {
             </div>
 
             <div className="flex justify-end mt-4">
-              <button onClick={() => { setConfirmBulk(null); setPermPhrase(''); setPermInput('') }} disabled={bulkLoading}
+              <button data-autofocus onClick={() => { setConfirmBulk(null); setPermPhrase(''); setPermInput('') }} disabled={bulkLoading}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Annulla</button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {showLegalHold && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <Dialog label={`Metti ${selected.length} email in Legal Hold`} onClose={() => !bulkLoading && setShowLegalHold(false)} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
             <div className="flex items-start gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0"><ShieldCheck size={20} className="text-amber-600" /></div>
@@ -1013,7 +1018,7 @@ export default function Dashboard() {
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Annulla</button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )
