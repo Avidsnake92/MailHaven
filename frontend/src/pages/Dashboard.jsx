@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { confirmDialog, notify, reportError, LoadError, Dialog } from '../components/Feedback'
 import { useNavigate } from 'react-router-dom'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { it } from 'date-fns/locale'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -345,6 +345,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState([])
   const [search, setSearch] = useState(savedState.search || '')
+  // Il testo digitato (searchInput) arriva alla ricerca solo dopo una pausa: prima ogni tasto lanciava una query
+  const [searchInput, setSearchInput] = useState(savedState.search || '')
+  // Filtri rapidi
+  const [qfAttach, setQfAttach] = useState(!!savedState.qfAttach)
+  const [qfDeleted, setQfDeleted] = useState(!!savedState.qfDeleted)
+  const [qfHold, setQfHold] = useState(!!savedState.qfHold)
+  const [syncInfo, setSyncInfo] = useState(null)
+  const lastClickedRef = useRef(null)
   const [fromDate, setFromDate] = useState(savedState.fromDate || '')
   const [toDate, setToDate] = useState(savedState.toDate || '')
   const [showFilters, setShowFilters] = useState(false)
@@ -374,9 +382,16 @@ export default function Dashboard() {
   useEffect(() => {
     sessionStorage.setItem('mv_dashboard_state', JSON.stringify({
       selectedClient, selectedMailboxId: selectedMailbox?.id || null,
-      selectedFolder, page, search, fromDate, toDate,
+      selectedFolder, page, search, fromDate, toDate, qfAttach, qfDeleted, qfHold,
     }))
-  }, [selectedClient, selectedMailbox, selectedFolder, page, search, fromDate, toDate])
+  }, [selectedClient, selectedMailbox, selectedFolder, page, search, fromDate, toDate, qfAttach, qfDeleted, qfHold])
+
+  // Ricerca con attesa (300 ms dopo l'ultimo tasto)
+  useEffect(() => {
+    if (searchInput === search) return
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1) }, 300)
+    return () => clearTimeout(t)
+  }, [searchInput, search])
 
   // Load clients
   useEffect(() => {
@@ -421,6 +436,14 @@ export default function Dashboard() {
     }
   }, [selectedMailbox])
 
+  // Ultimo esito di sincronizzazione della casella (per spiegare liste vuote o ferme)
+  const loadSyncInfo = useCallback(() => {
+    if (!selectedMailbox) { setSyncInfo(null); return }
+    api.get('/emails/sync-info', { params: { mailbox_id: selectedMailbox.id } })
+      .then(r => setSyncInfo(r.data)).catch(() => setSyncInfo(null))
+  }, [selectedMailbox])
+  useEffect(() => { loadSyncInfo() }, [loadSyncInfo])
+
   // Fetch emails
   const fetchEmails = useCallback(async () => {
     if (!selectedMailbox) return
@@ -432,8 +455,11 @@ export default function Dashboard() {
         sort_by: sortBy, sort_dir: sortDir,
       }
       if (search) { params.search = search; params.fulltext = 'true' }
-      if (fromDate) params.from_date = fromDate
-      if (toDate) params.to_date = toDate
+      if (fromDate) params.date_from = fromDate
+      if (toDate) params.date_to = toDate
+      if (qfAttach) params.has_attachments = 'true'
+      if (qfDeleted) params.only_deleted = 'true'
+      if (qfHold) params.legal_hold = 'true'
       if (selectedFolder) params.path = selectedFolder
       const res = await api.get('/emails', { params })
       setEmails(res.data.items || [])
@@ -444,7 +470,7 @@ export default function Dashboard() {
       setListError(`Impossibile caricare le email: ${e.displayMessage || e.message}`)
     }
     finally { setLoading(false) }
-  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, sortBy, sortDir])
+  }, [selectedMailbox, page, search, fromDate, toDate, selectedFolder, sortBy, sortDir, qfAttach, qfDeleted, qfHold])
 
   useEffect(() => { fetchEmails() }, [fetchEmails])
 
@@ -459,7 +485,19 @@ export default function Dashboard() {
     setPage(1)
   }
 
-  const toggleSelect = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
+  // Clic su una casella; con Maiusc seleziona tutto l'intervallo dall'ultima email cliccata
+  const toggleSelect = (id, shift = false) => {
+    const ids = emails.map(e => e.id)
+    const last = lastClickedRef.current
+    if (shift && last && ids.includes(last) && ids.includes(id)) {
+      const [a, b] = [ids.indexOf(last), ids.indexOf(id)].sort((x, y) => x - y)
+      const range = ids.slice(a, b + 1)
+      setSelected(s => [...new Set([...s, ...range])])
+    } else {
+      setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
+    }
+    lastClickedRef.current = id
+  }
   const toggleAll = () => selected.length === emails.length ? setSelected([]) : setSelected(emails.map(e => e.id))
 
   const handleDeleteSelected = async () => {
@@ -547,7 +585,7 @@ export default function Dashboard() {
       const detail = e?.response?.data?.error
       showMsg(detail ? `Errore sync: ${detail}` : 'Errore sync', 'error')
     }
-    finally { setSyncing(false) }
+    finally { setSyncing(false); loadSyncInfo() }
   }
 
   const formatDateShort = (d) => {
@@ -564,6 +602,14 @@ export default function Dashboard() {
   }
 
   const hasActiveFilter = fromDate || toDate || selectedFolder
+  const anyFilter = !!(hasActiveFilter || search || qfAttach || qfDeleted || qfHold)
+  const clearAllFilters = () => {
+    setFromDate(''); setToDate(''); setSelectedFolder(null)
+    setSearch(''); setSearchInput('')
+    setQfAttach(false); setQfDeleted(false); setQfHold(false); setPage(1)
+  }
+  const toggleQuick = (setter) => { setter(v => !v); setPage(1); setSelected([]) }
+  const quickChip = (on) => `inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`
 
   return (
     <div className="flex h-full overflow-hidden bg-white">
@@ -668,7 +714,7 @@ export default function Dashboard() {
 
       {/* ── PANNELLO 2: Lista email ── */}
       <div
-        className="flex flex-col border-r border-gray-200 shrink-0 bg-white"
+        className={`flex-col border-r border-gray-200 shrink-0 min-w-0 bg-white ${previewId ? 'hidden md:flex' : 'flex'}`}
         style={{ width: previewId ? `${listWidth}px` : undefined, flex: previewId ? 'none' : '1' }}
       >
 
@@ -682,7 +728,12 @@ export default function Dashboard() {
               <p className="text-sm font-semibold text-gray-900 truncate">
                 {selectedMailbox?.email || 'Seleziona una casella'}
               </p>
-              {total > 0 && <p className="text-sm text-gray-500">{total.toLocaleString('it-IT')} email archiviate</p>}
+              {total > 0 && (
+                <p className="text-sm text-gray-500">
+                  {total.toLocaleString('it-IT')} email {anyFilter ? 'trovate' : 'archiviate'}
+                  {syncInfo?.last_ok_at && !anyFilter && <span className="hidden sm:inline"> · aggiornata {formatDistanceToNow(new Date(syncInfo.last_ok_at), { addSuffix: true, locale: it })}</span>}
+                </p>
+              )}
             </div>
             {selectedMailbox && (
               <button onClick={handleSync} disabled={syncing} title="Sincronizza ora" aria-label="Sincronizza ora"
@@ -694,15 +745,47 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* Stato della sincronizzazione: spiega liste vuote o ferme */}
+          {selectedMailbox && syncInfo && (() => {
+            const li = syncInfo.last
+            const when = (d) => formatDistanceToNow(new Date(d), { addSuffix: true, locale: it })
+            const retry = syncInfo.retry_after && new Date(syncInfo.retry_after) > new Date() ? new Date(syncInfo.retry_after) : null
+            if (syncInfo.paused) return (
+              <div role="status" className="text-xs px-2.5 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800">
+                La sincronizzazione di questa casella è in pausa: non arrivano nuove email finché non la riprendi (Amministrazione → Caselle).
+              </div>
+            )
+            if (li && li.status === 'error') return (
+              <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs px-2.5 py-2 rounded-md bg-red-50 border border-red-200 text-red-800">
+                <AlertTriangle size={14} className="shrink-0 text-red-500" />
+                <span className="flex-1 min-w-[10rem] break-words">
+                  Ultima sincronizzazione non riuscita {when(li.finished_at || li.started_at)}: <strong>{li.error || 'errore sconosciuto'}</strong>.
+                  {syncInfo.last_ok_at ? ` Ultima riuscita ${when(syncInfo.last_ok_at)}.` : ' Non è mai riuscita.'}
+                  {retry ? ` Prossimo tentativo automatico alle ${format(retry, 'HH:mm')}.` : ''}
+                </span>
+                <button onClick={handleSync} disabled={syncing}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-red-300 rounded-md text-red-700 hover:bg-red-100 font-medium disabled:opacity-50">
+                  <RefreshCw size={12} /> Riprova
+                </button>
+              </div>
+            )
+            if (!li) return (
+              <div role="status" className="text-xs px-2.5 py-2 rounded-md bg-blue-50 border border-blue-200 text-blue-800">
+                Questa casella non è ancora stata sincronizzata: parte entro {syncInfo.interval_minutes} minuti, oppure premi «Sincronizza ora».
+              </div>
+            )
+            return null
+          })()}
+
           {/* Ricerca */}
           <div className="relative">
             <Search size={17} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+            <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
               placeholder="Cerca oggetto, mittente, testo..." aria-label="Cerca nelle email"
-              onKeyDown={e => e.key === 'Escape' && setSearch('')}
+              onKeyDown={e => { if (e.key === 'Escape') { setSearchInput(''); setSearch(''); setPage(1) } }}
               className="w-full pl-8 pr-7 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
-            {search && (
-              <button onClick={() => { setSearch(''); setPage(1) }} aria-label="Cancella ricerca"
+            {searchInput && (
+              <button onClick={() => { setSearchInput(''); setSearch(''); setPage(1) }} aria-label="Cancella ricerca"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700">
                 <X size={18} />
               </button>
@@ -718,7 +801,28 @@ export default function Dashboard() {
             {selected.length > 0 && (
               <span className="text-sm text-blue-600 font-semibold ml-1">{selected.length} sel.</span>
             )}
+            {selected.length === 0 && selectedMailbox && emails.length > 1 && (
+              <span className="text-xs text-gray-500 ml-1 hidden sm:inline">Maiusc+clic per un intervallo</span>
+            )}
           </div>
+
+          {/* Filtri rapidi */}
+          {selectedMailbox && (
+            <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Filtri rapidi">
+              <button onClick={() => toggleQuick(setQfAttach)} aria-pressed={qfAttach} className={quickChip(qfAttach)}>
+                <Paperclip size={13} /> Con allegati
+              </button>
+              <button onClick={() => toggleQuick(setQfDeleted)} aria-pressed={qfDeleted} className={quickChip(qfDeleted)}>
+                <Trash2 size={13} /> Eliminate
+              </button>
+              <button onClick={() => toggleQuick(setQfHold)} aria-pressed={qfHold} className={quickChip(qfHold)}>
+                <ShieldCheck size={13} /> Legal Hold
+              </button>
+              {anyFilter && (
+                <button onClick={clearAllFilters} className="text-xs text-blue-700 hover:underline ml-1">Rimuovi filtri</button>
+              )}
+            </div>
+          )}
 
           {showFilters && (
             <div className="flex items-center gap-2.5 flex-wrap">
@@ -813,7 +917,18 @@ export default function Dashboard() {
           ) : emails.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-2.5 select-none">
               <Mail size={40} strokeWidth={1} />
-              <p className="text-sm text-gray-500">Nessuna email trovata</p>
+              {anyFilter ? (
+                <>
+                  <p className="text-sm text-gray-600">Nessuna email corrisponde ai filtri attuali</p>
+                  <button onClick={clearAllFilters} className="text-sm text-blue-700 hover:underline">Rimuovi filtri</button>
+                </>
+              ) : syncInfo?.last?.status === 'error' ? (
+                <p className="text-sm text-gray-600 text-center px-6">Nessuna email archiviata: l'ultima sincronizzazione non è riuscita (vedi l'avviso in alto).</p>
+              ) : !syncInfo?.last ? (
+                <p className="text-sm text-gray-600 text-center px-6">Nessuna email ancora: la prima sincronizzazione non è ancora partita.</p>
+              ) : (
+                <p className="text-sm text-gray-600 text-center px-6">Questa casella non ha ancora email archiviate.</p>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -845,7 +960,7 @@ export default function Dashboard() {
                     <button type="button" role="checkbox" aria-checked={isSelected}
                       aria-label={`Seleziona email: ${email.subject || '(nessun oggetto)'}`}
                       className="shrink-0 pt-0.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                      onClick={e => { e.stopPropagation(); toggleSelect(email.id) }}>
+                      onClick={e => { e.stopPropagation(); toggleSelect(email.id, e.shiftKey) }}>
                       {isSelected
                         ? <CheckSquare size={17} className="text-blue-600" />
                         : <Square size={17} className="text-gray-500 group-hover:text-gray-500" />}
@@ -907,6 +1022,7 @@ export default function Dashboard() {
       {/* ── DIVISORE DRAGGABLE ── */}
       {previewId && (
         <div
+          className="hidden md:block"
           onMouseDown={onDividerMouseDown}
           style={{ width: '5px', cursor: 'col-resize', flexShrink: 0, position: 'relative', zIndex: 10 }}
         >
@@ -920,7 +1036,8 @@ export default function Dashboard() {
           <div style={{ width: '100%', height: '100%', background: '#e5e7eb' }} />
         </div>
       )}
-      <div className="flex-1 overflow-hidden bg-white">
+      {/* Su telefono la lista e l'anteprima non stanno insieme: si vede una alla volta */}
+      <div className={`flex-1 min-w-0 overflow-hidden bg-white ${previewId ? '' : 'hidden md:block'}`}>
         <EmailPreview emailId={previewId} onClose={() => setPreviewId(null)} branding={branding} />
       </div>
 

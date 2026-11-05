@@ -257,7 +257,12 @@ router.get('/global-search', authMiddleware, require('../services/license').requ
 // GET /emails — list emails with filters
 router.get('/', async (req, res) => {
   const db = req.app.locals.db;
-  const { mailbox_id, path, search, date_from, date_to, page = 1, limit = 50, show_restored = 'false', show_deleted = 'false', fulltext = 'false', sort_by = 'sent_at', sort_dir = 'desc' } = req.query;
+  const { mailbox_id, path, search, page = 1, limit = 50, show_restored = 'false', show_deleted = 'false', fulltext = 'false', sort_by = 'sent_at', sort_dir = 'desc',
+          has_attachments, only_deleted, legal_hold } = req.query;
+  // Il frontend manda from_date/to_date, il backend leggeva solo date_from/date_to:
+  // i filtri per data non funzionavano. Ora si accettano entrambe le forme.
+  const date_from = req.query.date_from || req.query.from_date;
+  const date_to = req.query.date_to || req.query.to_date;
   const ALLOWED_SORT = ['sent_at', 'subject', 'sender_email'];
   const safeSortBy = ALLOWED_SORT.includes(sort_by) ? `ae.${sort_by}` : 'ae.sent_at';
   const safeSortDir = sort_dir === 'asc' ? 'ASC' : 'DESC';
@@ -297,8 +302,21 @@ router.get('/', async (req, res) => {
       params.push(search);
     }
 
+    const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v));
     if (date_from) { conditions.push(`ae.sent_at >= $${p++}`); params.push(date_from); }
-    if (date_to) { conditions.push(`ae.sent_at <= $${p++}`); params.push(date_to); }
+    if (date_to) {
+      // "AAAA-MM-GG" = fino a fine giornata inclusa (prima il giorno scelto era escluso)
+      if (isDay(date_to)) { conditions.push(`ae.sent_at < ($${p++}::date + INTERVAL '1 day')`); }
+      else { conditions.push(`ae.sent_at <= $${p++}`); }
+      params.push(date_to);
+    }
+
+    // Filtri rapidi della lista
+    if (has_attachments === 'true') conditions.push('ae.has_attachments = true');
+    // "Eliminate" = tolte dall'utente. Le "archiviate" (tolte dall'IMAP dalla policy) hanno
+    // is_deleted=true ma badge 'archived', e non vanno contate qui.
+    if (only_deleted === 'true') conditions.push("(ae.is_deleted = true AND COALESCE(ae.badge_type, '') <> 'archived')");
+    if (legal_hold === 'true') conditions.push('ae.legal_hold = true');
 
     const where = conditions.join(' AND ');
 
@@ -341,6 +359,40 @@ router.get('/', async (req, res) => {
     res.json({ items, total, totalPages: Math.ceil(total / parseInt(limit)), page: parseInt(page) });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Errore server' });
+  }
+});
+
+// GET /emails/sync-info?mailbox_id=N — ultimo esito di sincronizzazione di una casella.
+// Visibile a chiunque abbia la casella nella propria visibilita' (non solo agli admin),
+// cosi' chi guarda una lista vuota capisce se e' vuota davvero o se la sync sta fallendo.
+router.get('/sync-info', async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    const mailboxId = parseInt(req.query.mailbox_id, 10);
+    if (!Number.isInteger(mailboxId)) return res.status(400).json({ error: 'Casella non valida' });
+    const allowed = await getUserMailboxIds(db, req.user);
+    if (!allowed.includes(mailboxId)) return res.status(403).json({ error: 'Accesso negato' });
+
+    const mb = await db.query('SELECT sync_paused, sync_fail_count, sync_retry_after, active FROM mailboxes WHERE id=$1', [mailboxId]);
+    if (!mb.rows[0]) return res.status(404).json({ error: 'Casella non trovata' });
+    const last = await db.query(
+      `SELECT status, error, started_at, finished_at, emails_synced, details->>'trigger' AS trigger
+       FROM sync_log WHERE mailbox_id=$1 ORDER BY started_at DESC LIMIT 1`, [mailboxId]);
+    const ok = await db.query(
+      `SELECT finished_at FROM sync_log WHERE mailbox_id=$1 AND status='completed' ORDER BY finished_at DESC LIMIT 1`, [mailboxId]);
+    const iv = await db.query("SELECT value FROM settings WHERE key='sync_interval_minutes'");
+    res.json({
+      last: last.rows[0] || null,
+      last_ok_at: ok.rows[0]?.finished_at || null,
+      fail_count: mb.rows[0].sync_fail_count || 0,
+      retry_after: mb.rows[0].sync_retry_after || null,
+      paused: !!mb.rows[0].sync_paused,
+      active: mb.rows[0].active !== false,
+      interval_minutes: parseInt(iv.rows[0]?.value || '10', 10),
+    });
+  } catch (err) {
+    console.error('sync-info error:', err.message);
     res.status(500).json({ error: 'Errore server' });
   }
 });

@@ -11,7 +11,7 @@ export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const adminPaths = ['/admin', '/legal-hold', '/import']
-  const logPaths = ['/logs', '/audit']
+  const logPaths = ['/logs']
   const sistemaPaths = ['/backup', '/settings']
   const [adminOpen, setAdminOpen] = useState(adminPaths.some(p => location.pathname.startsWith(p)))
   const [logOpen, setLogOpen] = useState(logPaths.some(p => location.pathname.startsWith(p)))
@@ -109,10 +109,10 @@ export default function Layout() {
         </div>}
         {(canLogs || canAv || canBackupLog) && groupBtn('Log', Activity, logOpen, () => setLogOpen(o => !o))}
         {(canLogs || canAv || canBackupLog) && logOpen && <div className="space-y-0.5">
-          {canLogs && <NavLink to="/logs?tab=activity" className={logTab('activity')}><KeyRound size={15} /> Audit</NavLink>}
-          {canLogs && <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Sync Mail</NavLink>}
+          {canLogs && <NavLink to="/logs?tab=activity" className={logTab('activity')}><ClipboardList size={15} /> Audit attività</NavLink>}
+          {canLogs && <NavLink to="/logs?tab=sync" className={logTab('sync')}><RefreshCw size={15} /> Esiti sync email</NavLink>}
           {canAv && <NavLink to="/logs?tab=av" className={logTab('av')}><Shield size={15} /> Antivirus</NavLink>}
-          {canBackupLog && <NavLink to="/logs?tab=backup" className={logTab('backup')}><HardDrive size={15} /> Backup</NavLink>}
+          {canBackupLog && <NavLink to="/logs?tab=backup" className={logTab('backup')}><HardDrive size={15} /> Esiti backup</NavLink>}
         </div>}
       </>)}
 
@@ -194,7 +194,7 @@ export default function Layout() {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2 flex-1">
-            <img src="/logo.svg" alt="MailHaven" style={{ width: '100%', height: 'auto', display: 'block', padding: '0 8px' }} />
+            <img src="/logo.svg" alt="MailHaven" style={{ height: '36px', width: 'auto', display: 'block' }} />
           </div>
           <button onClick={handleLogout} aria-label="Esci" className="p-2 text-gray-500 hover:text-red-600"><LogOut size={18} /></button>
         </header>

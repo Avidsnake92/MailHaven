@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.2.13] - 2026-11-06
+### Fixed
+- **I filtri per data della lista email non funzionavano.** Il Dashboard mandava
+  `from_date`/`to_date`, il backend leggeva `date_from`/`date_to`. Ora accetta
+  entrambe le forme, e la data finale include l'intero giorno scelto (prima lo
+  escludeva).
+- **Pagina Audit orfana.** `AuditLog.jsx` chiamava `/admin/audit-log`, che non
+  esiste (404); nel menu "Audit" puntava gia' ai Log. Rimossa; `/audit` ora
+  reindirizza a `/logs?tab=activity`. Rimossi anche `pages/Layout.jsx` (copia
+  inutilizzata) e un blocco di `App.jsx` che usava `setUpdating`, mai definita.
+- **Il pannello della lista email spingeva fuori schermo l'anteprima** quando un
+  oggetto era lungo: ora si restringe e tronca con i puntini.
+
+### Added
+- **Filtri rapidi nella lista email**: "Con allegati", "Eliminate", "Legal Hold"
+  e "Rimuovi filtri" (backend: `has_attachments`, `only_deleted`, `legal_hold`).
+  "Eliminate" non include le email archiviate dalla policy.
+- **Stato della sincronizzazione sopra la lista** (nuovo `GET /emails/sync-info`,
+  visibile a chi vede la casella, non solo agli admin): ultima sync fallita con
+  il motivo e "Riprova", sync in pausa, casella mai sincronizzata, "aggiornata X
+  fa". Le liste vuote spiegano perche' lo sono.
+- **Maiusc+clic** seleziona un intervallo di email; la ricerca attende 300 ms
+  invece di lanciare una query a ogni tasto.
+
+### Changed
+- Su telefono la lista usa tutto lo schermo e l'anteprima si apre a schermo
+  intero con "Chiudi"; il logo dell'header mobile e' alto 36 px (era 93).
+- Menu: "Audit attivita'" ha un'icona propria; nei Log, "Esiti backup" ed "Esiti
+  sync email" non si confondono piu' con le pagine di Sistema.
+
 ## [0.2.12] - 2026-11-06
 ### Changed
 - **Accessibilità (tastiera, lettori di schermo, contrasto).**

@@ -7,7 +7,6 @@ import ResetPassword from './pages/ResetPassword'
 import Setup from './pages/Setup'
 import EmailArchive from './pages/Dashboard'
 import Statistics from './pages/Statistics'
-import AuditLog from './pages/AuditLog'
 import Reports from './pages/Reports'
 import EmailView from './pages/EmailView'
 import Admin from './pages/Admin'
@@ -57,17 +56,6 @@ function AppContent() {
     return () => { cancelled = true }
   }, [])
 
-  useEffect(() => {
-    const handler = () => setUpdating(true)
-    window.addEventListener('mailhaven:update-started', handler)
-    return () => window.removeEventListener('mailhaven:update-started', handler)
-  }, [])
-
-  const handleUpdateComplete = useCallback(() => {
-    setUpdating(false)
-    window.location.href = '/login'
-  }, [])
-
   if (setupDone === null) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -89,7 +77,8 @@ function AppContent() {
         }>
           <Route index element={<EmailArchive />} />
           <Route path="dashboard" element={<Statistics />} />
-          <Route path="audit" element={<ProtectedRoute roles={['superadmin']}><AuditLog /></ProtectedRoute>} />
+          {/* Vecchio indirizzo dell'audit: ora vive nei Log (la pagina dedicata chiamava un endpoint che non esiste) */}
+          <Route path="audit" element={<Navigate to="/logs?tab=activity" replace />} />
           <Route path="reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="email/:id" element={<EmailView />} />
           <Route path="global-search" element={<GlobalSearch />} />
